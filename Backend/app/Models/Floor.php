@@ -6,5 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Floor extends Model
 {
-    //
+    protected $fillable =[
+        'block_id',
+    ];
 }

@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class StudentFinancial extends Model
+class ShareHolderFinance extends Model
 {
-    protected $fillable = [
-        'student_id',
+    protected $fillable =[
+        'shareholder_id',
         'amount',
         'payment_date',
         'payment_type',
