@@ -10,6 +10,14 @@ class Attachment extends Model
         'name',
         'path',
         'type',
+        'student_id',
+        'staff_id',
+        'expense_id',
+        'inquiry_id',
+        'block_id',
+        'complain_id',
+        'shareholder_id',
+        
     ];
 
     public function user()

@@ -20,7 +20,6 @@ return new class extends Migration
             $table->string('payment_method');
             $table->date('payment_date')->nullable();
             $table->enum('status', ['paid', 'unpaid'])->default('unpaid');
-            
             $table->timestamps();
         });
     }

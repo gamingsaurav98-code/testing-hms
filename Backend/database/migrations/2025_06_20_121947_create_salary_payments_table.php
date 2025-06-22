@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('salary_payments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('staff_id');
+            $table->string('amount');
+            $table->date('payment_date');
+            $table->string('payment_type'); // e.g., 'cash', 'bank_transfer', etc.
+            $table->text('remark')->nullable(); // Additional notes or remarks about the payment
             $table->timestamps();
         });
     }

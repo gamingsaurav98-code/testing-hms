@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('share_holder_finances', function (Blueprint $table) {
             $table->id();
+            $table->foreignID('shareholder_id');
+            $table->string('amount');
+            $table->date('payment_date');
+            $table->string('payment_type'); // e.g., 'cash', 'bank_transfer', 'cheque'
+            $table->text('remark')->nullable(); // Additional notes or remarks
             $table->timestamps();
         });
     }

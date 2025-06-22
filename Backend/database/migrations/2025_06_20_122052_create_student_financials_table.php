@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('student_financials', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('student_id');
+            $table->string('amount');
+            $table->date('payment_date');
+            $table->string('payment_type'); // e.g., 'salary', 'bonus', 'deduction'
+            $table->text('remark')->nullable(); // Additional notes or remarks
             $table->timestamps();
         });
     }
