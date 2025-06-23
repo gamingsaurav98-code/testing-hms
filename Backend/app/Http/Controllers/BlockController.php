@@ -2,32 +2,84 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Block;
 use Illuminate\Http\Request;
+use App\Services\ImageService;
+use App\Services\DateService;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class BlockController extends Controller
 {
+    protected $imageService;
+    protected $dateService;
+
+    public function __construct(ImageService $imageService, DateService $dateService)
+    {
+        $this->imageService = $imageService;
+        $this->dateService = $dateService;
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //
+        try {
+            $blocks = Block::with(['room', 'floor'])->paginate(10);
+            return response()->json($blocks);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch blocks: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
-    {
-        //
-    }
+    
 
     /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'block_name' => 'required|string|max:255',
+            'location' => 'required|string|max:255',
+            'manager_name' => 'required|string|max:255',
+            'manager_contact' => 'required|string|max:255',
+            'remarks' => 'nullable|string|max:1000',
+            'room_id' => 'required|integer|',
+            'block_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+            'floor_id' => 'required|integer|',
+        ]);
+
+        try {
+            $blockData = $request->except('block_attachment');
+            $blockData['created_at'] = $this->dateService->getCurrentDateTime();
+            
+            // Handle file upload if present
+            if ($request->hasFile('block_attachment')) {
+                $blockData['block_attachment'] = $this->imageService->processImageAsync(
+                    $request->file('block_attachment'),
+                    'blocks',
+                    null,
+                    Block::class,
+                    null, // ID will be available after creation
+                    'block_attachment'
+                );
+            }
+            
+            $block = Block::create($blockData);
+            return response()->json($block, 201);
+            
+        } catch (\Exception $e) {
+            // Delete the uploaded file if block creation fails
+            if (isset($blockData['block_attachment'])) {
+                Storage::disk('public')->delete($blockData['block_attachment']);
+            }
+            return response()->json(['message' => 'Failed to create block: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -35,7 +87,12 @@ class BlockController extends Controller
      */
     public function show(string $id)
     {
-        //
+        try {
+            $block = Block::with(['room', 'floor'])->findOrFail($id);
+            return response()->json($block);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Block not found'], 404);
+        }
     }
 
     /**
@@ -43,7 +100,7 @@ class BlockController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        // Not needed for API
     }
 
     /**
@@ -51,7 +108,44 @@ class BlockController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $request->validate([
+            'block_name' => 'required|string|max:255',
+            'location' => 'required|string|max:255',
+            'manager_name' => 'required|string|max:255',
+            'manager_contact' => 'required|string|max:255',
+            'remarks' => 'nullable|string|max:1000',
+            'room_id' => 'required|integer|exists:rooms,id',
+            'block_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+            'floor_id' => 'required|integer|exists:floors,id',
+        ]);
+
+        try {
+            $block = Block::findOrFail($id);
+            $blockData = $request->except('block_attachment');
+            $blockData['updated_at'] = $this->dateService->getCurrentDateTime();
+            
+            // Handle file upload if present
+            if ($request->hasFile('block_attachment')) {
+                $blockData['block_attachment'] = $this->imageService->processImageAsync(
+                    $request->file('block_attachment'),
+                    'blocks',
+                    $block->block_attachment,
+                    Block::class,
+                    $block->id,
+                    'block_attachment'
+                );
+            }
+            
+            $block->update($blockData);
+            return response()->json($block);
+            
+        } catch (\Exception $e) {
+            // Clean up if update fails
+            if (isset($blockData['block_attachment']) && $request->hasFile('block_attachment')) {
+                Storage::disk('public')->delete($blockData['block_attachment']);
+            }
+            return response()->json(['message' => 'Failed to update block: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -59,6 +153,15 @@ class BlockController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        try {
+            $block = Block::findOrFail($id);
+            if ($block->block_attachment) {
+                Storage::disk('public')->delete($block->block_attachment);
+            }
+            $block->delete();
+            return response()->json(null, 204);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to delete block: ' . $e->getMessage()], 500);
+        }
     }
 }

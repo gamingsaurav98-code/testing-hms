@@ -49,7 +49,7 @@ return new class extends Migration
             $table->string('verified_by')->nullable();
             $table->date('verified_on')->nullable();
             $table->string('student_id')->nullable();
-            $table->foreignId('room_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('room_id');
             $table->string('student_image')->nullable();
             $table->string('student_citizenship_image')->nullable();
             $table->string('registration_form_image')->nullable();

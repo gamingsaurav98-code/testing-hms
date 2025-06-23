@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('student_id');
             $table->foreignId('block_id');
-            $tble->datetime('requested_checkin_time');
+            $table->datetime('requested_checkin_time');
             $table->datetime('requested_checkout_time');
             $table->date('date');
             $table->timestamp('checkin_time');

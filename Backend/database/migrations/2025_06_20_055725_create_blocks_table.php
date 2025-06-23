@@ -18,9 +18,9 @@ return new class extends Migration
             $table->string('manager_name')->nullable();
             $table->string('manager_contact')->nullable();
             $table->text('remarks')->nullable();
-            $table->foreignId('room_id');
+            $table->string('room_id');
             $table->string('block_attachment')->nullable();
-            $table->foreignId('floor_id');
+            $table->string('floor_id');
             $table->timestamps();
         });
     }
