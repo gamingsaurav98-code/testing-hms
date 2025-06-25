@@ -8,10 +8,85 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  scroll-behavior: smooth;
 }
 
 body {
   font-family: var(--font-poppins), 'Arial', sans-serif;
+}
+
+/* Custom scrollbar styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+.scrollbar-thumb-blue-200::-webkit-scrollbar-thumb {
+  background: #bfdbfe;
+}
+
+.scrollbar-thumb-blue-300::-webkit-scrollbar-thumb {
+  background: #93c5fd;
+}
+
+.hover\:scrollbar-thumb-blue-300:hover::-webkit-scrollbar-thumb {
+  background: #93c5fd;
+}
+
+/* Better focus states */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #235999;
+  outline-offset: 2px;
+}
+
+/* Glass morphism effect enhancement */
+.backdrop-blur-xl {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Animation keyframes */
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: slideInFromTop 0.2s ease-out forwards;
+}
+
+/* Custom pulse animation */
+@keyframes customPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse {
+  animation: customPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* You can add any truly global styles here */
