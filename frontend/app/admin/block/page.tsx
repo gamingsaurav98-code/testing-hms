@@ -2,17 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface Block {
-  id: string;
-  block_name: string;
-  location: string;
-  manager_name: string;
-  manager_contact: string;
-  remarks: string;
-  block_attachment_url?: string;
-  created_at: string;
-}
+import { blockApi, Block, ApiError } from '@/lib/api';
 
 export default function BlockList() {
   const router = useRouter();
@@ -20,58 +10,36 @@ export default function BlockList() {
   const [filteredBlocks, setFilteredBlocks] = useState<Block[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  // Mock data for demonstration - replace with actual API call
+  // Fetch blocks from API
   useEffect(() => {
     const fetchBlocks = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         
-        // Mock data - replace with actual API call
-        const mockBlocks: Block[] = [
-          {
-            id: '1',
-            block_name: 'Block A',
-            location: 'North Campus',
-            manager_name: 'John Smith',
-            manager_contact: '9876543210',
-            remarks: 'Main accommodation block with modern facilities',
-            created_at: '2024-01-15T10:30:00Z'
-          },
-          {
-            id: '2',
-            block_name: 'Block B',
-            location: 'South Campus',
-            manager_name: 'Sarah Johnson',
-            manager_contact: '9876543211',
-            remarks: 'Recently renovated block with updated amenities',
-            created_at: '2024-02-20T14:15:00Z'
-          },
-          {
-            id: '3',
-            block_name: 'Block C',
-            location: 'East Wing',
-            manager_name: 'Mike Wilson',
-            manager_contact: '9876543212',
-            remarks: 'Quiet study-friendly environment',
-            created_at: '2024-03-10T09:45:00Z'
-          }
-        ];
-
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setBlocks(mockBlocks);
-        setFilteredBlocks(mockBlocks);
+        const response = await blockApi.getBlocks(currentPage);
+        setBlocks(response.data);
+        setFilteredBlocks(response.data);
+        setTotalPages(response.last_page);
       } catch (error) {
         console.error('Error fetching blocks:', error);
+        if (error instanceof ApiError) {
+          setError(`Failed to fetch blocks: ${error.message}`);
+        } else {
+          setError('Failed to fetch blocks. Please check your connection.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBlocks();
-  }, []);
+  }, [currentPage]);
 
   // Handle search
   useEffect(() => {
@@ -98,10 +66,10 @@ export default function BlockList() {
   const handleDeleteBlock = async (blockId: string) => {
     if (window.confirm('Are you sure you want to delete this block? This action cannot be undone.')) {
       try {
-        // Replace with actual API call
-        // await deleteBlock(blockId);
+        setIsDeleting(blockId);
+        await blockApi.deleteBlock(blockId);
         
-        // Remove from local state for now
+        // Remove from local state
         const updatedBlocks = blocks.filter(block => block.id !== blockId);
         setBlocks(updatedBlocks);
         setFilteredBlocks(updatedBlocks.filter(block =>
@@ -111,10 +79,15 @@ export default function BlockList() {
           block.manager_name.toLowerCase().includes(searchQuery.toLowerCase())
         ));
         
-        console.log(`Block ${blockId} deleted successfully`);
       } catch (error) {
         console.error('Error deleting block:', error);
-        alert('Failed to delete block. Please try again.');
+        if (error instanceof ApiError) {
+          alert(`Failed to delete block: ${error.message}`);
+        } else {
+          alert('Failed to delete block. Please try again.');
+        }
+      } finally {
+        setIsDeleting(null);
       }
     }
   };
@@ -125,6 +98,27 @@ export default function BlockList() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#235999]"></div>
           <span className="ml-2 text-gray-600">Loading blocks...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-red-800">{error}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -267,12 +261,17 @@ export default function BlockList() {
                       </button>
                       <button
                         onClick={() => handleDeleteBlock(block.id)}
-                        className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                        disabled={isDeleting === block.id}
+                        className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors disabled:opacity-50"
                         title="Delete Block"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        {isDeleting === block.id ? (
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border border-red-700 border-t-transparent"></div>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
                       </button>
                     </div>
                   </div>

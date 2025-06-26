@@ -26,7 +26,7 @@ class BlockController extends Controller
     public function index()
     {
         try {
-            $blocks = Block::with(['room', 'floor'])->paginate(10);
+            $blocks = Block::paginate(10);
             return response()->json($blocks);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch blocks: ' . $e->getMessage()], 500);
@@ -49,9 +49,7 @@ class BlockController extends Controller
             'manager_name' => 'required|string|max:255',
             'manager_contact' => 'required|string|max:255',
             'remarks' => 'nullable|string|max:1000',
-            'room_id' => 'required|integer|',
             'block_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
-            'floor_id' => 'required|integer|',
         ]);
 
         try {
@@ -88,7 +86,7 @@ class BlockController extends Controller
     public function show(string $id)
     {
         try {
-            $block = Block::with(['room', 'floor'])->findOrFail($id);
+            $block = Block::findOrFail($id);
             return response()->json($block);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Block not found'], 404);
@@ -114,9 +112,7 @@ class BlockController extends Controller
             'manager_name' => 'required|string|max:255',
             'manager_contact' => 'required|string|max:255',
             'remarks' => 'nullable|string|max:1000',
-            'room_id' => 'required|integer|exists:rooms,id',
             'block_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
-            'floor_id' => 'required|integer|exists:floors,id',
         ]);
 
         try {

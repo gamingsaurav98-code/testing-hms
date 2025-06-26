@@ -2,19 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface FormData {
-  block_name: string;
-  location: string;
-  manager_name: string;
-  manager_contact: string;
-  remarks: string;
-  block_attachment: File | null;
-}
+import { blockApi, BlockFormData, ApiError } from '@/lib/api';
 
 export default function CreateBlock() {
   const router = useRouter();
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<BlockFormData>({
     block_name: '',
     location: '',
     manager_name: '',
@@ -161,41 +153,22 @@ export default function CreateBlock() {
     setIsSubmitting(true);
 
     try {
-      const submitData = new FormData();
+      await blockApi.createBlock(formData);
       
-      // Append all form fields
-      submitData.append('block_name', formData.block_name.trim());
-      submitData.append('location', formData.location.trim());
-      submitData.append('manager_name', formData.manager_name.trim());
-      submitData.append('manager_contact', formData.manager_contact.trim());
-      submitData.append('remarks', formData.remarks.trim());
-      
-      // Append file if selected
-      if (formData.block_attachment) {
-        submitData.append('block_attachment', formData.block_attachment);
-      }
-
-      const response = await fetch('/api/blocks', {
-        method: 'POST',
-        body: submitData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create block');
-      }
-
-      const result = await response.json();
-      console.log('Block created successfully:', result);
-      
-      // Redirect to blocks list or show success message
+      // Redirect to blocks list on success
       router.push('/admin/block');
       
     } catch (error) {
       console.error('Error creating block:', error);
-      setErrors({
-        submit: error instanceof Error ? error.message : 'An error occurred while creating the block'
-      });
+      if (error instanceof ApiError) {
+        setErrors({
+          submit: `Failed to create block: ${error.message}`
+        });
+      } else {
+        setErrors({
+          submit: 'An error occurred while creating the block. Please try again.'
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -369,23 +342,47 @@ export default function CreateBlock() {
                   </div>
                 ) : (
                   <div className="space-y-2">
+                    {/* Hidden file input for changing existing image */}
+                    <input
+                      type="file"
+                      id="block_attachment"
+                      name="block_attachment"
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    
                     {/* Image Preview */}
-                    <div className="relative rounded-lg overflow-hidden bg-gray-50">
-                      <img
-                        src={imagePreview || ''}
-                        alt="Block preview"
-                        className="w-full h-40 object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-opacity duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
-                        <button
-                          type="button"
-                          onClick={removeImage}
-                          className="bg-white text-gray-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors shadow-lg"
-                        >
-                          Remove Image
-                        </button>
+                    {imagePreview && (
+                      <div className="relative rounded-lg overflow-hidden bg-gray-50 border">
+                        <img
+                          src={imagePreview}
+                          alt="Block preview"
+                          className="w-full max-h-60 object-contain bg-white"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-opacity duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
+                          <div className="flex space-x-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                document.getElementById('block_attachment')?.click();
+                              }}
+                              className="bg-white text-gray-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors shadow-lg"
+                            >
+                              Change Image
+                            </button>
+                            <button
+                              type="button"
+                              onClick={removeImage}
+                              className="bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors shadow-lg"
+                            >
+                              Remove Image
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     
                     {/* File Info */}
                     <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">

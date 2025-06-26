@@ -50,6 +50,58 @@ export default function Structure({ children }: { children: React.ReactNode }) {
   const pathSegments = pathname.split('/').filter(Boolean);
   const showBackButton = pathSegments.length >= 3;
 
+  // Get current page name based on pathname
+  const getPageName = (pathname: string) => {
+    const segments = pathname.split('/').filter(Boolean);
+    
+    if (pathname === '/admin' || pathname === '/admin/') {
+      return 'Dashboard';
+    }
+    
+    // Map routes to page names
+    const routeMap: Record<string, string> = {
+      'student': 'Students',
+      'staff': 'Staff',
+      'block': 'Blocks',
+      'room': 'Rooms',
+      'student-checkin-checkout': 'Student Check-In/Out',
+      'staff-checkin-checkout': 'Staff Check-In/Out',
+      'income': 'Income',
+      'expense': 'Expenses',
+      'salary': 'Salary',
+      'supplier': 'Suppliers',
+      'complain': 'Complaints',
+      'notice': 'Notices',
+      'inquiry': 'Inquiries',
+      'report': 'Reports',
+      'settings': 'Settings',
+      'profile': 'Profile'
+    };
+
+    // Handle specific sub-routes
+    if (segments.length >= 2) {
+      const baseRoute = segments[1];
+      const subRoute = segments[2];
+      
+      if (subRoute === 'create') {
+        const baseName = routeMap[baseRoute];
+        return `Create ${baseName ? baseName.slice(0, -1) : 'Item'}`;
+      } else if (subRoute === 'edit' || (segments[3] === 'edit')) {
+        const baseName = routeMap[baseRoute];
+        return `Edit ${baseName ? baseName.slice(0, -1) : 'Item'}`;
+      } else if (subRoute && !['create', 'edit'].includes(subRoute)) {
+        const baseName = routeMap[baseRoute];
+        return `${baseName ? baseName.slice(0, -1) : 'Item'} Details`;
+      }
+      
+      return routeMap[baseRoute] || 'Dashboard';
+    }
+    
+    return 'Dashboard';
+  };
+
+  const currentPageName = getPageName(pathname);
+
   const handleBackClick = () => {
     router.back();
   };
@@ -314,7 +366,7 @@ export default function Structure({ children }: { children: React.ReactNode }) {
                 </button>
               )}
               <div className="flex items-center">
-                <h1 className="text-xl font-bold text-gray-800 tracking-tight">Dashboard</h1>
+                <h1 className="text-xl font-bold text-gray-800 tracking-tight">{currentPageName}</h1>
                 <div className="w-2 h-2 bg-[#235999] rounded-full ml-3 animate-pulse"></div>
               </div>
             </div>
