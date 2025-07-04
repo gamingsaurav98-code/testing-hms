@@ -26,8 +26,6 @@ class Hostel extends Model
         'capacity',
         'pan_number',
     ];
-
-    // Floor relationship removed as requested
     
     public function blocks()
     {

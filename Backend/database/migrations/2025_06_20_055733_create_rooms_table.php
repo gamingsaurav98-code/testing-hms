@@ -19,7 +19,6 @@ return new class extends Migration
             $table->integer('capacity');
             $table->enum('status', ['available', 'occupied', 'maintenance'])->default('available');
             $table->string('room_type'); // e.g., single, double, triple, four-bed
-            $table->integer('floor_number');
             $table->string('room_attachment')->nullable(); // e.g., image or document attachment
             $table->timestamps();
         });

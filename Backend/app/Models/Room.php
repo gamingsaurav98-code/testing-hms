@@ -22,7 +22,6 @@ class Room extends Model
         'capacity',
         'status',
         'room_type',
-        'floor_number',
         'room_attachment',
     ];
     
@@ -76,8 +75,6 @@ class Room extends Model
     {
         return $this->belongsTo(Block::class);
     }
-    
-    // Floor relationship removed as requested
     
     public function students()
     {

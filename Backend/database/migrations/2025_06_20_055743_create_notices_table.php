@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('notice_attachment')->nullable(); // e.g., file path or URL
             $table->timestamp('schedule_time')->nullable();
             $table->enum('status', ['active', 'inactive'])->default('active');
-            $table->enum('target_type', ['student', 'room', 'floor', 'block', 'all']);
+            $table->enum('target_type', ['student', 'room', 'block', 'all']);
             $table->enum('notice_type', ['general', 'urgent', 'event'])->default('general');
             $table->foreignId('student_id')->nullable();
             $table->foreignId('staff_id')->nullable();

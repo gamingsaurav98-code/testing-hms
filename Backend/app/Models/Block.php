@@ -63,8 +63,6 @@ class Block extends Model
         return $this->hasMany(Room::class);
     }
     
-    // Floor relationship removed as requested
-    
     public function staffCheckInCheckOuts()
     {
         return $this->hasMany(StaffCheckInCheckOut::class);
