@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useState, useRef } from "react"
-import { Upload, X, Eye, AlertCircle } from "./icons"
-import { getImageUrl } from "../../../lib/utils"
+import { Upload, X, AlertCircle, Eye } from "lucide-react"
+import { getImageUrl } from "@/lib/utils"
 
 interface MultipleImageUploadEditProps {
   images: File[]
@@ -13,7 +13,6 @@ interface MultipleImageUploadEditProps {
   onRemoveExistingImage?: (id: number) => void
   error?: string
   label?: string
-  // Modal handlers passed from parent
   onImageClick: (imageUrl: string, alt: string) => void
 }
 
@@ -203,7 +202,7 @@ export function MultipleImageUploadEdit({
           )}
 
           {existingImages.length === 0 && images.length === 0 && (
-            <div className="space-y-3 cursor-pointer">
+            <div className="space-y-3 cursor-pointer text-center">
               <div className="mx-auto w-12 h-12 bg-neutral-100 rounded-lg border border-neutral-200/60 flex items-center justify-center">
                 <Upload className="h-6 w-6 text-neutral-400" />
               </div>

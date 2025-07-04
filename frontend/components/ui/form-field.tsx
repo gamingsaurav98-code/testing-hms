@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { AlertCircle } from "./icons"
+import { AlertCircle } from "lucide-react"
 
 interface FormFieldProps {
   label: string

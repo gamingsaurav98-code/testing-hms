@@ -1,20 +1,19 @@
 "use client"
 
 import React, { useState, useRef } from "react"
-import { Upload, X, Eye, AlertCircle } from "./icons"
+import { Upload, X, AlertCircle, Eye } from "lucide-react"
 
-interface ImageUploadProps {
+interface SingleImageUploadEditProps {
   imagePreview: string | null
   existingImageUrl?: string | null
   onFileSelect: (file: File) => void
   onRemove: () => void
   error?: string
   label?: string
-  // Modal handlers passed from parent
   onImageClick: (imageUrl: string, alt: string) => void
 }
 
-export function ImageUpload({ 
+export function SingleImageUploadEdit({ 
   imagePreview, 
   existingImageUrl,
   onFileSelect, 
@@ -22,7 +21,7 @@ export function ImageUpload({
   error, 
   label = "Image",
   onImageClick
-}: ImageUploadProps) {
+}: SingleImageUploadEditProps) {
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 

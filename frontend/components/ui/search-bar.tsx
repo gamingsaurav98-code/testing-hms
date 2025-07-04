@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { Search } from "./icons"
+import { Search } from "lucide-react"
 
 interface SearchBarProps {
   value: string

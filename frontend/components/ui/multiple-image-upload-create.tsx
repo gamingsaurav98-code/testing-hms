@@ -1,30 +1,25 @@
 "use client"
 
 import React, { useState, useRef } from "react"
-import { Upload, X, Eye, AlertCircle } from "./icons"
+import { Upload, X, AlertCircle, Eye } from "lucide-react"
 
-interface MultipleImageUploadProps {
+interface MultipleImageUploadCreateProps {
   images: File[]
-  existingImages?: { id: number; image: string; is_primary: boolean }[]
   onAddImages: (files: File[]) => void
   onRemoveImage: (index: number) => void
-  onRemoveExistingImage?: (id: number) => void
   error?: string
   label?: string
-  // Modal handlers passed from parent
   onImageClick: (imageUrl: string, alt: string) => void
 }
 
-export function MultipleImageUpload({ 
+export function MultipleImageUploadCreate({ 
   images, 
-  existingImages = [],
   onAddImages, 
   onRemoveImage, 
-  onRemoveExistingImage,
   error, 
   label = "Additional Images",
   onImageClick
-}: MultipleImageUploadProps) {
+}: MultipleImageUploadCreateProps) {
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -33,8 +28,6 @@ export function MultipleImageUpload({
     if (files && files.length > 0) {
       const fileArray = Array.from(files)
       onAddImages(fileArray)
-      
-      // Reset the input so the same file can be selected again if needed
       e.target.value = ''
     }
   }
@@ -102,62 +95,19 @@ export function MultipleImageUpload({
 
         {/* Images preview grid */}
         <div className="space-y-4">
-          {(existingImages.length > 0 || images.length > 0) && (
+          {images.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
-              {/* Existing images */}
-              {existingImages.map((img) => (
-                <div key={`existing-${img.id}`} className="image-preview relative group">
-                  <div className="aspect-square w-full rounded-lg overflow-hidden border border-neutral-200/60 relative">
-                    <img 
-                      src={`${process.env.NEXT_PUBLIC_STORAGE_URL || '/storage'}/${img.image}`} 
-                      alt={`Product image ${img.id}`}
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity duration-200"
-                      onClick={() => onImageClick(`${process.env.NEXT_PUBLIC_STORAGE_URL || '/storage'}/${img.image}`, `Product image ${img.id}`)}
-                    />
-                    {img.is_primary && (
-                      <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded-full">
-                        Primary
-                      </div>
-                    )}
-                    {!img.is_primary && onRemoveExistingImage && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onRemoveExistingImage(img.id)
-                        }}
-                        className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-red-500 rounded-full text-white flex items-center justify-center hover:bg-red-600 transition-all duration-200 shadow-sm"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <div className="absolute inset-0 rounded-lg bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center pointer-events-none">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <Eye className="h-5 w-5 text-white drop-shadow-lg" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
               {/* New images */}
               {images.map((file, index) => (
                 <div key={`new-${index}`} className="image-preview relative group">
-                  <div className="aspect-square w-full rounded-lg overflow-hidden border border-amber-300 relative">
+                  <div className="aspect-square w-full rounded-lg overflow-hidden border border-neutral-200/60 relative transition-all duration-200 hover:border-neutral-300">
                     <img 
                       src={URL.createObjectURL(file)} 
-                      alt={`New image ${index + 1}`}
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity duration-200"
-                      onClick={() => onImageClick(URL.createObjectURL(file), `New image ${index + 1}`)}
+                      alt={`Additional image ${index + 1}`}
+                      className="w-full h-full object-cover cursor-pointer transition-transform duration-200 hover:scale-105"
+                      onClick={() => onImageClick(URL.createObjectURL(file), `Additional image ${index + 1}`)}
                     />
                     
-                    {/* New badge */}
-                    <div className="absolute top-2 left-2">
-                      <div className="bg-amber-600 text-white text-xs px-2 py-1 rounded-full font-medium">
-                        New
-                      </div>
-                    </div>
-
                     {/* Remove button */}
                     <button
                       type="button"
@@ -165,10 +115,10 @@ export function MultipleImageUpload({
                         e.stopPropagation()
                         onRemoveImage(index)
                       }}
-                      className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-red-500 rounded-full text-white flex items-center justify-center hover:bg-red-600 transition-all duration-200 shadow-sm"
-                      title="Remove new image"
+                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 rounded-full text-white flex items-center justify-center hover:bg-red-600 transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
+                      title="Remove image"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                     
                     {/* Hover overlay */}
@@ -192,8 +142,8 @@ export function MultipleImageUpload({
             </div>
           )}
 
-          {existingImages.length === 0 && images.length === 0 && (
-            <div className="space-y-3 cursor-pointer">
+          {images.length === 0 && (
+            <div className="space-y-3 cursor-pointer text-center">
               <div className="mx-auto w-12 h-12 bg-neutral-100 rounded-lg border border-neutral-200/60 flex items-center justify-center">
                 <Upload className="h-6 w-6 text-neutral-400" />
               </div>
@@ -202,25 +152,6 @@ export function MultipleImageUpload({
                   Drop images here or <span className="font-semibold underline">browse files</span>
                 </p>
                 <p className="text-xs text-neutral-500 mt-0.5">PNG, JPG, GIF up to 10MB each</p>
-              </div>
-            </div>
-          )}
-
-          {/* Legend */}
-          {(existingImages.length > 0 || images.length > 0) && (
-            <div className="flex flex-wrap gap-4 text-xs text-neutral-600 pt-2 border-t border-neutral-100">
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                <span>Current</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-amber-600 rounded-full"></div>
-                <span>New</span>
-              </div>
-              
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-green-600 rounded-full"></div>
-                <span>Primary image</span>
               </div>
             </div>
           )}

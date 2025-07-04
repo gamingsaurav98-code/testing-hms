@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { Check, X } from "./icons"
+import { Check, X } from "lucide-react"
 
 interface SuccessToastProps {
   show: boolean

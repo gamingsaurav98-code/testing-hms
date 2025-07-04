@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { X } from "./icons"
+import { X } from "lucide-react"
 
 interface ImageModalProps {
   show: boolean

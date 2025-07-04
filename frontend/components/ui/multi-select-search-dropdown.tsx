@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef } from "react"
-import { Search, Check, X, AlertCircle } from "./icons"
+import { Search, X, Check, AlertCircle } from "lucide-react"
 
 interface Option {
   id: number | string
@@ -9,7 +9,7 @@ interface Option {
   value: any
 }
 
-interface MultiSelectProps {
+interface MultiSelectSearchDropdownProps {
   label: string
   options: Option[]
   selectedOptions: Option[]
@@ -21,7 +21,7 @@ interface MultiSelectProps {
   disabled?: boolean
 }
 
-export function MultiSelect({
+export function MultiSelectSearchDropdown({
   label,
   options,
   selectedOptions,
@@ -31,7 +31,7 @@ export function MultiSelect({
   required = false,
   maxHeight = 200,
   disabled = false
-}: MultiSelectProps) {
+}: MultiSelectSearchDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
