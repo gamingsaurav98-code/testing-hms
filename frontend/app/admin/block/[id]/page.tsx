@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { blockApi, Block, ApiError } from '@/lib/api';
+import { blockApi, Block, ApiError } from '@/lib/api/index';
 import { Button, ConfirmModal, TableSkeleton, ImageModal } from '@/components/ui';
 
 export default function BlockDetail() {

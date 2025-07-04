@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { roomApi, RoomFormData, Room, ApiError } from '@/lib/api';
+import { roomApi, RoomFormData, Room, ApiError } from '@/lib/api/index';
 import { 
   Button, 
   FormField, 

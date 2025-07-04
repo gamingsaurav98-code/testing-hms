@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { blockApi, BlockFormData, Block, ApiError } from '@/lib/api';
+import { blockApi, BlockFormData, Block, ApiError } from '@/lib/api/index';
 import { 
   Button, 
   FormField, 
