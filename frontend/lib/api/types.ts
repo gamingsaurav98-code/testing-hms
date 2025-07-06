@@ -25,7 +25,6 @@ export interface Room {
   id: string;
   room_name: string;
   block_id: string;
-  hostel_id: string;
   capacity: number;
   status: string;
   room_type: string;
@@ -34,18 +33,15 @@ export interface Room {
   created_at: string;
   updated_at?: string;
   block?: Block;
-  hostel?: {
-    id: string;
-    hostel_name: string;
-  };
 }
 
 export interface RoomFormData {
   room_name: string;
   block_id: string;
-  hostel_id: string;
   capacity: number;
   status: string;
   room_type: string;
   room_attachment?: File | null;
 }
+
+// Hostel interfaces removed as part of single-tenant conversion

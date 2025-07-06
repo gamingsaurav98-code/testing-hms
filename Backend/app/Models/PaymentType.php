@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Hostel;
 use App\Models\StudentFinancial;
 use App\Models\StaffFinancial;
 use App\Models\SalaryPayment;
@@ -20,10 +19,7 @@ class PaymentType extends Model
         'description',
         'is_active'
     ];
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+
     
     // Payment relationship removed as requested
 

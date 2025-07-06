@@ -21,7 +21,6 @@ export default function EditRoom() {
   const [formData, setFormData] = useState<RoomFormData>({
     room_name: '',
     block_id: '',
-    hostel_id: '',
     capacity: 0,
     status: '',
     room_type: '',
@@ -34,7 +33,6 @@ export default function EditRoom() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [blocks, setBlocks] = useState<{id: string, block_name: string}[]>([]);
-  const [hostels, setHostels] = useState<{id: string, hostel_name: string}[]>([]);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState({ url: '', alt: '' });
 
@@ -52,15 +50,10 @@ export default function EditRoom() {
         const blocksData = await roomApi.getBlocks();
         setBlocks(blocksData);
         
-        // Fetch hostels for dropdown
-        const hostelsData = await roomApi.getHostels();
-        setHostels(hostelsData);
-        
         // Set form data
         setFormData({
           room_name: room.room_name,
           block_id: room.block_id,
-          hostel_id: room.hostel_id,
           capacity: room.capacity,
           status: room.status,
           room_type: room.room_type,
@@ -174,10 +167,6 @@ export default function EditRoom() {
 
     if (!formData.block_id) {
       newErrors.block_id = 'Block is required';
-    }
-
-    if (!formData.hostel_id) {
-      newErrors.hostel_id = 'Hostel is required';
     }
 
     if (!formData.capacity || formData.capacity <= 0) {
@@ -324,32 +313,7 @@ export default function EditRoom() {
                 )}
               </div>
 
-              {/* Hostel */}
-              <div>
-                <label htmlFor="hostel_id" className="block text-sm font-semibold text-neutral-900">
-                  Hostel <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="hostel_id"
-                  name="hostel_id"
-                  value={formData.hostel_id}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
-                >
-                  <option value="">Select hostel</option>
-                  {hostels.map(hostel => (
-                    <option key={hostel.id} value={hostel.id}>{hostel.hostel_name}</option>
-                  ))}
-                </select>
-                {errors.hostel_id && (
-                  <div className="flex items-center mt-1.5 text-xs text-red-600">
-                    <svg className="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {errors.hostel_id}
-                  </div>
-                )}
-              </div>
+              {/* Hostel section removed as part of single-tenant conversion */}
 
               {/* Block */}
               <div>

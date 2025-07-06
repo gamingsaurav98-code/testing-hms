@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('student_id');
             $table->foreignId('staff_id');
-            $table->foreignId('hostel_id');
             $table->string('title');
             $table->string('complain_attachment')->nullable();
             $table->text('description');

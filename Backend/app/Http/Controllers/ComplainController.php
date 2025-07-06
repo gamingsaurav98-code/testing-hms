@@ -26,7 +26,7 @@ class ComplainController extends Controller
     public function index()
     {
         try {
-            $complains = Complain::with(['hostel', 'student', 'staff'])->paginate(10);
+            $complains = Complain::with(['student', 'staff'])->paginate(10);
             return response()->json($complains);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch complains: ' . $e->getMessage()], 500);
@@ -41,7 +41,6 @@ class ComplainController extends Controller
         $request->validate([
             'student_id' => 'nullable|exists:students,id',
             'staff_id' => 'nullable|exists:staff,id',
-            'hostel_id' => 'required|exists:hostels,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
             'status' => 'nullable|string|in:pending,in_progress,resolved,rejected',
@@ -87,7 +86,7 @@ class ComplainController extends Controller
     public function show(string $id)
     {
         try {
-            $complain = Complain::with(['hostel', 'student', 'staff'])->findOrFail($id);
+            $complain = Complain::with(['student', 'staff'])->findOrFail($id);
             return response()->json($complain);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Complain not found'], 404);
@@ -102,7 +101,6 @@ class ComplainController extends Controller
         $request->validate([
             'student_id' => 'nullable|exists:students,id',
             'staff_id' => 'nullable|exists:staff,id',
-            'hostel_id' => 'required|exists:hostels,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
             'status' => 'nullable|string|in:pending,in_progress,resolved,rejected',

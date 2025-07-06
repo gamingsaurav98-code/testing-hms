@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
-use App\Models\Hostel;
 use App\Models\Salary;
 use App\Models\SalaryPayment;
 use App\Models\StaffCheckInCheckOut;
@@ -22,7 +21,6 @@ class Staff extends Model
     protected $fillable = [
         'staff_id',
         'user_id',
-        'hostel_id',
         'staff_name',
         'date_of_birth',
         'contact_number',
@@ -64,10 +62,7 @@ class Staff extends Model
         return $this->belongsTo(User::class);
     }
     
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+
     
     public function salaries()
     {

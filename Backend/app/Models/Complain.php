@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Hostel;
 use App\Models\Student;
 use App\Models\Staff;
 use App\Models\Attachment;
@@ -13,17 +12,13 @@ class Complain extends Model
     protected $fillable = [
         'student_id',
         'staff_id',
-        'hostel_id',
         'title',
         'complain_attachment',
         'description',
         'status',
     ];
 
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+
     
     public function student()
     {

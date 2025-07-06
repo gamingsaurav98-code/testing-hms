@@ -27,16 +27,11 @@ class RoomController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Room::with(['hostel', 'block']);
+            $query = Room::with(['block']);
 
             // Filter by block_id if provided
             if ($request->has('block_id')) {
                 $query->where('block_id', $request->block_id);
-            }
-
-            // Filter by hostel_id if provided
-            if ($request->has('hostel_id')) {
-                $query->where('hostel_id', $request->hostel_id);
             }
 
             // Filter by status if provided
@@ -69,7 +64,6 @@ class RoomController extends Controller
         $request->validate([
             'room_name' => 'required|string|max:255|unique:rooms',
             'block_id' => 'required|exists:blocks,id',
-            'hostel_id' => 'required|exists:hostels,id',
             'capacity' => 'required|integer|min:1',
             'status' => 'required|string|in:available,occupied,maintenance',
             'room_type' => 'required|string|max:255',
@@ -77,11 +71,6 @@ class RoomController extends Controller
         ]);
 
         try {
-            // Validate block belongs to hostel
-            $block = Block::find($request->block_id);
-            if ($block && $block->hostel_id != $request->hostel_id) {
-                return response()->json(['message' => 'The selected block does not belong to the selected hostel.'], 422);
-            }
 
             $roomData = $request->except('room_attachment');
             $roomData['created_at'] = $this->dateService->getCurrentDateTime();
@@ -116,7 +105,7 @@ class RoomController extends Controller
     public function show(string $id)
     {
         try {
-            $room = Room::with(['hostel', 'block', 'students'])->findOrFail($id);
+            $room = Room::with(['block', 'students'])->findOrFail($id);
             
             // Add vacancy info to response
             $room->occupied_beds = $room->students->count();
@@ -142,7 +131,6 @@ class RoomController extends Controller
         $request->validate([
             'room_name' => ['required', 'string', 'max:255', Rule::unique('rooms')->ignore($id)],
             'block_id' => 'required|exists:blocks,id',
-            'hostel_id' => 'required|exists:hostels,id',
             'capacity' => 'required|integer|min:1',
             'status' => 'required|string|in:available,occupied,maintenance',
             'room_type' => 'required|string|max:255',
@@ -150,11 +138,6 @@ class RoomController extends Controller
         ]);
 
         try {
-            // Validate block belongs to hostel
-            $block = Block::find($request->block_id);
-            if ($block && $block->hostel_id != $request->hostel_id) {
-                return response()->json(['message' => 'The selected block does not belong to the selected hostel.'], 422);
-            }
             
             // Check capacity if being reduced
             if ($request->capacity < $room->capacity) {
@@ -221,14 +204,9 @@ class RoomController extends Controller
     public function getAvailableRooms(Request $request)
     {
         try {
-            $query = Room::with(['hostel', 'block'])
+            $query = Room::with(['block'])
                 ->where('status', 'available')
                 ->hasVacancy();
-            
-            // Filter by hostel if provided
-            if ($request->has('hostel_id')) {
-                $query->where('hostel_id', $request->hostel_id);
-            }
             
             // Filter by block if provided
             if ($request->has('block_id')) {

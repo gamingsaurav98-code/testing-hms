@@ -6,16 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Student;
 use App\Models\IncomeType;
-use App\Models\Hostel;
 use App\Models\PaymentType;
-use App\Traits\BelongsToHostel;
 
 class Income extends Model
 {
-    use BelongsToHostel;
-    
     protected $fillable = [
-        'hostel_id',
         'income_type_id',
         'amount',
         'income_date',
@@ -36,20 +31,6 @@ class Income extends Model
     protected static function booted()
     {
         static::creating(function ($income) {
-            // If student is provided, ensure student's hostel matches income hostel
-            if ($income->student_id) {
-                $student = Student::find($income->student_id);
-                if ($student) {
-                    // Auto-assign the hostel_id from the student if not provided
-                    if (empty($income->hostel_id)) {
-                        $income->hostel_id = $student->hostel_id;
-                    }
-                    // Validate if both are provided
-                    else if ($student->hostel_id != $income->hostel_id) {
-                        throw new \Exception('The selected student does not belong to the selected hostel.');
-                    }
-                }
-            }
             
             // Ensure amount is positive
             if ($income->amount <= 0) {
@@ -73,10 +54,7 @@ class Income extends Model
         return $this->belongsTo(IncomeType::class);
     }
     
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+
     
     public function paymentType()
     {

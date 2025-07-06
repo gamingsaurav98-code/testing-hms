@@ -37,7 +37,6 @@ export const roomApi = {
     // Append all form fields
     formData.append('room_name', data.room_name);
     formData.append('block_id', data.block_id);
-    formData.append('hostel_id', data.hostel_id);
     formData.append('capacity', String(data.capacity));
     formData.append('status', data.status);
     formData.append('room_type', data.room_type);
@@ -68,7 +67,6 @@ export const roomApi = {
     // Append all form fields
     formData.append('room_name', data.room_name);
     formData.append('block_id', data.block_id);
-    formData.append('hostel_id', data.hostel_id);
     formData.append('capacity', String(data.capacity));
     formData.append('status', data.status);
     formData.append('room_type', data.room_type);
@@ -115,16 +113,5 @@ export const roomApi = {
     return handleResponse<Block[]>(response);
   },
   
-  // Get all hostels for dropdown selection
-  async getHostels(): Promise<{id: string, hostel_name: string}[]> {
-    const response = await fetch(`${API_BASE_URL}/hostels?all=true`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    return handleResponse<{id: string, hostel_name: string}[]>(response);
-  }
+  // Hostel API removed as part of single-tenant conversion
 };

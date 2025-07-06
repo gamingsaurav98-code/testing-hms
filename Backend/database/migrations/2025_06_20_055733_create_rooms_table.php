@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->string('room_name')->unique();
             $table->foreignId('block_id');
-            $table->foreignId('hostel_id');
             $table->integer('capacity');
             $table->enum('status', ['available', 'occupied', 'maintenance'])->default('available');
             $table->string('room_type'); // e.g., single, double, triple, four-bed

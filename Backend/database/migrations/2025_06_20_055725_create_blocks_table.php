@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('blocks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('hostel_id')->constrained()->onDelete('cascade');
             $table->string('block_name');
             $table-> string('location');
             $table->string('manager_name')->nullable();

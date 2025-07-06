@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\User;
-use App\Models\Hostel;
 use App\Models\Room;
 use App\Models\StudentCheckInCheckOut;
 use App\Models\StudentFinancial;
@@ -18,11 +17,9 @@ use App\Models\Complain;
 use App\Models\StudentFeeGenerate;
 use App\Models\StudentAmenities;
 use App\Models\Attachment;
-use App\Traits\BelongsToHostel;
 
 class Student extends Model
 {
-    use BelongsToHostel;
     
     protected $fillable = [   
         'student_name',
@@ -62,7 +59,6 @@ class Student extends Model
         'verified_on',
         'student_id',
         'room_id',
-        'hostel_id',
         'student_image',
         'student_citizenship_image',
         'registration_form_image',
@@ -78,13 +74,6 @@ class Student extends Model
     protected static function booted()
     {
         static::creating(function ($student) {
-            // Validate room belongs to hostel if both are provided
-            if ($student->room_id && $student->hostel_id) {
-                $room = Room::find($student->room_id);
-                if ($room && $room->hostel_id != $student->hostel_id) {
-                    throw new \Exception('The selected room does not belong to the selected hostel.');
-                }
-            }
             
             // Check if room has available capacity
             if ($student->room_id) {
@@ -99,12 +88,9 @@ class Student extends Model
         });
         
         static::updating(function ($student) {
-            // If room_id is changing, validate room belongs to hostel
-            if ($student->isDirty('room_id') && $student->room_id && $student->hostel_id) {
+            // If room_id is changing, check room capacity
+            if ($student->isDirty('room_id') && $student->room_id) {
                 $room = Room::find($student->room_id);
-                if ($room && $room->hostel_id != $student->hostel_id) {
-                    throw new \Exception('The selected room does not belong to the selected hostel.');
-                }
                 
                 // Check if new room has available capacity
                 $occupiedBeds = $room->students()->where('id', '!=', $student->id)->count();
@@ -120,10 +106,7 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
     
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+
     
     public function room()
     {

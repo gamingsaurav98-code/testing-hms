@@ -4,21 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Hostel;
 use App\Models\Block;
 use App\Models\Student;
 use App\Models\InquirySeater;
 use App\Models\Attachment;
-use App\Traits\BelongsToHostel;
 
 class Room extends Model
 {
-    use BelongsToHostel;
     
     protected $fillable = [
         'room_name',
         'block_id',
-        'hostel_id',
         'capacity',
         'status',
         'room_type',
@@ -33,14 +29,6 @@ class Room extends Model
     protected static function booted()
     {
         static::creating(function ($room) {
-            // Validate block belongs to hostel if both are provided
-            if ($room->block_id && $room->hostel_id) {
-                $block = Block::find($room->block_id);
-                if ($block && $block->hostel_id != $room->hostel_id) {
-                    throw new \Exception('The selected block does not belong to the selected hostel.');
-                }
-            }
-            
             // Ensure capacity is a positive number
             if ($room->capacity <= 0) {
                 throw new \Exception('Room capacity must be greater than zero.');
@@ -48,14 +36,6 @@ class Room extends Model
         });
         
         static::updating(function ($room) {
-            // Validate block belongs to hostel if both are provided
-            if ($room->block_id && $room->hostel_id) {
-                $block = Block::find($room->block_id);
-                if ($block && $block->hostel_id != $room->hostel_id) {
-                    throw new \Exception('The selected block does not belong to the selected hostel.');
-                }
-            }
-            
             // Prevent reducing capacity below current occupancy
             if ($room->isDirty('capacity')) {
                 $currentStudents = $room->students()->count();
@@ -66,10 +46,7 @@ class Room extends Model
         });
     }
     
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+    // Hostel relationship removed as part of single-tenant conversion
     
     public function block()
     {

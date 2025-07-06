@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Hostel;
 use App\Models\SupplierFinancial;
 use App\Models\SupplierPayment;
 use App\Models\SupplierTransaction;
@@ -13,7 +12,6 @@ use App\Models\Attachment;
 class Supplier extends Model
 {
     protected $fillable = [
-        'hostel_id',
         'name',
         'email',
         'contact_number',
@@ -21,10 +19,7 @@ class Supplier extends Model
         'description',
         'pan_number',
     ];
-    public function hostel()
-    {
-        return $this->belongsTo(Hostel::class);
-    }
+
     
     // Payment relationship removed as requested
     

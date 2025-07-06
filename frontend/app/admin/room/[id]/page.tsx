@@ -276,7 +276,7 @@ export default function RoomDetail() {
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Location</h4>
                   <p className="text-lg text-gray-900">
                     {room.block?.block_name ? `${room.block.block_name}` : 'No Block'} 
-                    {room.hostel?.hostel_name ? ` in ${room.hostel.hostel_name}` : ''}
+                    {''}
                   </p>
                 </div>
                 
