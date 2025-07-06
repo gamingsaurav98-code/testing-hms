@@ -6,7 +6,7 @@ interface ButtonProps {
   children: React.ReactNode
   onClick?: () => void
   type?: 'button' | 'submit' | 'reset'
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'edit' | 'delete'
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   loading?: boolean
@@ -33,7 +33,9 @@ export function Button({
     primary: "bg-neutral-900 text-white hover:bg-neutral-800",
     secondary: "border border-neutral-200 text-neutral-700 hover:bg-neutral-50",
     danger: "bg-red-600 text-white hover:bg-red-700",
-    ghost: "text-neutral-700 hover:bg-neutral-100"
+    ghost: "text-neutral-700 hover:bg-neutral-100",
+    edit: "bg-[#235999] hover:bg-[#1c4a82] text-white",
+    delete: "bg-red-600 text-white hover:bg-red-700"
   }
   
   const sizes = {

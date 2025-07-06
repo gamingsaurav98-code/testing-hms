@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\IncomeType;
 use Illuminate\Http\Request;
 
 class IncomeTypeController extends Controller
@@ -9,17 +10,15 @@ class IncomeTypeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+        if ($request->has('all') && $request->all === 'true') {
+            $incomeTypes = IncomeType::all();
+            return response()->json($incomeTypes);
+        }
+        
+        $incomeTypes = IncomeType::paginate(15);
+        return response()->json($incomeTypes);
     }
 
     /**
@@ -27,7 +26,13 @@ class IncomeTypeController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+        
+        $incomeType = IncomeType::create($validated);
+        return response()->json($incomeType, 201);
     }
 
     /**
@@ -35,15 +40,8 @@ class IncomeTypeController extends Controller
      */
     public function show(string $id)
     {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
+        $incomeType = IncomeType::findOrFail($id);
+        return response()->json($incomeType);
     }
 
     /**
@@ -51,7 +49,15 @@ class IncomeTypeController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $incomeType = IncomeType::findOrFail($id);
+        
+        $validated = $request->validate([
+            'title' => 'string|max:255',
+            'description' => 'nullable|string',
+        ]);
+        
+        $incomeType->update($validated);
+        return response()->json($incomeType);
     }
 
     /**
@@ -59,6 +65,8 @@ class IncomeTypeController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $incomeType = IncomeType::findOrFail($id);
+        $incomeType->delete();
+        return response()->json(null, 204);
     }
 }

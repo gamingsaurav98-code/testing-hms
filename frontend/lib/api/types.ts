@@ -45,3 +45,101 @@ export interface RoomFormData {
 }
 
 // Hostel interfaces removed as part of single-tenant conversion
+
+export interface Student {
+  id: string;
+  student_name: string;
+  user_id?: string;
+  date_of_birth?: string;
+  contact_number: string;
+  email: string;
+  district?: string;
+  city_name?: string;
+  ward_no?: string;
+  street_name?: string;
+  citizenship_no?: string;
+  date_of_issue?: string;
+  citizenship_issued_district?: string;
+  educational_institution?: string;
+  class_time?: string;
+  level_of_study?: string;
+  expected_stay_duration?: string;
+  blood_group?: string;
+  food?: string;
+  disease?: string;
+  father_name?: string;
+  father_contact?: string;
+  father_occupation?: string;
+  mother_name?: string;
+  mother_contact?: string;
+  mother_occupation?: string;
+  spouse_name?: string;
+  spouse_contact?: string;
+  spouse_occupation?: string;
+  local_guardian_name?: string;
+  local_guardian_address?: string;
+  local_guardian_contact?: string;
+  local_guardian_occupation?: string;
+  local_guardian_relation?: string;
+  room_id?: string;
+  is_active: boolean;
+  student_image?: string;
+  student_citizenship_image?: string;
+  registration_form_image?: string;
+  created_at: string;
+  updated_at?: string;
+  room?: Room;
+  due_amount?: number; // Total due amount for the student
+}
+
+export interface IncomeType {
+  id: string;
+  title: string;
+  amount?: number;
+  student_id?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PaymentType {
+  id: string;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Income {
+  id: string;
+  income_type_id: string;
+  amount: number;
+  income_date: string;
+  title?: string;
+  description?: string;
+  student_id: string;
+  income_attachment?: string;
+  payment_type_id: string;
+  received_amount?: number;
+  due_amount?: number;
+  created_at: string;
+  updated_at?: string;
+  student?: Student;
+  incomeType?: IncomeType;
+  paymentType?: PaymentType;
+  payment_status?: 'paid' | 'partial';
+}
+
+export interface IncomeFormData {
+  income_type_id: string;
+  amount: number;
+  income_date: string;
+  title?: string;
+  description?: string;
+  student_id: string;
+  income_attachment?: File | null;
+  payment_type_id: string;
+  received_amount?: number;
+  due_amount?: number;
+  payment_status?: 'paid' | 'partial';
+}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PaymentType;
 use Illuminate\Http\Request;
 
 class PaymentTypeController extends Controller
@@ -9,17 +10,15 @@ class PaymentTypeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+        if ($request->has('all') && $request->all === 'true') {
+            $paymentTypes = PaymentType::where('is_active', true)->get();
+            return response()->json($paymentTypes);
+        }
+        
+        $paymentTypes = PaymentType::paginate(15);
+        return response()->json($paymentTypes);
     }
 
     /**
@@ -27,7 +26,13 @@ class PaymentTypeController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'is_active' => 'boolean',
+        ]);
+        
+        $paymentType = PaymentType::create($validated);
+        return response()->json($paymentType, 201);
     }
 
     /**
@@ -35,15 +40,8 @@ class PaymentTypeController extends Controller
      */
     public function show(string $id)
     {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
+        $paymentType = PaymentType::findOrFail($id);
+        return response()->json($paymentType);
     }
 
     /**
@@ -51,7 +49,15 @@ class PaymentTypeController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $paymentType = PaymentType::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'string|max:255',
+            'is_active' => 'boolean',
+        ]);
+        
+        $paymentType->update($validated);
+        return response()->json($paymentType);
     }
 
     /**
@@ -59,6 +65,8 @@ class PaymentTypeController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $paymentType = PaymentType::findOrFail($id);
+        $paymentType->delete();
+        return response()->json(null, 204);
     }
 }
