@@ -41,6 +41,9 @@ class Student extends Model
         'blood_group',
         'food',
         'disease',
+        'student_id',
+        'declaration_agreed',
+        'rules_agreed',
         'father_name',
         'father_contact',
         'father_occupation',
@@ -65,6 +68,10 @@ class Student extends Model
         'is_active',
         'is_existing_student',
     ];
+    
+    protected $appends = ['monthly_fee'];
+    
+    protected $with = ['financials'];
 
     /**
      * The "booted" method of the model.
@@ -191,5 +198,24 @@ class Student extends Model
     public function scopeInRoom(Builder $query, $roomId)
     {
         return $query->where('room_id', $roomId);
+    }
+    
+    /**
+     * Get the student's monthly fee from their latest financial record
+     *
+     * @return string|null
+     */
+    public function getMonthlyFeeAttribute()
+    {
+        // If the financials relationship is already loaded
+        if ($this->relationLoaded('financials') && $this->financials->count() > 0) {
+            // Get the latest financial record based on created_at
+            $latestFinancial = $this->financials->sortByDesc('created_at')->first();
+            return $latestFinancial ? $latestFinancial->monthly_fee : null;
+        }
+        
+        // If financials is not loaded, query it
+        $latestFinancial = $this->financials()->latest('created_at')->first();
+        return $latestFinancial ? $latestFinancial->monthly_fee : null;
     }
 }

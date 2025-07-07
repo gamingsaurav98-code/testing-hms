@@ -11,6 +11,8 @@ class SupplierFinancial extends Model
     protected $fillable = [
         'supplier_id',
         'initial_balance',
+        'balance_type', // due or advance
+        'amount',
         'payment_date',
         'remark',
         'payment_type_id',

@@ -134,14 +134,29 @@ export default function RoomList() {
     setDeleteModal({show: false, roomId: null});
   };
 
-  const getRoomStatusBadge = (status: string) => {
+  const getRoomStatusBadge = (status: string, vacantBeds?: number, capacity?: number) => {
+    if (vacantBeds !== undefined && capacity !== undefined) {
+      // Display occupancy ratio along with status
+      if (vacantBeds <= 0) {
+        return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Occupied ({capacity}/{capacity})</span>;
+      } else if (vacantBeds === capacity) {
+        return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Vacant (0/{capacity})</span>;
+      } else {
+        const occupiedBeds = capacity - vacantBeds;
+        return (
+          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+            Occupied ({occupiedBeds}/{capacity})
+          </span>
+        );
+      }
+    }
+    
+    // Simpler status display (just vacant or occupied)
     switch(status.toLowerCase()) {
       case 'occupied':
         return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Occupied</span>;
       case 'vacant':
         return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Vacant</span>;
-      case 'maintenance':
-        return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Maintenance</span>;
       default:
         return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">{status}</span>;
     }
@@ -339,7 +354,7 @@ export default function RoomList() {
 
                   {/* Status */}
                   <div className="col-span-2 text-center">
-                    {getRoomStatusBadge(room.status)}
+                    {getRoomStatusBadge(room.status, room.vacant_beds, room.capacity)}
                   </div>
 
                   {/* Actions */}

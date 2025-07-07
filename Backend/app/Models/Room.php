@@ -53,9 +53,21 @@ class Room extends Model
         return $this->belongsTo(Block::class);
     }
     
+    /**
+     * Get all students assigned to this room.
+     * Only includes active students unless specified otherwise.
+     */
     public function students()
     {
         return $this->hasMany(Student::class);
+    }
+    
+    /**
+     * Get only active students in this room.
+     */
+    public function activeStudents()
+    {
+        return $this->hasMany(Student::class)->where('is_active', true);
     }
     
     public function inquirySeaters()
@@ -79,6 +91,27 @@ class Room extends Model
     {
         $occupiedBeds = $this->students()->count();
         return max(0, $this->capacity - $occupiedBeds);
+    }
+    
+    /**
+     * Get the current status of the room based on occupancy
+     *
+     * @return string
+     */
+    public function getStatusAttribute($value)
+    {
+        // If status is set to maintenance, don't override it
+        if ($value === 'maintenance') {
+            return $value;
+        }
+        
+        $occupiedBeds = $this->students()->count();
+        
+        if ($occupiedBeds >= $this->capacity) {
+            return 'occupied';
+        } else {
+            return 'vacant';
+        }
     }
     
     /**

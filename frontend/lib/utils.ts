@@ -1,90 +1,107 @@
 /**
- * Get the full URL for an image stored in the backend
+ * Combines class names
  */
-export function getImageUrl(imagePath: string | null): string {
-  if (!imagePath) {
-    return '/placeholder-image.jpg' // Fallback image
-  }
-
-  // If it's already a full URL, return as is
-  if (imagePath.startsWith('http')) {
-    return imagePath
-  }
-
-  // Backend storage URL - remove /api suffix if present
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-  const baseUrl = apiUrl.replace('/api', '')
-  return `${baseUrl}/storage/${imagePath}`
+export function cn(...classes: (string | undefined | null | boolean)[]) {
+  return classes.filter(Boolean).join(" ")
 }
 
 /**
- * Format date for display (hydration-safe)
- * Uses a simple, deterministic format to avoid server/client mismatch
+ * Formats a date into a readable string
  */
-export function formatDate(dateString: string | Date | undefined, includeTime: boolean = false): string {
-  if (!dateString) return '';
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "N/A"
+  
+  const d = new Date(date)
+  
+  // Check if the date is valid
+  if (isNaN(d.getTime())) return "Invalid Date"
+  
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
+
+/**
+ * Formats a date on the client side
+ */
+export function formatDateClient(date: string | Date | null | undefined): string {
+  if (!date) return "N/A"
   
   try {
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    const d = new Date(date)
     
-    // Extract components using UTC to avoid timezone issues
-    const year = date.getUTCFullYear();
-    const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    const month = monthNames[date.getUTCMonth()];
-    const day = date.getUTCDate();
+    // Check if the date is valid
+    if (isNaN(d.getTime())) return "Invalid Date"
     
-    if (includeTime) {
-      const hours = String(date.getUTCHours()).padStart(2, '0');
-      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-      return `${month} ${day}, ${year} at ${hours}:${minutes}`;
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return "Error"
+  }
+}
+
+/**
+ * Formats a number as currency
+ */
+export function formatCurrency(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined) return "N/A"
+  
+  const numAmount = typeof amount === "string" ? parseFloat(amount) : amount
+  
+  // Check if the amount is a valid number
+  if (isNaN(numAmount)) return "Invalid Amount"
+  
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(numAmount)
+}
+
+/**
+ * Gets an image URL, handling both relative and absolute paths
+ */
+export function getImageUrl(path: string | null | undefined): string {
+  if (!path) return "/placeholder-image.jpg"
+  
+  // If the path is already an absolute URL, return it as is
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path
+  }
+  
+  // If the path is relative but starts with a slash, assume it's from the root
+  if (path.startsWith("/")) {
+    return path
+  }
+  
+  // Otherwise, assume it's a relative path from the backend
+  // Adjust this URL based on your API configuration
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+  return `${baseUrl}/storage/${path}`
+}
+
+/**
+ * Gets a user-friendly error message from an error object
+ */
+export function getErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error
+  
+  if (error && typeof error === "object") {
+    // Check for specific error types
+    if ("message" in error && typeof error.message === "string") {
+      return error.message
     }
     
-    return `${month} ${day}, ${year}`;
-  } catch (error) {
-    // Fallback for invalid dates
-    if (typeof dateString === 'string') return dateString;
-    return '';
-  }
-}
-
-/**
- * Handle API errors and return user-friendly messages
- */
-export function getErrorMessage(error: any): string {
-  if (error.message) {
-    return error.message
+    if ("error" in error && typeof error.error === "string") {
+      return error.error
+    }
   }
   
-  if (typeof error === 'string') {
-    return error
-  }
-  
-  return 'An unexpected error occurred. Please try again.'
-}
-
-/**
- * Format a number as currency with comma separators
- * @param amount The amount to format
- * @returns Formatted string with comma separators
- */
-export function formatCurrency(amount: number | undefined): string {
-  if (amount === undefined) return '0.00';
-  return amount.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-/**
- * Truncate a string to a specified length and add ellipsis if needed
- * @param str The string to truncate
- * @param length Maximum length before truncation
- * @returns Truncated string with ellipsis if needed
- */
-export function truncate(str: string, length: number): string {
-  if (!str) return '';
-  return str.length > length ? str.substring(0, length) + '...' : str;
+  return "An unknown error occurred"
 }

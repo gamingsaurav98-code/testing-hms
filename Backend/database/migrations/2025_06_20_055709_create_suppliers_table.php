@@ -19,6 +19,8 @@ return new class extends Migration
             $table->text('address');
             $table->text('description')->nullable();
             $table->string('pan_number')->nullable();
+            $table->decimal('opening_balance', 10, 2)->default(0);
+            $table->enum('balance_type', ['due', 'advance'])->default('due');
             $table->timestamps();
         });
     }

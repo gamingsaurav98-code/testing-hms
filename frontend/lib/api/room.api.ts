@@ -1,12 +1,25 @@
 import { API_BASE_URL, handleResponse } from './core';
-import { Room, RoomFormData, Block } from './types';
+import { Room, RoomFormData, Block, Student } from './types';
 import { PaginatedResponse } from './core';
 
 // Room API functions
 export const roomApi = {
   // Get all rooms with pagination
-  async getRooms(page: number = 1): Promise<PaginatedResponse<Room>> {
-    const response = await fetch(`${API_BASE_URL}/rooms?page=${page}`, {
+  async getRooms(page: number = 1, filters: {block_id?: string, has_vacancy?: boolean} = {}): Promise<PaginatedResponse<Room>> {
+    // Build query string from filters
+    let queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    
+    if (filters.block_id) {
+      queryParams.append('block_id', filters.block_id);
+    }
+    
+    if (filters.has_vacancy) {
+      queryParams.append('has_vacancy', 'true');
+    }
+    
+    const url = `${API_BASE_URL}/rooms?${queryParams.toString()}`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -18,8 +31,15 @@ export const roomApi = {
   },
 
   // Get a single room by ID
-  async getRoom(id: string): Promise<Room> {
-    const response = await fetch(`${API_BASE_URL}/rooms/${id}`, {
+  async getRoom(id: string, includeStudents: boolean = false): Promise<Room> {
+    let url = `${API_BASE_URL}/rooms/${id}`;
+    
+    // Add query parameter to include students
+    if (includeStudents) {
+      url += '?include_students=true';
+    }
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -28,6 +48,19 @@ export const roomApi = {
     });
     
     return handleResponse<Room>(response);
+  },
+  
+  // Get all students in a room
+  async getRoomStudents(roomId: string): Promise<Student[]> {
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/students`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return handleResponse<Student[]>(response);
   },
 
   // Create a new room
@@ -38,8 +71,13 @@ export const roomApi = {
     formData.append('room_name', data.room_name);
     formData.append('block_id', data.block_id);
     formData.append('capacity', String(data.capacity));
-    formData.append('status', data.status);
-    formData.append('room_type', data.room_type);
+    
+    // For manual room type, use the custom room type value
+    if (data.room_type === 'manual' && data.custom_room_type) {
+      formData.append('room_type', data.custom_room_type);
+    } else {
+      formData.append('room_type', data.room_type);
+    }
     
     // Append file if present
     if (data.room_attachment) {
@@ -68,8 +106,13 @@ export const roomApi = {
     formData.append('room_name', data.room_name);
     formData.append('block_id', data.block_id);
     formData.append('capacity', String(data.capacity));
-    formData.append('status', data.status);
-    formData.append('room_type', data.room_type);
+    
+    // For manual room type, use the custom room type value
+    if (data.room_type === 'manual' && data.custom_room_type) {
+      formData.append('room_type', data.custom_room_type);
+    } else {
+      formData.append('room_type', data.room_type);
+    }
     
     // Append file if present
     if (data.room_attachment) {

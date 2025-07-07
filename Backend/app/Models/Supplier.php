@@ -18,6 +18,8 @@ class Supplier extends Model
         'address',
         'description',
         'pan_number',
+        'opening_balance',
+        'balance_type',
     ];
 
     

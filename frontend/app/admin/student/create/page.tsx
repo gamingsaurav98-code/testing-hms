@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
-import { studentApi, type StudentFormData, type StudentAmenity } from '@/lib/api';
+import { studentApi, roomApi, type Room, type StudentFormData, type StudentAmenity } from '@/lib/api';
 import { ApiError } from '@/lib/api/core';
 import { 
   Button, 
@@ -54,13 +54,23 @@ export default function CreateStudent() {
     local_guardian_relation: '',
     room_id: '',
     is_active: true,
+    student_id: '',
+    is_existing_student: false,
+    declaration_agreed: false,
+    rules_agreed: false,
+    verified_on: '',
+    admission_fee: '',
+    form_fee: '',
+    security_deposit: '',
+    monthly_fee: '',
+    joining_date: '',
     amenities: []
   });
   
   // Form processing state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [rooms, setRooms] = useState<{id: string, room_name: string}[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   
   // Image state
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -80,12 +90,12 @@ export default function CreateStudent() {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        // Assuming there's an API for rooms - replace with your actual API call
-        const response = await fetch('/api/rooms');
-        const data = await response.json();
-        setRooms(data.data || []);
+        // Use the proper API client to fetch rooms
+        const roomsData = await roomApi.getRooms();
+        setRooms(roomsData.data || []);
       } catch (error) {
         console.error('Error fetching rooms:', error);
+        // Don't show this error in the UI, just log it
       }
     };
 
@@ -344,9 +354,6 @@ export default function CreateStudent() {
         registration_form_image: registrationFormDocuments.length > 0 ? registrationFormDocuments[0] : null
       };
       
-      // For now, we use the first file of multiple uploads as the API only accepts one file
-      // In the future, the API could be updated to handle multiple files
-      
       // Submit form data
       await studentApi.createStudent(studentFormData);
 
@@ -356,14 +363,31 @@ export default function CreateStudent() {
       console.error('Error creating student:', error);
       
       if (error instanceof ApiError) {
-        setErrors({
-          submit: `Failed to create student: ${error.message}`
-        });
+        if (error.validation && Object.keys(error.validation).length > 0) {
+          // Convert validation errors to our format
+          const formattedErrors: Record<string, string> = {};
+          
+          Object.entries(error.validation).forEach(([field, messages]) => {
+            formattedErrors[field] = Array.isArray(messages) ? messages[0] : messages;
+          });
+          
+          setErrors({
+            ...formattedErrors,
+            submit: `Failed to create student: ${error.message}`
+          });
+        } else {
+          setErrors({
+            submit: `Failed to create student: ${error.message}`
+          });
+        }
       } else {
         setErrors({
-          submit: 'Failed to create student. Please try again.'
+          submit: 'An unexpected error occurred. Please try again later.'
         });
       }
+      
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
     }
@@ -446,33 +470,32 @@ export default function CreateStudent() {
                 <FormField
                   name="blood_group"
                   label="Blood Group"
+                  type="select"
                   value={formData.blood_group || ''}
                   onChange={handleInputChange}
                   error={errors.blood_group}
-                  placeholder="e.g., A+, B-, O+"
+                  options={[
+                    { value: 'A+', label: 'A+' },
+                    { value: 'A-', label: 'A-' },
+                    { value: 'B+', label: 'B+' },
+                    { value: 'B-', label: 'B-' },
+                    { value: 'AB+', label: 'AB+' },
+                    { value: 'AB-', label: 'AB-' },
+                    { value: 'O+', label: 'O+' },
+                    { value: 'O-', label: 'O-' },
+                  ]}
                 />
 
                 {/* Room Selection */}
-                <div className="form-field">
-                  <label className="block text-sm font-semibold text-neutral-900">Room</label>
-                  <select
-                    name="room_id"
-                    value={formData.room_id || ''}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
-                  >
-                    <option value="">Select Room</option>
-                    {rooms.map((room) => (
-                      <option key={room.id} value={room.id}>{room.room_name}</option>
-                    ))}
-                  </select>
-                  {errors.room_id && (
-                    <div className="flex items-center mt-1.5 text-xs text-red-600">
-                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
-                      {errors.room_id}
-                    </div>
-                  )}
-                </div>
+                <FormField
+                  name="room_id"
+                  label="Room"
+                  type="select"
+                  value={formData.room_id || ''}
+                  onChange={handleInputChange}
+                  error={errors.room_id}
+                  options={rooms.map(room => ({ value: room.id, label: room.room_name }))}
+                />
                 
                 {/* Active Status */}
                 <div className="flex items-center mt-4">
@@ -625,30 +648,29 @@ export default function CreateStudent() {
                 <FormField
                   name="food"
                   label="Food Preference"
+                  type="select"
                   value={formData.food || ''}
                   onChange={handleInputChange}
                   error={errors.food}
-                  placeholder="e.g., Vegetarian, Non-vegetarian"
+                  options={[
+                    { value: 'vegetarian', label: 'Vegetarian' },
+                    { value: 'non-vegetarian', label: 'Non-vegetarian' },
+                    { value: 'egg-only', label: 'Egg Only' }
+                  ]}
                 />
                 
                 {/* Disease/Health Issues */}
-                <div className="form-field md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Disease or Health Issues (if any)
-                  </label>
-                  <textarea
+                <div className="md:col-span-2">
+                  <FormField
                     name="disease"
+                    label="Disease or Health Issues (if any)"
+                    type="textarea"
                     value={formData.disease || ''}
                     onChange={handleInputChange}
+                    error={errors.disease}
                     placeholder="Enter any health conditions or allergies"
-                    className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
-                      errors.disease ? 'border-red-300' : ''
-                    }`}
                     rows={3}
                   />
-                  {errors.disease && (
-                    <p className="mt-1 text-sm text-red-600">{errors.disease}</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -857,6 +879,158 @@ export default function CreateStudent() {
               </div>
             </div>
 
+            {/* Administrative Details */}
+            <div className="mb-8 border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Administrative Details</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Student ID */}
+                <FormField
+                  name="student_id"
+                  label="Student ID"
+                  value={formData.student_id || ''}
+                  onChange={handleInputChange}
+                  error={errors.student_id}
+                />
+                
+                <div className="flex items-center mt-4">
+                  <input
+                    id="is_existing_student"
+                    name="is_existing_student"
+                    type="checkbox"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={formData.is_existing_student || false}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="is_existing_student" className="ml-2 text-sm font-semibold text-neutral-900">
+                    This is an existing student (staying before system implementation)
+                  </label>
+                </div>
+              </div>
+              
+              {/* Financial Details */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Admission Fee */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Admission Fee</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="admission_fee"
+                      value={formData.admission_fee || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.admission_fee && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                      {errors.admission_fee}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Form Fee */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Form Fee</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="form_fee"
+                      value={formData.form_fee || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.form_fee && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                      {errors.form_fee}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Security Deposit */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Security Deposit</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="security_deposit"
+                      value={formData.security_deposit || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.security_deposit && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                      {errors.security_deposit}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Monthly Hostel Fee */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Monthly Hostel Fee</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="monthly_fee"
+                      value={formData.monthly_fee || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.monthly_fee && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                      {errors.monthly_fee}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Physical Copy Image */}
+              <div className="mt-4">
+                <h3 className="text-md font-medium text-gray-800 mb-3">Physical Copy Image (Optional)</h3>
+                <div className="w-full">
+                  <MultipleImageUploadCreate
+                    images={formData.physical_copy_images ? [formData.physical_copy_images] : []}
+                    onAddImages={(files) => {
+                      if (files.length > 0) {
+                        setFormData(prev => ({...prev, physical_copy_images: files[0]}));
+                      }
+                    }}
+                    onRemoveImage={() => {
+                      setFormData(prev => ({...prev, physical_copy_images: null}));
+                    }}
+                    error={errors.physical_copy_images}
+                    label="Upload Document"
+                    onImageClick={(imageUrl, alt) => {
+                      setSelectedImage({ url: imageUrl, alt });
+                      setImageModalOpen(true);
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Joining Date */}
+              <div className="mt-4">
+                <FormField
+                  name="joining_date"
+                  label="Joining Date"
+                  type="date"
+                  value={formData.joining_date || ''}
+                  onChange={handleInputChange}
+                  error={errors.joining_date}
+                />
+              </div>
+            </div>
+
             {/* Amenities */}
             <div className="mb-8 border-t border-gray-200 pt-6">
               <div className="flex justify-between items-center mb-4">
@@ -912,18 +1086,62 @@ export default function CreateStudent() {
                 ))}
               </div>
             </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-4">
-            <CancelButton onClick={() => router.push('/admin/student')} />
-            <SubmitButton 
-              loading={isSubmitting} 
-              loadingText="Creating..."
-            >
-              Create Student
-            </SubmitButton>
-          </div>
+          </div>            {/* Verification */}
+            <div className="mb-8 border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Verification</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    id="declaration_agreed"
+                    name="declaration_agreed"
+                    type="checkbox"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={formData.declaration_agreed || false}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="declaration_agreed" className="ml-2 text-sm text-neutral-800">
+                    I hereby declare that all the information provided above is true and correct to the best of my knowledge.
+                  </label>
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    id="rules_agreed"
+                    name="rules_agreed"
+                    type="checkbox"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={formData.rules_agreed || false}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="rules_agreed" className="ml-2 text-sm text-neutral-800">
+                    I agree to abide by all the rules and regulations of the hostel.
+                  </label>
+                </div>
+                
+                <div className="mt-4">
+                  <FormField
+                    name="verified_on"
+                    label="Verification Date (YYYY/MM/DD) AD"
+                    type="date"
+                    value={formData.verified_on || ''}
+                    onChange={handleInputChange}
+                    error={errors.verified_on}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Form Actions */}
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-4">
+              <CancelButton onClick={() => router.push('/admin/student')} />
+              <SubmitButton 
+                loading={isSubmitting} 
+                loadingText="Creating..."
+              >
+                Create Student
+              </SubmitButton>
+            </div>
         </form>
         </div>
       </div>

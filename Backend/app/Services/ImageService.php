@@ -23,30 +23,64 @@ class ImageService
     public function processImage(UploadedFile $file, string $directory, ?string $oldPath = null): ?string
     {
         try {
+            // Enhanced logging to debug the upload
+            Log::info('Starting image processing', [
+                'filename' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'mime' => $file->getMimeType(),
+                'extension' => $file->getClientOriginalExtension(),
+                'directory' => $directory,
+                'temp_path' => $file->path(),
+                'error_code' => $file->getError(),
+                'disk_free_space' => @disk_free_space(storage_path('app/public')),
+                'is_writable' => is_writable(storage_path('app/public')),
+            ]);
+            
+            // Verify the file is valid and exists
+            if (!$file->isValid()) {
+                throw new \Exception("The uploaded file is not valid");
+            }
+            
             // Delete old file if it exists
             if ($oldPath) {
                 Storage::disk('public')->delete($oldPath);
+                Log::info("Deleted old file: {$oldPath}");
             }
 
-            // Generate a unique filename with webp extension
-            $filename = time() . '_' . Str::random(10) . '.webp';
-            $tempPath = $file->getPathname();
-            $targetPath = storage_path('app/public/' . $directory . '/' . $filename);
+            // SKIP WEBP CONVERSION AND JUST STORE THE ORIGINAL FILE
+            // This is more reliable and avoids issues with WebP support
+            $originalExt = $file->getClientOriginalExtension() ?: 'jpg';
+            $originalFilename = time() . '_' . Str::random(10) . '.' . $originalExt;
             
-            // Make sure the target directory exists
+            Log::info("Storing original file with extension: {$originalExt}", [
+                'target_filename' => $originalFilename
+            ]);
+            
+            // Make sure directory exists
             if (!Storage::disk('public')->exists($directory)) {
-                Storage::disk('public')->makeDirectory($directory);
+                Storage::disk('public')->makeDirectory($directory, 0755, true);
+                Log::info("Created directory: {$directory}");
             }
             
-            // Optimize the image based on its type
-            $this->optimizeImage($tempPath);
+            // Store the file directly
+            $path = $file->storeAs($directory, $originalFilename, 'public');
             
-            // Convert to WebP
-            $this->convertToWebP($tempPath, $targetPath);
+            if (!$path) {
+                throw new \Exception("Failed to store file");
+            }
             
-            return $directory . '/' . $filename;
+            Log::info("Successfully stored file at: {$path}");
+            return $path;
+            
         } catch (\Exception $e) {
             Log::error('Image processing failed: ' . $e->getMessage());
+            Log::error('Error stack trace: ' . $e->getTraceAsString());
+            Log::error('Upload details', [
+                'file_exists' => $file->isValid(),
+                'original_name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'error_code' => $file->getError()
+            ]);
             return null;
         }
     }

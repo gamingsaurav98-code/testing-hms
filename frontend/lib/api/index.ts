@@ -11,8 +11,16 @@ export type {
   Income,
   IncomeFormData,
   IncomeType,
-  PaymentType
+  PaymentType,
+  Supplier,
+  SupplierFormData
 } from './types';
+
+// Import supplier financial API types
+export type {
+  SupplierFinancial,
+  SupplierFinancialFormData
+} from './supplier-financial.api';
 
 // Import student API types
 export type {
@@ -26,3 +34,5 @@ export { blockApi } from './block.api';
 export { roomApi } from './room.api';
 export { incomeApi } from './income.api';
 export { studentApi } from './student.api';
+export { supplierApi } from './supplier.api';
+export { supplierFinancialApi } from './supplier-financial.api';

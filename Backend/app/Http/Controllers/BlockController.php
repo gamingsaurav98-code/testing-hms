@@ -64,14 +64,15 @@ class BlockController extends Controller
             
             // Handle file upload if present
             if ($request->hasFile('block_attachment')) {
-                $blockData['block_attachment'] = $this->imageService->processImageAsync(
-                    $request->file('block_attachment'),
-                    'blocks',
-                    null,
-                    Block::class,
-                    null, // ID will be available after creation
-                    'block_attachment'
-                );
+                $file = $request->file('block_attachment');
+                // Use synchronous processing instead of async
+                $path = $this->imageService->processImage($file, 'blocks', null);
+                
+                if (!$path) {
+                    throw new \Exception("The block attachment failed to upload.");
+                }
+                
+                $blockData['block_attachment'] = $path;
             }
             
             $block = Block::create($blockData);
@@ -128,14 +129,15 @@ class BlockController extends Controller
             
             // Handle file upload if present
             if ($request->hasFile('block_attachment')) {
-                $blockData['block_attachment'] = $this->imageService->processImageAsync(
-                    $request->file('block_attachment'),
-                    'blocks',
-                    $block->block_attachment,
-                    Block::class,
-                    $block->id,
-                    'block_attachment'
-                );
+                $file = $request->file('block_attachment');
+                // Use synchronous processing instead of async
+                $path = $this->imageService->processImage($file, 'blocks', $block->block_attachment);
+                
+                if (!$path) {
+                    throw new \Exception("The block attachment failed to upload.");
+                }
+                
+                $blockData['block_attachment'] = $path;
             }
             
             $block->update($blockData);

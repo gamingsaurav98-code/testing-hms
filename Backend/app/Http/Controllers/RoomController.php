@@ -27,7 +27,7 @@ class RoomController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Room::with(['block']);
+            $query = Room::with(['block', 'students']);
 
             // Filter by block_id if provided
             if ($request->has('block_id')) {
@@ -35,9 +35,8 @@ class RoomController extends Controller
             }
 
             // Filter by status if provided
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
-            }
+            // Note: For dynamic status, we handle this after fetching records
+            $requestedStatus = $request->has('status') ? $request->status : null;
 
             // Filter by room_type if provided
             if ($request->has('room_type')) {
@@ -49,7 +48,20 @@ class RoomController extends Controller
                 $query->hasVacancy();
             }
 
+            // Get paginated rooms
             $rooms = $query->paginate(10);
+            
+            // Calculate occupancy and actual status for each room
+            foreach ($rooms as $room) {
+                $room->occupied_beds = $room->students->count();
+                $room->vacant_beds = max(0, $room->capacity - $room->occupied_beds);
+                
+                // Only apply status filtering here if requested
+                if ($requestedStatus && $room->status !== $requestedStatus) {
+                    $rooms->forget($room->id);
+                }
+            }
+            
             return response()->json($rooms);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch rooms: ' . $e->getMessage()], 500);
@@ -65,26 +77,41 @@ class RoomController extends Controller
             'room_name' => 'required|string|max:255|unique:rooms',
             'block_id' => 'required|exists:blocks,id',
             'capacity' => 'required|integer|min:1',
-            'status' => 'required|string|in:available,occupied,maintenance',
             'room_type' => 'required|string|max:255',
-            'room_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+            'room_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
         ]);
 
         try {
+            \Log::info('Room creation started', ['request' => $request->except('room_attachment')]);
 
             $roomData = $request->except('room_attachment');
             $roomData['created_at'] = $this->dateService->getCurrentDateTime();
             
             // Handle file upload if present
             if ($request->hasFile('room_attachment')) {
-                $roomData['room_attachment'] = $this->imageService->processImageAsync(
-                    $request->file('room_attachment'),
-                    'rooms',
-                    null,
-                    Room::class,
-                    null, // ID will be available after creation
-                    'room_attachment'
-                );
+                try {
+                    \Log::info('Room attachment upload attempt', [
+                        'original_name' => $request->file('room_attachment')->getClientOriginalName(),
+                        'mime' => $request->file('room_attachment')->getMimeType(),
+                        'size' => $request->file('room_attachment')->getSize(),
+                    ]);
+                    
+                    // Simple direct store approach
+                    $path = $request->file('room_attachment')->store('rooms', 'public');
+                    
+                    if ($path) {
+                        \Log::info('Room attachment stored successfully', ['path' => $path]);
+                        $roomData['room_attachment'] = $path;
+                    } else {
+                        throw new \Exception("Failed to store the room image");
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Room attachment upload failed', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    return response()->json(['message' => 'Failed to upload room attachment: ' . $e->getMessage()], 500);
+                }
             }
             
             $room = Room::create($roomData);
@@ -102,18 +129,42 @@ class RoomController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
         try {
-            $room = Room::with(['block', 'students'])->findOrFail($id);
+            $query = Room::with('block');
+            
+            // Include students if requested
+            if ($request->has('include_students') && $request->include_students === 'true') {
+                $query->with(['students' => function($q) {
+                    $q->where('is_active', true)
+                      ->with(['financials' => function($q2) {
+                          $q2->latest('created_at');
+                      }]);
+                }]);
+            }
+            
+            $room = $query->findOrFail($id);
             
             // Add vacancy info to response
             $room->occupied_beds = $room->students->count();
             $room->vacant_beds = $room->vacant_beds;
             
+            // If students are included, add their monthly fees and due amounts
+            if ($request->has('include_students') && $request->include_students === 'true' && $room->students) {
+                foreach ($room->students as $student) {
+                    // Get due amount from income records
+                    $dueAmount = $student->incomes()
+                        ->where('due_amount', '>', 0)
+                        ->sum('due_amount');
+                    
+                    $student->due_amount = $dueAmount > 0 ? $dueAmount : 0;
+                }
+            }
+            
             return response()->json($room);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Room not found'], 404);
+            return response()->json(['message' => 'Failed to fetch room: ' . $e->getMessage()], 404);
         }
     }
 
@@ -132,7 +183,6 @@ class RoomController extends Controller
             'room_name' => ['required', 'string', 'max:255', Rule::unique('rooms')->ignore($id)],
             'block_id' => 'required|exists:blocks,id',
             'capacity' => 'required|integer|min:1',
-            'status' => 'required|string|in:available,occupied,maintenance',
             'room_type' => 'required|string|max:255',
             'room_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         ]);
@@ -152,14 +202,34 @@ class RoomController extends Controller
             
             // Handle file upload if present
             if ($request->hasFile('room_attachment')) {
-                $roomData['room_attachment'] = $this->imageService->processImageAsync(
-                    $request->file('room_attachment'),
-                    'rooms',
-                    $room->room_attachment,
-                    Room::class,
-                    $room->id,
-                    'room_attachment'
-                );
+                try {
+                    \Log::info('Room attachment update attempt', [
+                        'original_name' => $request->file('room_attachment')->getClientOriginalName(),
+                        'mime' => $request->file('room_attachment')->getMimeType(),
+                        'size' => $request->file('room_attachment')->getSize(),
+                    ]);
+                    
+                    // Delete old file if it exists
+                    if ($room->room_attachment) {
+                        Storage::disk('public')->delete($room->room_attachment);
+                    }
+                    
+                    // Simple direct store approach
+                    $path = $request->file('room_attachment')->store('rooms', 'public');
+                    
+                    if ($path) {
+                        \Log::info('Room attachment updated successfully', ['path' => $path]);
+                        $roomData['room_attachment'] = $path;
+                    } else {
+                        throw new \Exception("Failed to store the room image");
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Room attachment update failed', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    return response()->json(['message' => 'Failed to upload room attachment: ' . $e->getMessage()], 500);
+                }
             }
             
             $room->update($roomData);
@@ -205,8 +275,7 @@ class RoomController extends Controller
     {
         try {
             $query = Room::with(['block'])
-                ->where('status', 'available')
-                ->hasVacancy();
+                ->whereRaw('(SELECT COUNT(*) FROM students WHERE students.room_id = rooms.id) < rooms.capacity');
             
             // Filter by block if provided
             if ($request->has('block_id')) {
@@ -218,11 +287,47 @@ class RoomController extends Controller
             // Add vacancy info to each room
             foreach ($rooms as $room) {
                 $room->vacant_beds = $room->vacant_beds;
+                $room->occupied_beds = $room->students->count();
+                
+                // Ensure status reflects current occupancy (vacant or occupied)
+                $room->status = $room->occupied_beds == 0 ? 'vacant' : 'occupied';
             }
             
             return response()->json($rooms);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch available rooms: ' . $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Get all students in a specific room
+     */
+    public function getStudentsByRoom($id)
+    {
+        try {
+            $room = Room::findOrFail($id);
+            
+            // Load students with their financials
+            $students = $room->students()
+                ->with(['financials' => function($query) {
+                    $query->latest('created_at');
+                }])
+                ->where('is_active', true)
+                ->get();
+                
+            // Add monthly fee to each student
+            $students->each(function ($student) {
+                // Get due amount from income records
+                $dueAmount = $student->incomes()
+                    ->where('due_amount', '>', 0)
+                    ->sum('due_amount');
+                
+                $student->due_amount = $dueAmount > 0 ? $dueAmount : 0;
+            });
+            
+            return response()->json($students);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch students: ' . $e->getMessage()], 500);
         }
     }
 }

@@ -58,5 +58,16 @@ RUN composer install
 # Expose port 8000
 EXPOSE 8000
 
+# Ensure storage permissions
+USER root
+RUN mkdir -p /var/www/html/storage/app/public/rooms && \
+    chown -R www:www /var/www/html/storage && \
+    chmod -R 777 /var/www/html/storage
+USER www
+
+# Run artisan commands
+RUN php artisan config:clear && \
+    php artisan cache:clear
+
 # Start Laravel development server
-CMD php artisan serve --host=0.0.0.0 --port=8000
+CMD php artisan storage:link && php artisan serve --host=0.0.0.0 --port=8000

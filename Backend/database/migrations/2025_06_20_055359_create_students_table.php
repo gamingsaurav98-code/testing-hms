@@ -55,6 +55,8 @@ return new class extends Migration
             $table->string('registration_form_image')->nullable();
             $table->boolean('is_active')->default(true);
             $table->boolean('is_existing_student')->default(false);
+            $table->boolean('declaration_agreed')->default(false);
+            $table->boolean('rules_agreed')->default(false);
             $table->timestamps();
         });
     }

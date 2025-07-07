@@ -51,6 +51,19 @@ export interface StudentFormData {
   local_guardian_relation?: string;
   room_id?: string;
   is_active?: boolean;
+  student_id?: string;
+  is_existing_student?: boolean;
+  declaration_agreed?: boolean;
+  rules_agreed?: boolean;
+  verified_on?: string;
+  // Financial fields
+  admission_fee?: string;
+  form_fee?: string;
+  security_deposit?: string;
+  monthly_fee?: string;
+  physical_copy_images?: File | null;
+  joining_date?: string;
+  // Image fields
   student_image?: File | null;
   student_citizenship_image?: File | null;
   registration_form_image?: File | null;
@@ -70,6 +83,32 @@ export const studentApi = {
     });
     
     return handleResponse<StudentAmenity[]>(response);
+  },
+  
+  // Get students by room ID
+  async getStudentsByRoom(roomId: string): Promise<StudentWithAmenities[]> {
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/students`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return handleResponse<StudentWithAmenities[]>(response);
+  },
+  
+  // Get all active students (no pagination)
+  async getAllActiveStudents(): Promise<StudentWithAmenities[]> {
+    const response = await fetch(`${API_BASE_URL}/students?all=true`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return handleResponse<StudentWithAmenities[]>(response);
   },
   // Get all students with pagination
   async getStudents(page: number = 1): Promise<PaginatedResponse<StudentWithAmenities>> {
@@ -114,7 +153,7 @@ export const studentApi = {
     Object.entries(data).forEach(([key, value]) => {
       // Skip amenities as we'll handle them separately
       if (key !== 'amenities' && value !== undefined && value !== null) {
-        if (key === 'student_image' || key === 'student_citizenship_image' || key === 'registration_form_image') {
+        if (key === 'student_image' || key === 'student_citizenship_image' || key === 'registration_form_image' || key === 'physical_copy_images') {
           if (value instanceof File) {
             formData.append(key, value);
           }
@@ -166,7 +205,7 @@ export const studentApi = {
     Object.entries(data).forEach(([key, value]) => {
       // Skip amenities as we'll handle them separately
       if (key !== 'amenities' && value !== undefined && value !== null) {
-        if (key === 'student_image' || key === 'student_citizenship_image' || key === 'registration_form_image') {
+        if (key === 'student_image' || key === 'student_citizenship_image' || key === 'registration_form_image' || key === 'physical_copy_images') {
           if (value instanceof File) {
             formData.append(key, value);
           }

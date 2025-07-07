@@ -172,7 +172,7 @@ class IncomeController extends Controller
                 'title' => 'nullable|string|max:255',
                 'description' => 'nullable|string',
                 'income_attachment' => 'nullable|file|mimes:jpeg,jpg,png,gif,pdf|max:5120',
-                'remove_attachment' => 'nullable|boolean',
+                'remove_attachment' => 'nullable',
             ]);
             
             if ($validator->fails()) {
@@ -223,7 +223,7 @@ class IncomeController extends Controller
             }
             
             // Remove attachment if requested
-            if ($request->has('remove_attachment') && $request->remove_attachment && $income->income_attachment) {
+            if ($request->has('remove_attachment') && $this->parseBoolean($request->input('remove_attachment')) && $income->income_attachment) {
                 // Delete the file from storage
                 if (Storage::disk('public')->exists($income->income_attachment)) {
                     Storage::disk('public')->delete($income->income_attachment);
@@ -301,5 +301,34 @@ class IncomeController extends Controller
             Log::error('Error uploading attachment: ' . $e->getMessage());
             return response()->json(['message' => 'Error uploading attachment', 'error' => $e->getMessage()], 500);
         }
+    }
+    
+    /**
+     * Helper method to parse boolean values from various input formats
+     * Handles strings like "true", "false", "1", "0", and actual boolean values
+     * 
+     * @param mixed $value The value to parse
+     * @param bool $default Default value if parsing fails
+     * @return bool The parsed boolean value
+     */
+    protected function parseBoolean($value, $default = false)
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        
+        if (is_string($value)) {
+            $value = strtolower($value);
+            if (in_array($value, ['true', 'yes', '1', 'on'])) {
+                return true;
+            }
+            if (in_array($value, ['false', 'no', '0', 'off'])) {
+                return false;
+            }
+        } elseif (is_numeric($value)) {
+            return (bool)$value;
+        }
+        
+        return $default;
     }
 }

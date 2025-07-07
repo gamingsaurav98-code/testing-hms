@@ -28,6 +28,8 @@ export default function StudentList() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -243,7 +245,16 @@ export default function StudentList() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm mr-3 overflow-hidden">
+                          <div 
+                            className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm mr-3 overflow-hidden cursor-pointer"
+                            onClick={() => {
+                              if (student.student_image) {
+                                setSelectedPhoto(getImageUrl(student.student_image));
+                                setShowPhotoModal(true);
+                              }
+                            }}
+                            title={student.student_image ? "Click to enlarge" : "No photo available"}
+                          >
                             {student.student_image ? (
                               <img 
                                 src={getImageUrl(student.student_image)} 
@@ -283,9 +294,11 @@ export default function StudentList() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <ActionButtons
-                          onView={() => router.push(`/admin/student/${student.id}`)}
-                          onEdit={() => router.push(`/admin/student/${student.id}/edit`)}
+                          viewUrl={`/admin/student/${student.id}`}
+                          editUrl={`/admin/student/${student.id}/edit`}
                           onDelete={() => confirmDelete(student.id)}
+                          isDeleting={isDeleting && studentToDelete === student.id}
+                          style="compact"
                         />
                       </td>
                     </tr>
@@ -360,6 +373,33 @@ export default function StudentList() {
         }}
         variant="danger"
       />
+
+      {/* Photo Popup Modal */}
+      {showPhotoModal && selectedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPhotoModal(false)}
+        >
+          <div 
+            className="relative max-w-2xl max-h-[80vh] bg-white rounded-lg shadow-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+              onClick={() => setShowPhotoModal(false)}
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img 
+              src={selectedPhoto} 
+              alt="Student Photo" 
+              className="max-h-[80vh] object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,9 @@ class StudentFinancial extends Model
     protected $fillable = [
         'student_id',
         'amount',
+        'admission_fee',
+        'form_fee',
+        'security_deposit',
         'monthly_fee',
         'is_existing_student',
         'previous_balance',
@@ -20,6 +23,8 @@ class StudentFinancial extends Model
         'payment_date',
         'remark',
         'payment_type_id',
+        'joining_date',
+        'physical_copy_image',
     ];
     public function student()
     {

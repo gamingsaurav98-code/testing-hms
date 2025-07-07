@@ -89,7 +89,41 @@ export default function CreateIncome() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    if (name === 'amount' || name === 'received_amount') {
+    if (name === 'student_id') {
+      // When student is selected, fetch their monthly fee if available
+      const selectedStudent = students.find(student => student.id === value);
+      console.log('Selected student:', selectedStudent);
+      
+      setFormData(prev => {
+        const newState = {
+          ...prev,
+          [name]: value
+        };
+        
+        // Auto-fill amount with student's monthly fee if available
+        if (selectedStudent?.monthly_fee) {
+          const monthlyFee = parseFloat(selectedStudent.monthly_fee) || 0;
+          if (monthlyFee > 0) {
+            newState.amount = monthlyFee;
+            newState.received_amount = monthlyFee; // Default to full payment
+            newState.due_amount = 0;
+            newState.payment_status = 'paid';
+            
+            // Find and select the monthly fee income type if available
+            const monthlyFeeType = incomeTypes.find(type => 
+              type.title.toLowerCase().includes('monthly') || 
+              type.title.toLowerCase().includes('rent') || 
+              type.title.toLowerCase().includes('fee')
+            );
+            if (monthlyFeeType) {
+              newState.income_type_id = monthlyFeeType.id;
+            }
+          }
+        }
+        
+        return newState;
+      });
+    } else if (name === 'amount' || name === 'received_amount') {
       const numValue = parseFloat(value) || 0;
       
       setFormData(prev => {

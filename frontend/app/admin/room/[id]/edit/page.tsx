@@ -22,7 +22,6 @@ export default function EditRoom() {
     room_name: '',
     block_id: '',
     capacity: 0,
-    status: '',
     room_type: '',
     room_attachment: null,
   });
@@ -56,7 +55,6 @@ export default function EditRoom() {
           room_name: room.room_name,
           block_id: room.block_id,
           capacity: room.capacity,
-          status: room.status,
           room_type: room.room_type,
           room_attachment: null,
         });
@@ -92,10 +90,54 @@ export default function EditRoom() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'capacity' ? parseInt(value) || 0 : value
-    }));
+    
+    if (name === 'room_type') {
+      // Auto-set capacity based on room type
+      let capacity = 0;
+      switch (value) {
+        case 'single':
+          capacity = 1;
+          break;
+        case 'double':
+          capacity = 2;
+          break;
+        case 'triple':
+          capacity = 3;
+          break;
+        case 'quad':
+          capacity = 4;
+          break;
+        default:
+          capacity = 0;
+      }
+      
+      // Only auto-update capacity if there are no students or if the new capacity is greater
+      const currentOccupancy = currentRoom?.students?.length || 0;
+      if (currentOccupancy === 0 || capacity >= currentOccupancy) {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          capacity: capacity
+        }));
+      } else {
+        // Just update the room type, not the capacity (can't reduce below occupancy)
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }));
+        
+        // Add an error to notify user
+        setErrors(prev => ({
+          ...prev,
+          capacity: `Cannot reduce capacity below current occupancy (${currentOccupancy} students)`
+        }));
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: name === 'capacity' ? parseInt(value) || 0 : value
+      }));
+    }
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -174,9 +216,7 @@ export default function EditRoom() {
       newErrors.capacity = 'Capacity must be greater than 0';
     }
 
-    if (!formData.status) {
-      newErrors.status = 'Status is required';
-    }
+    // Status is now handled automatically
 
     if (!formData.room_type) {
       newErrors.room_type = 'Room type is required';
@@ -273,7 +313,7 @@ export default function EditRoom() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               
               {/* Room Name */}
               <FormField
@@ -299,10 +339,10 @@ export default function EditRoom() {
                   className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
                 >
                   <option value="">Select room type</option>
-                  <option value="standard">Standard</option>
-                  <option value="deluxe">Deluxe</option>
-                  <option value="premium">Premium</option>
-                  <option value="executive">Executive</option>
+                  <option value="single">Single Seater</option>
+                  <option value="double">Double Seater</option>
+                  <option value="triple">Three Seater</option>
+                  <option value="quad">Four Seater</option>
                 </select>
                 {errors.room_type && (
                   <div className="flex items-center mt-1.5 text-xs text-red-600">
@@ -313,8 +353,6 @@ export default function EditRoom() {
                   </div>
                 )}
               </div>
-
-              {/* Hostel section removed as part of single-tenant conversion */}
 
               {/* Block */}
               <div>
@@ -343,8 +381,8 @@ export default function EditRoom() {
                 )}
               </div>
 
-              {/* Capacity */}
-              <div>
+              {/* Capacity - Now spans 1.5 columns */}
+              <div className="lg:col-span-2">
                 <label htmlFor="capacity" className="block text-sm font-semibold text-neutral-900">
                   Capacity <span className="text-red-500">*</span>
                 </label>
@@ -354,7 +392,8 @@ export default function EditRoom() {
                   name="capacity"
                   value={formData.capacity.toString()}
                   onChange={handleInputChange}
-                  min={1}
+                  disabled={formData.room_type === 'single' || formData.room_type === 'double' || formData.room_type === 'triple' || formData.room_type === 'quad'}
+                  min={currentRoom?.students?.length || 1}
                   placeholder="Enter room capacity"
                   className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
                 />
@@ -366,37 +405,17 @@ export default function EditRoom() {
                     {errors.capacity}
                   </div>
                 )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {currentRoom?.students?.length 
+                    ? `Current occupancy: ${currentRoom.students.length} students. Capacity cannot be reduced below this.`
+                    : 'Capacity is automatically set based on room type.'}
+                </p>
               </div>
 
-              {/* Status */}
-              <div>
-                <label htmlFor="status" className="block text-sm font-semibold text-neutral-900">
-                  Status <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
-                >
-                  <option value="">Select status</option>
-                  <option value="vacant">Vacant</option>
-                  <option value="occupied">Occupied</option>
-                  <option value="maintenance">Maintenance</option>
-                </select>
-                {errors.status && (
-                  <div className="flex items-center mt-1.5 text-xs text-red-600">
-                    <svg className="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {errors.status}
-                  </div>
-                )}
-              </div>
+
 
               {/* File Upload - Full Width */}
-              <div className="lg:col-span-2 space-y-1">
+              <div className="lg:col-span-3 space-y-1">
                 <label className="block text-sm font-medium text-gray-900">Room Image</label>
                 
                 <SingleImageUploadEdit
@@ -407,7 +426,7 @@ export default function EditRoom() {
                   onFileSelect={processFile}
                   onRemove={removeImage}
                   error={errors.room_attachment}
-                  label="Room Image"
+                  label=""
                   onImageClick={(imageUrl, alt) => {
                     setSelectedImage({ url: imageUrl, alt });
                     setImageModalOpen(true);

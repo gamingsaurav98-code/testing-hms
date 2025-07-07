@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { AlertCircle } from 'lucide-react';
 import { studentApi, roomApi, type Room, type StudentWithAmenities, type StudentFormData, type StudentAmenity } from '@/lib/api';
 import { ApiError } from '@/lib/api/core';
 import { 
@@ -56,6 +57,16 @@ export default function EditStudent() {
     local_guardian_relation: '',
     room_id: '',
     is_active: true,
+    student_id: '',
+    is_existing_student: false,
+    declaration_agreed: false,
+    rules_agreed: false,
+    verified_on: '',
+    admission_fee: '',
+    form_fee: '',
+    security_deposit: '',
+    monthly_fee: '',
+    joining_date: '',
     amenities: []
   });
   
@@ -74,10 +85,13 @@ export default function EditStudent() {
   // Document state - Multiple file uploads
   const [citizenshipDocuments, setCitizenshipDocuments] = useState<File[]>([]);
   const [registrationFormDocuments, setRegistrationFormDocuments] = useState<File[]>([]);
+  const [physicalCopyDocuments, setPhysicalCopyDocuments] = useState<File[]>([]);
   const [existingCitizenshipDoc, setExistingCitizenshipDoc] = useState<{id: number; image: string; is_primary: boolean}[]>([]);
   const [existingRegistrationDoc, setExistingRegistrationDoc] = useState<{id: number; image: string; is_primary: boolean}[]>([]);
+  const [existingPhysicalCopyDoc, setExistingPhysicalCopyDoc] = useState<{id: number; image: string; is_primary: boolean}[]>([]);
   const [removedCitizenshipDocIds, setRemovedCitizenshipDocIds] = useState<number[]>([]);
   const [removedRegistrationDocIds, setRemovedRegistrationDocIds] = useState<number[]>([]);
+  const [removedPhysicalCopyDocIds, setRemovedPhysicalCopyDocIds] = useState<number[]>([]);
   
   // Amenities state
   const [amenities, setAmenities] = useState<StudentAmenity[]>([
@@ -129,6 +143,23 @@ export default function EditStudent() {
           local_guardian_relation: studentData.local_guardian_relation || '',
           room_id: studentData.room_id || '',
           is_active: studentData.is_active !== undefined ? studentData.is_active : true,
+          
+          // Administrative Details
+          student_id: studentData.student_id || '',
+          is_existing_student: studentData.is_existing_student || false,
+          admission_fee: studentData.admission_fee || '',
+          form_fee: studentData.form_fee || '',
+          security_deposit: studentData.security_deposit || '',
+          monthly_fee: studentData.monthly_fee || '',
+          joining_date: studentData.joining_date || '',
+          
+          // Verification Details
+          declaration_agreed: studentData.declaration_agreed || false,
+          rules_agreed: studentData.rules_agreed || false,
+          verified_on: studentData.verified_on || '',
+          
+          // Initialize amenities array
+          amenities: []
         });
         
         // Set image previews if available
@@ -150,6 +181,15 @@ export default function EditStudent() {
           setExistingRegistrationDoc([{
             id: 1, // Using 1 as id since we don't have real IDs from the API
             image: studentData.registration_form_image,
+            is_primary: true
+          }]);
+        }
+        
+        // Set physical copy image if available
+        if (studentData.physical_copy_image) {
+          setExistingPhysicalCopyDoc([{
+            id: 1,
+            image: studentData.physical_copy_image,
             is_primary: true
           }]);
         }
@@ -336,6 +376,51 @@ export default function EditStudent() {
   const removeRegistrationFormImage = (index: number) => {
     setRegistrationFormDocuments(prev => prev.filter((_, i) => i !== index));
   };
+  
+  // Validate physical copy file
+  const validatePhysicalCopyFile = (file: File): boolean => {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      setErrors(prev => ({
+        ...prev,
+        physical_copy_images: 'Please select a valid file (JPG, JPEG, PNG, PDF)'
+      }));
+      return false;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({
+        ...prev,
+        physical_copy_images: 'File size must be less than 5MB'
+      }));
+      return false;
+    }
+
+    // Clear file error
+    if (errors.physical_copy_images) {
+      setErrors(prev => ({
+        ...prev,
+        physical_copy_images: ''
+      }));
+    }
+    
+    return true;
+  };
+
+  // Add physical copy documents
+  const addPhysicalCopyDocuments = (files: File[]) => {
+    const validFiles = files.filter(file => validatePhysicalCopyFile(file));
+    if (validFiles.length > 0) {
+      setPhysicalCopyDocuments(prev => [...prev, ...validFiles]);
+    }
+  };
+
+  // Remove physical copy document
+  const removePhysicalCopyImage = (index: number) => {
+    setPhysicalCopyDocuments(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Handle amenity changes
   const handleAmenityChange = (index: number, field: keyof StudentAmenity, value: string) => {
@@ -388,6 +473,23 @@ export default function EditStudent() {
     } else if (!/^\d{10}$/.test(formData.contact_number.trim())) {
       newErrors.contact_number = 'Please enter a valid 10-digit phone number';
     }
+    
+    // Validate financial fields (optional but must be numeric if provided)
+    if (formData.admission_fee && !/^\d+(\.\d{1,2})?$/.test(formData.admission_fee)) {
+      newErrors.admission_fee = 'Please enter a valid amount';
+    }
+    
+    if (formData.form_fee && !/^\d+(\.\d{1,2})?$/.test(formData.form_fee)) {
+      newErrors.form_fee = 'Please enter a valid amount';
+    }
+    
+    if (formData.security_deposit && !/^\d+(\.\d{1,2})?$/.test(formData.security_deposit)) {
+      newErrors.security_deposit = 'Please enter a valid amount';
+    }
+    
+    if (formData.monthly_fee && !/^\d+(\.\d{1,2})?$/.test(formData.monthly_fee)) {
+      newErrors.monthly_fee = 'Please enter a valid amount';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -416,7 +518,8 @@ export default function EditStudent() {
         // For now, we use the first file of multiple uploads as the API only accepts one file
         // In the future, the API could be updated to handle multiple files
         student_citizenship_image: citizenshipDocuments.length > 0 ? citizenshipDocuments[0] : null,
-        registration_form_image: registrationFormDocuments.length > 0 ? registrationFormDocuments[0] : null
+        registration_form_image: registrationFormDocuments.length > 0 ? registrationFormDocuments[0] : null,
+        physical_copy_image: physicalCopyDocuments.length > 0 ? physicalCopyDocuments[0] : null
       };
       
       // Submit form data
@@ -505,24 +608,16 @@ export default function EditStudent() {
                 />
                 
                 {/* Email */}
-                <div className="form-field">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="Enter email address"
-                    className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
-                      errors.email ? 'border-red-300' : ''
-                    }`}
-                  />
-                  {errors.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                  )}
-                </div>
+                <FormField
+                  name="email"
+                  label="Email Address"
+                  required
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  error={errors.email}
+                  placeholder="Enter email address"
+                />
                 
                 {/* Contact Number */}
                 <FormField
@@ -536,32 +631,33 @@ export default function EditStudent() {
                 />
                 
                 {/* Date of Birth */}
-                <div className="form-field">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    name="date_of_birth"
-                    value={formData.date_of_birth || ''}
-                    onChange={handleInputChange}
-                    className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
-                      errors.date_of_birth ? 'border-red-300' : ''
-                    }`}
-                  />
-                  {errors.date_of_birth && (
-                    <p className="mt-1 text-sm text-red-600">{errors.date_of_birth}</p>
-                  )}
-                </div>
+                <FormField
+                  name="date_of_birth"
+                  label="Date of Birth"
+                  type="date"
+                  value={formData.date_of_birth || ''}
+                  onChange={handleInputChange}
+                  error={errors.date_of_birth}
+                />
                 
                 {/* Blood Group */}
                 <FormField
                   name="blood_group"
                   label="Blood Group"
+                  type="select"
                   value={formData.blood_group || ''}
                   onChange={handleInputChange}
                   error={errors.blood_group}
-                  placeholder="e.g., A+, B-, O+"
+                  options={[
+                    { value: 'A+', label: 'A+' },
+                    { value: 'A-', label: 'A-' },
+                    { value: 'B+', label: 'B+' },
+                    { value: 'B-', label: 'B-' },
+                    { value: 'AB+', label: 'AB+' },
+                    { value: 'AB-', label: 'AB-' },
+                    { value: 'O+', label: 'O+' },
+                    { value: 'O-', label: 'O-' },
+                  ]}
                 />
 
                 {/* Room Selection */}
@@ -738,34 +834,53 @@ export default function EditStudent() {
             <div className="mb-8 border-t border-gray-200 pt-6">
               <h2 className="text-lg font-medium text-gray-900 mb-4">Health Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Blood Group */}
+                <FormField
+                  name="blood_group"
+                  label="Blood Group"
+                  type="select"
+                  value={formData.blood_group || ''}
+                  onChange={handleInputChange}
+                  error={errors.blood_group}
+                  options={[
+                    { value: 'A+', label: 'A+' },
+                    { value: 'A-', label: 'A-' },
+                    { value: 'B+', label: 'B+' },
+                    { value: 'B-', label: 'B-' },
+                    { value: 'AB+', label: 'AB+' },
+                    { value: 'AB-', label: 'AB-' },
+                    { value: 'O+', label: 'O+' },
+                    { value: 'O-', label: 'O-' },
+                  ]}
+                />
+                
                 {/* Food Preference */}
                 <FormField
                   name="food"
                   label="Food Preference"
+                  type="select"
                   value={formData.food || ''}
                   onChange={handleInputChange}
                   error={errors.food}
-                  placeholder="e.g., Vegetarian, Non-vegetarian"
+                  options={[
+                    { value: 'vegetarian', label: 'Vegetarian' },
+                    { value: 'non-vegetarian', label: 'Non-vegetarian' },
+                    { value: 'egg-only', label: 'Egg Only' }
+                  ]}
                 />
                 
                 {/* Disease/Health Issues */}
-                <div className="form-field md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Disease or Health Issues (if any)
-                  </label>
-                  <textarea
+                <div className="md:col-span-2">
+                  <FormField
                     name="disease"
+                    label="Disease or Health Issues (if any)"
+                    type="textarea"
                     value={formData.disease || ''}
                     onChange={handleInputChange}
+                    error={errors.disease}
                     placeholder="Enter any health conditions or allergies"
-                    className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
-                      errors.disease ? 'border-red-300' : ''
-                    }`}
                     rows={3}
                   />
-                  {errors.disease && (
-                    <p className="mt-1 text-sm text-red-600">{errors.disease}</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -982,6 +1097,220 @@ export default function EditStudent() {
                       setSelectedImage({ url: imageUrl, alt });
                       setImageModalOpen(true);
                     }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Administrative Details */}
+            <div className="mb-8 border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Administrative Details</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Student ID */}
+                <FormField
+                  name="student_id"
+                  label="Student ID"
+                  value={formData.student_id || ''}
+                  onChange={handleInputChange}
+                  error={errors.student_id}
+                />
+                
+                <div className="flex items-center mt-4">
+                  <input
+                    id="is_existing_student"
+                    name="is_existing_student"
+                    type="checkbox"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={formData.is_existing_student || false}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="is_existing_student" className="ml-2 text-sm font-semibold text-neutral-900">
+                    This is an existing student (staying before system implementation)
+                  </label>
+                </div>
+              </div>
+              
+              {/* Financial Details */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Admission Fee */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Admission Fee</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="admission_fee"
+                      value={formData.admission_fee || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.admission_fee && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <svg className="h-3.5 w-3.5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M12 8V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="12" cy="16" r="0.5" stroke="currentColor" strokeLinecap="round"/>
+                      </svg>
+                      {errors.admission_fee}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Form Fee */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Form Fee</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="form_fee"
+                      value={formData.form_fee || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.form_fee && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <svg className="h-3.5 w-3.5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M12 8V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="12" cy="16" r="0.5" stroke="currentColor" strokeLinecap="round"/>
+                      </svg>
+                      {errors.form_fee}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Security Deposit */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Security Deposit</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="security_deposit"
+                      value={formData.security_deposit || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.security_deposit && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <svg className="h-3.5 w-3.5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M12 8V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="12" cy="16" r="0.5" stroke="currentColor" strokeLinecap="round"/>
+                      </svg>
+                      {errors.security_deposit}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Monthly Hostel Fee */}
+                <div className="form-field">
+                  <label className="block text-sm font-semibold text-neutral-900">Monthly Hostel Fee</label>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium mr-2">Rs.</span>
+                    <input
+                      type="text"
+                      name="monthly_fee"
+                      value={formData.monthly_fee || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                  </div>
+                  {errors.monthly_fee && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <svg className="h-3.5 w-3.5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M12 8V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="12" cy="16" r="0.5" stroke="currentColor" strokeLinecap="round"/>
+                      </svg>
+                      {errors.monthly_fee}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Physical Copy Image */}
+              <div className="mt-4">
+                <h3 className="text-md font-medium text-gray-800 mb-3">Physical Copy Image (Optional)</h3>
+                <div className="w-full">
+                  <MultipleImageUploadEdit
+                    images={physicalCopyDocuments}
+                    existingImages={existingPhysicalCopyDoc}
+                    removedImageIds={removedPhysicalCopyDocIds}
+                    onAddImages={addPhysicalCopyDocuments}
+                    onRemoveImage={removePhysicalCopyImage}
+                    onRemoveExistingImage={(id) => {
+                      setRemovedPhysicalCopyDocIds(prev => [...prev, id]);
+                      setExistingPhysicalCopyDoc(prev => prev.filter(img => img.id !== id));
+                    }}
+                    error={errors.physical_copy_images}
+                    label="Upload Document"
+                    onImageClick={(imageUrl, alt) => {
+                      setSelectedImage({ url: imageUrl, alt });
+                      setImageModalOpen(true);
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Joining Date */}
+              <div className="mt-4">
+                <FormField
+                  name="joining_date"
+                  label="Joining Date"
+                  type="date"
+                  value={formData.joining_date || ''}
+                  onChange={handleInputChange}
+                  error={errors.joining_date}
+                />
+              </div>
+            </div>
+
+            {/* Verification */}
+            <div className="mb-8 border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Verification</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    id="declaration_agreed"
+                    name="declaration_agreed"
+                    type="checkbox"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={formData.declaration_agreed || false}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="declaration_agreed" className="ml-2 text-sm text-neutral-800">
+                    I hereby declare that all the information provided above is true and correct to the best of my knowledge.
+                  </label>
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    id="rules_agreed"
+                    name="rules_agreed"
+                    type="checkbox"
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={formData.rules_agreed || false}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="rules_agreed" className="ml-2 text-sm text-neutral-800">
+                    I agree to abide by all the rules and regulations of the hostel.
+                  </label>
+                </div>
+                
+                <div className="mt-4">
+                  <FormField
+                    name="verified_on"
+                    label="Verification Date (YYYY/MM/DD) AD"
+                    type="date"
+                    value={formData.verified_on || ''}
+                    onChange={handleInputChange}
+                    error={errors.verified_on}
                   />
                 </div>
               </div>
