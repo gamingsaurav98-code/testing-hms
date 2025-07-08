@@ -38,6 +38,14 @@ export type {
   BlockForNotice
 } from './notice.api';
 
+// Import inquiry API types
+export type {
+  Inquiry,
+  InquiryFormData,
+  InquirySeater,
+  Attachment as InquiryAttachment
+} from './types/inquiry.types';
+
 // Re-export APIs
 export { blockApi } from './block.api';
 export { roomApi } from './room.api';
@@ -46,3 +54,4 @@ export { studentApi } from './student.api';
 export { supplierApi } from './supplier.api';
 export { supplierFinancialApi } from './supplier-financial.api';
 export { noticeApi } from './notice.api';
+export { inquiryApi } from './inquiry.api';

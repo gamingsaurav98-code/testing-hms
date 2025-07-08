@@ -50,6 +50,19 @@ export const roomApi = {
     return handleResponse<Room>(response);
   },
   
+  // Get rooms by block ID
+  async getRoomsByBlock(blockId: string): Promise<{data: Room[]}> {
+    const response = await fetch(`${API_BASE_URL}/rooms?block_id=${blockId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return handleResponse<{data: Room[]}>(response);
+  },
+  
   // Get all students in a room
   async getRoomStudents(roomId: string): Promise<Student[]> {
     const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/students`, {

@@ -12,6 +12,8 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierFinancialController;
 use App\Http\Controllers\NoticeController;
+use App\Http\Controllers\InquiryController;
+use App\Http\Controllers\InquirySeaterController;
 
 Route::apiResource('blocks', BlockController::class);
 Route::apiResource('complains', ComplainController::class);
@@ -21,6 +23,8 @@ Route::apiResource('income-types', IncomeTypeController::class);
 Route::apiResource('payment-types', PaymentTypeController::class);
 Route::apiResource('students', StudentController::class);
 Route::apiResource('suppliers', SupplierController::class);
+Route::apiResource('inquiries', InquiryController::class);
+Route::apiResource('inquiry-seaters', InquirySeaterController::class);
 
 Route::post('incomes/{id}/attachment', [IncomeController::class, 'uploadAttachment']);
 Route::post('suppliers/{id}/attachment', [SupplierController::class, 'uploadAttachment']);
@@ -45,6 +49,14 @@ Route::get('notices/user', [NoticeController::class, 'getNoticesForUser'])->midd
 Route::get('notices-create/students', [NoticeController::class, 'getStudentsForNotice']);
 Route::get('notices-create/staff', [NoticeController::class, 'getStaffForNotice']);
 Route::get('notices-create/blocks', [NoticeController::class, 'getBlocksForNotice']);
+
+// Inquiry routes
+Route::delete('inquiries/{inquiryId}/attachments/{attachmentId}', [InquiryController::class, 'deleteAttachment']);
+Route::get('inquiries/block/{blockId}', [InquiryController::class, 'getInquiriesByBlock']);
+
+// Inquiry Seater routes
+Route::get('inquiry-seaters/inquiry/{inquiryId}', [InquirySeaterController::class, 'getSeatersByInquiry']);
+Route::get('inquiry-seaters/room/{roomId}', [InquirySeaterController::class, 'getSeatersByRoom']);
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
