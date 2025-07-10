@@ -219,6 +219,14 @@ export default function CreateExpense() {
     }
     
     setPurchases(updatedPurchases);
+    
+    // Calculate and update the total amount immediately
+    const newTotal = updatedPurchases.reduce((sum, purchase) => {
+      return sum + (typeof purchase.total_amount === 'number' ? purchase.total_amount : 0);
+    }, 0);
+    
+    // Update total amount state
+    setTotalAmount(newTotal);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -548,6 +556,20 @@ export default function CreateExpense() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Total Amount Line */}
+                <div className="flex justify-end items-center mt-4 mb-4">
+                  <div className="bg-gray-100 px-4 py-3 rounded-lg border border-gray-200">
+                    <span className="text-gray-700 font-medium mr-4">Total Amount:</span>
+                    <span className="text-lg font-bold text-gray-900">Rs.{(() => {
+                      // Calculate total directly from purchases for accuracy
+                      const calculatedTotal = purchases.reduce((sum, p) => {
+                        return sum + (typeof p.total_amount === 'number' ? p.total_amount : 0);
+                      }, 0);
+                      return calculatedTotal.toFixed(2);
+                    })()}</span>
                   </div>
                 </div>
 

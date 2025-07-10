@@ -59,6 +59,7 @@ export default function EditExpense() {
   const [paymentStatus, setPaymentStatus] = useState<string>('');
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [dueAmount, setDueAmount] = useState<number>(0);
   const [showPaymentAmount, setShowPaymentAmount] = useState<boolean>(false);
 
   // Calculate total amount from purchases
@@ -72,9 +73,24 @@ export default function EditExpense() {
     // Make sure total is a valid number
     const safeTotal = isNaN(total) ? 0 : total;
     
+    // Update total amount state and form data
     setTotalAmount(safeTotal);
     setFormData(prev => ({ ...prev, amount: safeTotal }));
-  }, [purchases]);
+    
+    // Also update payment amount and due amount based on payment status
+    if (paymentStatus === 'paid') {
+      setPaymentAmount(safeTotal);
+      setDueAmount(0);
+    } else if (paymentStatus === 'partially_paid') {
+      // Keep existing payment amount, but ensure it doesn't exceed new total
+      setPaymentAmount(prev => Math.min(prev || 0, safeTotal));
+      // Recalculate due amount
+      setDueAmount(Math.max(0, safeTotal - (paymentAmount || 0)));
+    } else if (paymentStatus === 'credit') {
+      setPaymentAmount(0);
+      setDueAmount(safeTotal);
+    }
+  }, [purchases, paymentStatus]);
 
   // Load initial data and expense details
   useEffect(() => {
@@ -83,8 +99,12 @@ export default function EditExpense() {
         setIsLoadingData(true);
         setError(null);
         
-        const [expenseResponse, categoriesResponse, suppliersResponse, studentsResponse] = await Promise.all([
-          expenseApi.getExpense(params.id as string),
+        // Get expense data directly for debugging
+        const expenseResponse = await expenseApi.getExpense(params.id as string);
+        console.log('API Response - Raw Expense Data:', JSON.stringify(expenseResponse));
+        
+        // Continue with other API calls
+        const [categoriesResponse, suppliersResponse, studentsResponse] = await Promise.all([
           expenseCategoryApi.getExpenseCategories(),
           supplierApi.getSuppliers(),
           studentApi.getStudents()
@@ -129,6 +149,9 @@ export default function EditExpense() {
           purchases: []
         });
         
+        // Set initial total amount from the response
+        setTotalAmount(expenseResponse.amount || 0);
+        
         // Set payment status from the response
         if (expenseResponse.payment_status) {
           setPaymentStatus(expenseResponse.payment_status);
@@ -137,26 +160,66 @@ export default function EditExpense() {
           if (expenseResponse.payment_status === 'partially_paid') {
             setShowPaymentAmount(true);
             setPaymentAmount(expenseResponse.paid_amount || 0);
+            setDueAmount(Math.max(0, (expenseResponse.amount || 0) - (expenseResponse.paid_amount || 0)));
           } else if (expenseResponse.payment_status === 'paid') {
             setShowPaymentAmount(false);
             setPaymentAmount(expenseResponse.amount || 0);
+            setDueAmount(0);
           } else {
+            // Credit status
             setShowPaymentAmount(false);
             setPaymentAmount(0);
+            setDueAmount(expenseResponse.amount || 0);
           }
+        } else {
+          // Default to credit if no status is set
+          setPaymentStatus('credit');
+          setShowPaymentAmount(false);
+          setPaymentAmount(0);
+          setDueAmount(expenseResponse.amount || 0);
+        }
+        
+        // Detailed debug logging
+        console.log('Expense Response Data Structure:', {
+          id: expenseResponse.id,
+          amount: expenseResponse.amount,
+          payment_status: expenseResponse.payment_status,
+          purchases_count: expenseResponse.purchases?.length || 0
+        });
+        
+        if (expenseResponse.purchases) {
+          console.log('Purchase Details:', expenseResponse.purchases.map(p => ({
+            name: p.item_name,
+            quantity: p.item_quantity,
+            unit_price: p.item_unit_price,
+            total: p.total_amount
+          })));
         }
         
         // Set purchases if they exist
         if (expenseResponse.purchases && expenseResponse.purchases.length > 0) {
           const purchasesData = expenseResponse.purchases.map(purchase => ({
             item_name: purchase.item_name,
-            item_quantity: purchase.item_quantity,
-            item_price: purchase.item_price,
-            item_unit_price: purchase.item_unit_price,
+            item_quantity: Number(purchase.item_quantity) || 0,  // Ensure numeric type
+            item_price: Number(purchase.item_price) || 0,        // Ensure numeric type
+            item_unit_price: Number(purchase.item_unit_price) || 0, // Ensure numeric type
             purchase_date: purchase.purchase_date,
-            total_amount: purchase.total_amount
+            total_amount: Number(purchase.total_amount) || 0     // Ensure numeric type
           }));
+          
+          // Calculate total from purchases immediately and log it
+          const calculatedTotal = purchasesData.reduce((sum, p) => sum + p.total_amount, 0);
+          console.log('Calculated Total from Purchases:', calculatedTotal);
+          
+          // Update the state with the purchase data and calculated total
           setPurchases(purchasesData);
+          setTotalAmount(calculatedTotal);
+          
+          // Also update form data with the calculated total
+          setFormData(prev => ({
+            ...prev,
+            amount: calculatedTotal
+          }));
         } else {
           // Always add one product field by default if no purchases exist
           const defaultPurchase: PurchaseFormData = {
@@ -217,7 +280,23 @@ export default function EditExpense() {
     // Allow empty string in the input but store as 0 for calculations
     const amount = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
     setPaymentAmount(amount);
+    
+    // Update due amount when payment amount changes
+    if (paymentStatus === 'partially_paid') {
+      setDueAmount(Math.max(0, totalAmount - amount));
+    }
   };
+  
+  // Effect to update due amount whenever payment amount or total changes
+  useEffect(() => {
+    if (paymentStatus === 'paid') {
+      setDueAmount(0);
+    } else if (paymentStatus === 'partially_paid') {
+      setDueAmount(Math.max(0, totalAmount - paymentAmount));
+    } else {
+      setDueAmount(totalAmount);
+    }
+  }, [paymentAmount, totalAmount, paymentStatus]);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -259,6 +338,8 @@ export default function EditExpense() {
   };
 
   const updatePurchase = (index: number, field: keyof PurchaseFormData, value: any) => {
+    console.log(`Updating purchase at index ${index}, field: ${field}, value: ${value}`);
+    
     const updatedPurchases = [...purchases];
     updatedPurchases[index] = {
       ...updatedPurchases[index],
@@ -278,15 +359,12 @@ export default function EditExpense() {
       updatedPurchases[index].item_price = value; // Set item_price to match total_amount
     }
     
-    // When quantity is updated, recalculate unit price from current subtotal
+    // When quantity is updated, recalculate subtotal based on unit price
     if (field === 'item_quantity') {
-      const totalAmount = updatedPurchases[index].total_amount;
-      
-      if (value > 0) {
-        updatedPurchases[index].item_unit_price = totalAmount / value;
-      } else {
-        updatedPurchases[index].item_unit_price = 0;
-      }
+      const unitPrice = updatedPurchases[index].item_unit_price;
+      const newTotalAmount = value * unitPrice;
+      updatedPurchases[index].total_amount = newTotalAmount;
+      updatedPurchases[index].item_price = newTotalAmount;
     }
     
     // When unit price is updated, calculate subtotal based on quantity
@@ -298,6 +376,19 @@ export default function EditExpense() {
     }
     
     setPurchases(updatedPurchases);
+    
+    // Calculate and update the total amount immediately
+    const newTotal = updatedPurchases.reduce((sum, purchase) => {
+      const amount = typeof purchase.total_amount === 'number' ? purchase.total_amount : 0;
+      console.log(`Purchase in calculation: ${purchase.item_name}, Amount: ${amount}`);
+      return sum + amount;
+    }, 0);
+    
+    console.log('New calculated total:', newTotal);
+    
+    // Update total amount state and form data
+    setTotalAmount(newTotal);
+    setFormData(prev => ({ ...prev, amount: newTotal }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -671,6 +762,24 @@ export default function EditExpense() {
                   </div>
                 </div>
 
+                {/* Total Amount Line */}
+                <div className="flex justify-end items-center mt-4 mb-4">
+                  <div className="bg-gray-100 px-4 py-3 rounded-lg border border-gray-200">
+                    <span className="text-gray-700 font-medium mr-4">Total Amount:</span>
+                    <span className="text-lg font-bold text-gray-900">Rs.{(() => {
+                      // Calculate total directly from purchases for accuracy
+                      const calculatedTotal = purchases.reduce((sum, p) => {
+                        // Always force to number type for reliable calculation
+                        const amount = Number(p.total_amount) || 0;
+                        console.log(`Total line - Purchase: ${p.item_name}, Amount: ${amount}, Type: ${typeof amount}`);
+                        return sum + amount;
+                      }, 0);
+                      console.log('Final Total amount line:', calculatedTotal);
+                      return calculatedTotal.toFixed(2);
+                    })()}</span>
+                  </div>
+                </div>
+
                 {/* Date and Payment Status Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   
@@ -735,7 +844,7 @@ export default function EditExpense() {
                         {paymentAmount > 0 && (
                           <div className="text-sm font-medium">
                             <span className="text-amber-600">Due to add to supplier: </span>
-                            <span className="text-amber-700 font-semibold">Rs.{Math.max(0, (typeof totalAmount === 'number' && typeof paymentAmount === 'number') ? totalAmount - paymentAmount : 0).toFixed(2)}</span>
+                            <span className="text-amber-700 font-semibold">Rs.{Math.max(0, totalAmount - paymentAmount).toFixed(2)}</span>
                           </div>
                         )}
                       </div>
@@ -785,7 +894,17 @@ export default function EditExpense() {
                     <div className="border-t border-blue-200 pt-2 mt-2">
                       <div className="flex justify-between">
                         <span className="text-blue-700 font-medium">Total Amount:</span>
-                        <span className="font-bold text-blue-900">Rs.{(typeof totalAmount === 'number' ? totalAmount : 0).toFixed(2)}</span>
+                        <span className="font-bold text-blue-900">Rs.{(() => {
+                            // Calculate directly from purchases for accuracy
+                            const calculatedTotal = purchases.reduce((sum, p) => {
+                              // Always force to number type to avoid string concatenation issues
+                              const amount = Number(p.total_amount) || 0;
+                              console.log(`Purchase in summary: ${p.item_name}, Amount: ${amount}`);
+                              return sum + amount;
+                            }, 0);
+                            console.log('Final Summary Total:', calculatedTotal);
+                            return calculatedTotal.toFixed(2);
+                          })()}</span>
                       </div>
                     </div>
                     
@@ -812,21 +931,13 @@ export default function EditExpense() {
                     <div className="flex justify-between">
                       <span className="text-blue-700">Paid Amount:</span>
                       <span className="font-medium text-blue-900">
-                        Rs.{paymentStatus === 'paid' 
-                          ? (typeof totalAmount === 'number' ? totalAmount : 0).toFixed(2) 
-                          : paymentStatus === 'partially_paid' 
-                            ? (typeof paymentAmount === 'number' ? paymentAmount : 0).toFixed(2) 
-                            : '0.00'}
+                        Rs.{(typeof paymentAmount === 'number' ? paymentAmount : 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-blue-700">Due Amount:</span>
                       <span className="font-medium text-blue-900">
-                        Rs.{paymentStatus === 'paid' 
-                          ? '0.00' 
-                          : paymentStatus === 'partially_paid' 
-                            ? (typeof totalAmount === 'number' && typeof paymentAmount === 'number' ? Math.max(0, totalAmount - paymentAmount) : 0).toFixed(2) 
-                            : (typeof totalAmount === 'number' ? totalAmount : 0).toFixed(2)}
+                        Rs.{(typeof dueAmount === 'number' ? dueAmount : 0).toFixed(2)}
                       </span>
                     </div>
                   </div>
