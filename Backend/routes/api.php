@@ -18,6 +18,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StudentCheckInCheckOutController;
 
 Route::apiResource('blocks', BlockController::class);
 Route::apiResource('complains', ComplainController::class);
@@ -33,6 +34,14 @@ Route::apiResource('expenses', ExpenseController::class);
 Route::apiResource('expense-categories', ExpenseCategoryController::class);
 Route::apiResource('salaries', SalaryController::class);
 Route::apiResource('staff', StaffController::class);
+
+// Student Check-in/Check-out routes
+Route::apiResource('student-checkincheckouts', StudentCheckInCheckOutController::class);
+Route::post('student-checkincheckouts/checkin', [StudentCheckInCheckOutController::class, 'checkIn']);
+Route::post('student-checkincheckouts/checkout', [StudentCheckInCheckOutController::class, 'checkOut']);
+Route::get('student-checkincheckouts/today/attendance', [StudentCheckInCheckOutController::class, 'getTodayAttendance']);
+Route::post('student-checkincheckouts/{id}/approve-checkout', [StudentCheckInCheckOutController::class, 'approveCheckout']);
+Route::post('student-checkincheckouts/{id}/decline-checkout', [StudentCheckInCheckOutController::class, 'declineCheckout']);
 
 Route::post('incomes/{id}/attachment', [IncomeController::class, 'uploadAttachment']);
 Route::post('suppliers/{id}/attachment', [SupplierController::class, 'uploadAttachment']);
