@@ -256,17 +256,22 @@ export default function StudentCheckinCheckoutList() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatTime(record.checkout_time)}
+                      <div className="flex flex-col">
+                        <div className="text-sm text-gray-500">
+                          {formatDate(record.date)}
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatTime(record.checkout_time)}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatTime(record.checkin_time)}
-                        </div>
                         <div className="text-sm text-gray-500">
                           {formatDate(record.date)}
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatTime(record.checkin_time)}
                         </div>
                       </div>
                     </td>
