@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('student_financials', function (Blueprint $table) {
-            $table->dropColumn('physical_copy_image');
+        Schema::create('staff_amenities', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('staff_id')->constrained()->onDelete('cascade');
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->timestamps();
         });
     }
 
@@ -21,8 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('student_financials', function (Blueprint $table) {
-            $table->string('physical_copy_image')->nullable();
-        });
+        Schema::dropIfExists('staff_amenities');
     }
 };

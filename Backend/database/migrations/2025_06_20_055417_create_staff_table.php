@@ -50,6 +50,14 @@ return new class extends Migration
             $table->string('staff_contract_image')->nullable();
             $table->string('staff_image')->nullable();
             $table->string('staff_citizenship_image')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->string('position')->nullable();
+            $table->string('department')->nullable();
+            $table->date('joining_date')->nullable();
+            $table->string('salary_amount')->nullable();
+            $table->enum('employment_type', ['full-time', 'part-time', 'contract', 'intern'])->nullable();
+            $table->boolean('declaration_agreed')->default(false);
+            $table->boolean('contract_agreed')->default(false);
             $table->timestamps();
         });
     }

@@ -19,6 +19,8 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StaffFinancialController;
+use App\Http\Controllers\StaffCheckInCheckOutController;
 use App\Http\Controllers\StudentCheckInCheckOutController;
 
 Route::apiResource('blocks', BlockController::class);
@@ -39,6 +41,10 @@ Route::apiResource('expenses', ExpenseController::class);
 Route::apiResource('expense-categories', ExpenseCategoryController::class);
 Route::apiResource('salaries', SalaryController::class);
 Route::apiResource('staff', StaffController::class);
+Route::get('staff/fields/metadata', [StaffController::class, 'getFields']);
+Route::apiResource('staff-financials', StaffFinancialController::class);
+Route::get('staff-financials/fields/metadata', [StaffFinancialController::class, 'getFields']);
+Route::get('staff/{id}/financials', [StaffFinancialController::class, 'getStaffFinancials']);
 
 // Student Check-in/Check-out routes
 Route::apiResource('student-checkincheckouts', StudentCheckInCheckOutController::class);
@@ -47,6 +53,14 @@ Route::post('student-checkincheckouts/checkout', [StudentCheckInCheckOutControll
 Route::get('student-checkincheckouts/today/attendance', [StudentCheckInCheckOutController::class, 'getTodayAttendance']);
 Route::post('student-checkincheckouts/{id}/approve-checkout', [StudentCheckInCheckOutController::class, 'approveCheckout']);
 Route::post('student-checkincheckouts/{id}/decline-checkout', [StudentCheckInCheckOutController::class, 'declineCheckout']);
+
+// Staff Check-in/Check-out routes
+Route::apiResource('staff-checkincheckouts', StaffCheckInCheckOutController::class);
+Route::post('staff-checkincheckouts/checkin', [StaffCheckInCheckOutController::class, 'checkIn']);
+Route::post('staff-checkincheckouts/checkout', [StaffCheckInCheckOutController::class, 'checkOut']);
+Route::get('staff-checkincheckouts/today/attendance', [StaffCheckInCheckOutController::class, 'getTodayAttendance']);
+Route::post('staff-checkincheckouts/{id}/approve-checkout', [StaffCheckInCheckOutController::class, 'approveCheckout']);
+Route::post('staff-checkincheckouts/{id}/decline-checkout', [StaffCheckInCheckOutController::class, 'declineCheckout']);
 
 Route::post('incomes/{id}/attachment', [IncomeController::class, 'uploadAttachment']);
 Route::post('suppliers/{id}/attachment', [SupplierController::class, 'uploadAttachment']);

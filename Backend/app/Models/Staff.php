@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\User;
 use App\Models\Salary;
 use App\Models\SalaryPayment;
@@ -15,6 +16,7 @@ use App\Models\Notice;
 use App\Models\Expense;
 use App\Models\Complain;
 use App\Models\Attachment;
+use App\Models\StaffAmenities;
 
 class Staff extends Model
 {
@@ -56,6 +58,14 @@ class Staff extends Model
         'staff_contract_image',
         'staff_image',
         'staff_citizenship_image',
+        'is_active',
+        'position',
+        'department',
+        'joining_date',
+        'salary_amount',
+        'employment_type',
+        'declaration_agreed',
+        'contract_agreed',
     ];
     public function user()
     {
@@ -117,5 +127,45 @@ class Staff extends Model
     public function attachments()
     {
         return $this->hasMany(Attachment::class);
+    }
+    
+    public function amenities()
+    {
+        return $this->hasMany(StaffAmenities::class);
+    }
+    
+    /**
+     * Scope a query to only include active staff
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActive(Builder $query)
+    {
+        return $query->where('is_active', true);
+    }
+    
+    /**
+     * Scope a query to filter by department
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $department
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeByDepartment(Builder $query, $department)
+    {
+        return $query->where('department', $department);
+    }
+    
+    /**
+     * Scope a query to filter by position
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $position
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeByPosition(Builder $query, $position)
+    {
+        return $query->where('position', $position);
     }
 }
