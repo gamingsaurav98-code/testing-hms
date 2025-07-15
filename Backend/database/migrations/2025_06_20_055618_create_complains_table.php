@@ -19,6 +19,15 @@ return new class extends Migration
             $table->string('complain_attachment')->nullable();
             $table->text('description');
             $table->enum('status', ['pending', 'resolved', 'closed'])->default('pending');
+            
+            // Chat-related fields
+            $table->integer('total_messages')->default(0);
+            $table->integer('unread_admin_messages')->default(0);
+            $table->integer('unread_student_messages')->default(0);
+            $table->integer('unread_staff_messages')->default(0);
+            $table->timestamp('last_message_at')->nullable();
+            $table->string('last_message_by')->nullable(); // 'admin', 'student', 'staff'
+            
             $table->timestamps();
         });
     }

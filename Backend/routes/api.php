@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\ComplainController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\IncomeController;
 use App\Http\Controllers\IncomeTypeController;
@@ -117,6 +118,16 @@ Route::get('inquiries/block/{blockId}', [InquiryController::class, 'getInquiries
 // Inquiry Seater routes
 Route::get('inquiry-seaters/inquiry/{inquiryId}', [InquirySeaterController::class, 'getSeatersByInquiry']);
 Route::get('inquiry-seaters/room/{roomId}', [InquirySeaterController::class, 'getSeatersByRoom']);
+
+// Chat routes for complaint communication
+Route::prefix('chats')->group(function () {
+    Route::get('/complaint/{complainId}', [App\Http\Controllers\ChatController::class, 'getComplaintChats']);
+    Route::post('/send', [App\Http\Controllers\ChatController::class, 'sendMessage']);
+    Route::put('/{chatId}/edit', [App\Http\Controllers\ChatController::class, 'editMessage']);
+    Route::delete('/{chatId}', [App\Http\Controllers\ChatController::class, 'deleteMessage']);
+    Route::post('/mark-read', [App\Http\Controllers\ChatController::class, 'markAsRead']);
+    Route::get('/unread-count', [App\Http\Controllers\ChatController::class, 'getUnreadCount']);
+});
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
