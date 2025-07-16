@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
-import { Loader, Edit, Trash, X, Download, Image, File, Upload, Plus } from 'lucide-react';
+import { Loader, Edit, Trash, Plus } from 'lucide-react';
 import { chatApi, ChatMessage, ChatResponse, SendMessageRequest } from '@/lib/api/chat.api';
 
 interface ChatInterfaceProps {
@@ -40,11 +40,9 @@ export default function ChatInterface({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
-  const [attachments, setAttachments] = useState<File[]>([]);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load chat messages
   const loadChats = async () => {
@@ -64,8 +62,6 @@ export default function ChatInterface({
     try {
       await chatApi.markAsRead({
         complain_id: complainId,
-        reader_id: currentUserId,
-        reader_type: currentUserType,
       });
     } catch (error) {
       console.error('Error marking as read:', error);
@@ -88,28 +84,20 @@ export default function ChatInterface({
 
   // Send new message
   const handleSendMessage = async () => {
-    if (!message.trim() && attachments.length === 0) return;
+    if (!message.trim()) return;
 
     try {
       setSending(true);
       
       const sendData: SendMessageRequest = {
         complain_id: complainId,
-        sender_id: currentUserId,
-        sender_type: currentUserType,
         message: message.trim(),
-        message_type: attachments.length > 0 ? 'file' : 'text',
-        attachments: attachments,
       };
 
       await chatApi.sendMessage(sendData);
       
       // Clear form
       setMessage('');
-      setAttachments([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
       
       // Reload chats
       await loadChats();
@@ -127,8 +115,6 @@ export default function ChatInterface({
     try {
       await chatApi.editMessage(messageId, {
         message: editingText.trim(),
-        sender_id: currentUserId,
-        sender_type: currentUserType,
       });
       
       setEditingMessageId(null);
@@ -144,36 +130,32 @@ export default function ChatInterface({
     if (!confirm('Are you sure you want to delete this message?')) return;
 
     try {
-      await chatApi.deleteMessage(messageId, currentUserId, currentUserType);
+      await chatApi.deleteMessage(messageId);
       await loadChats();
     } catch (error) {
       console.error('Error deleting message:', error);
     }
   };
 
-  // Handle file selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setAttachments(prev => [...prev, ...files]);
-  };
+  // Handle file selection - removed for simplified version
+  // const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   // File upload functionality removed
+  // };
 
-  // Remove attachment
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
-  };
+  // Remove attachment - removed for simplified version  
+  // const removeAttachment = (index: number) => {
+  //   // File upload functionality removed
+  // };
 
-  // Format file size
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  // Format file size - removed for simplified version
+  // const formatFileSize = (bytes: number) => {
+  //   // File upload functionality removed
+  // };
 
   // Render message
   const renderMessage = (msg: ChatMessage) => {
-    const isOwnMessage = msg.sender_id === currentUserId && msg.sender_type === currentUserType;
+    // For now, assume all messages from admin are "own messages" since we're in admin interface
+    const isOwnMessage = currentUserType === 'admin';
     const isEditing = editingMessageId === msg.id;
 
     return (
@@ -186,18 +168,16 @@ export default function ChatInterface({
             isOwnMessage
               ? 'bg-blue-500 text-white'
               : 'bg-gray-100 text-gray-900'
-          } ${msg.is_deleted ? 'opacity-50' : ''}`}
+          }`}
         >
           {/* Sender name */}
           <div className={`text-xs ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'} mb-1`}>
-            {msg.sender_name}
+            {msg.sender_name || (isOwnMessage ? currentUserName : 'User')}
             {msg.sender_type === 'admin' && ' (Admin)'}
           </div>
 
           {/* Message content */}
-          {msg.is_deleted ? (
-            <div className="italic text-sm">This message was deleted</div>
-          ) : isEditing ? (
+          {isEditing ? (
             <div className="space-y-2">
               <textarea
                 value={editingText}
@@ -227,37 +207,7 @@ export default function ChatInterface({
               </div>
             </div>
           ) : (
-            <>
-              <div className="text-sm whitespace-pre-wrap">{msg.message}</div>
-              
-              {/* Attachments */}
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {msg.attachments.map((attachment, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-2 p-2 rounded ${
-                        isOwnMessage ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                    >
-                      {attachment.mime_type.startsWith('image/') ? (
-                        <Image className="w-4 h-4" />
-                      ) : (
-                        <File className="w-4 h-4" />
-                      )}
-                      <span className="text-xs flex-1">{attachment.filename}</span>
-                      <span className="text-xs">{formatFileSize(attachment.size)}</span>
-                      <button
-                        className="p-1 hover:bg-gray-300 rounded"
-                        onClick={() => window.open(attachment.path, '_blank')}
-                      >
-                        <Download className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="text-sm whitespace-pre-wrap">{msg.message}</div>
           )}
 
           {/* Message metadata */}
@@ -269,38 +219,27 @@ export default function ChatInterface({
               {msg.is_edited && ' (edited)'}
             </div>
             
-            {/* Action buttons */}
-            {isOwnMessage && !msg.is_deleted && !isEditing && (
+            {/* Action buttons - only show for admin messages */}
+            {isOwnMessage && !isEditing && (
               <div className="flex gap-1">
-                {msg.can_edit && (
-                  <button
-                    className="p-1 hover:bg-gray-300 rounded"
-                    onClick={() => {
-                      setEditingMessageId(msg.id);
-                      setEditingText(msg.message);
-                    }}
-                  >
-                    <Edit className="w-3 h-3" />
-                  </button>
-                )}
-                {msg.can_delete && (
-                  <button
-                    className="p-1 hover:bg-gray-300 rounded"
-                    onClick={() => handleDeleteMessage(msg.id)}
-                  >
-                    <Trash className="w-3 h-3" />
-                  </button>
-                )}
+                <button
+                  className="p-1 hover:bg-gray-300 rounded"
+                  onClick={() => {
+                    setEditingMessageId(msg.id);
+                    setEditingText(msg.message);
+                  }}
+                >
+                  <Edit className="w-3 h-3" />
+                </button>
+                <button
+                  className="p-1 hover:bg-gray-300 rounded"
+                  onClick={() => handleDeleteMessage(msg.id)}
+                >
+                  <Trash className="w-3 h-3" />
+                </button>
               </div>
             )}
           </div>
-
-          {/* Edit time remaining */}
-          {isOwnMessage && !msg.is_deleted && msg.can_edit && msg.edit_time_remaining > 0 && (
-            <div className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
-              Can edit for {Math.floor(msg.edit_time_remaining / 60)} more minutes
-            </div>
-          )}
         </div>
       </div>
     );
@@ -342,45 +281,8 @@ export default function ChatInterface({
       </div>
 
       {/* Message input */}
-      <div className="border-t p-3 space-y-2">
-        {/* Attachments preview */}
-        {attachments.length > 0 && (
-          <div className="space-y-1">
-            {attachments.map((file, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                <File className="w-4 h-4" />
-                <span className="text-sm flex-1">{file.name}</span>
-                <span className="text-sm text-gray-500">{formatFileSize(file.size)}</span>
-                <button
-                  className="p-1 hover:bg-gray-300 rounded"
-                  onClick={() => removeAttachment(index)}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Input area */}
+      <div className="border-t p-3">
         <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => fileInputRef.current?.click()}
-            className="shrink-0"
-          >
-            <Upload className="w-4 h-4" />
-          </Button>
-          
           <textarea
             value={message}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
@@ -397,7 +299,7 @@ export default function ChatInterface({
           
           <Button
             onClick={handleSendMessage}
-            disabled={sending || (!message.trim() && attachments.length === 0)}
+            disabled={sending || !message.trim()}
             className="shrink-0"
           >
             {sending ? (

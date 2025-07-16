@@ -3,28 +3,20 @@ import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
 export interface ChatMessage {
   id: number;
   complain_id: number;
-  sender_id: number;
-  sender_type: 'admin' | 'student' | 'staff';
-  sender_name: string;
   message: string;
-  original_message?: string;
   is_edited: boolean;
   is_read: boolean;
-  is_deleted: boolean;
-  message_type: 'text' | 'file' | 'image';
-  attachments?: Array<{
-    filename: string;
-    path: string;
-    size: number;
-    mime_type: string;
-  }>;
-  can_edit: boolean;
-  can_delete: boolean;
-  edit_time_remaining: number;
-  created_at: string;
-  edited_at?: string;
   read_at?: string;
-  deleted_at?: string;
+  created_at: string;
+  updated_at: string;
+  // Additional fields that might be added by the controller
+  sender_name?: string;
+  sender_type?: 'admin' | 'student' | 'staff';
+  formatted_time?: string;
+  preview?: string;
+  can_edit?: boolean;
+  can_delete?: boolean;
+  edit_time_remaining?: number;
 }
 
 export interface ChatComplaint {
@@ -42,23 +34,15 @@ export interface ChatResponse {
 
 export interface SendMessageRequest {
   complain_id: number;
-  sender_id: number;
-  sender_type: 'admin' | 'student' | 'staff';
-  message?: string;
-  message_type?: 'text' | 'file' | 'image';
-  attachments?: File[];
+  message: string;
 }
 
 export interface EditMessageRequest {
   message: string;
-  sender_id: number;
-  sender_type: 'admin' | 'student' | 'staff';
 }
 
 export interface MarkAsReadRequest {
   complain_id: number;
-  reader_id: number;
-  reader_type: 'admin' | 'student' | 'staff';
 }
 
 export interface UnreadCountRequest {
@@ -88,34 +72,13 @@ export const chatApi = {
    * Send a new chat message
    */
   async sendMessage(data: SendMessageRequest): Promise<ChatMessage> {
-    const formData = new FormData();
-    
-    // Add basic fields
-    formData.append('complain_id', data.complain_id.toString());
-    formData.append('sender_id', data.sender_id.toString());
-    formData.append('sender_type', data.sender_type);
-    
-    if (data.message) {
-      formData.append('message', data.message);
-    }
-    
-    if (data.message_type) {
-      formData.append('message_type', data.message_type);
-    }
-    
-    // Add attachments if any
-    if (data.attachments && data.attachments.length > 0) {
-      data.attachments.forEach((file, index) => {
-        formData.append(`attachments[${index}]`, file);
-      });
-    }
-
     const response = await fetch(`${API_BASE_URL}/chats/send`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify(data),
     });
     
     const result = await handleResponse<{ data: ChatMessage }>(response);
@@ -142,17 +105,13 @@ export const chatApi = {
   /**
    * Delete a chat message
    */
-  async deleteMessage(chatId: number, senderId: number, senderType: 'admin' | 'student' | 'staff'): Promise<void> {
+  async deleteMessage(chatId: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
       method: 'DELETE',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        sender_id: senderId,
-        sender_type: senderType,
-      }),
     });
     
     return handleResponse<void>(response);

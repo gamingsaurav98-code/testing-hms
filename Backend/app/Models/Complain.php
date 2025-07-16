@@ -16,19 +16,20 @@ class Complain extends Model
         'complain_attachment',
         'description',
         'status',
-        'last_message_at',
-        'last_message_preview',
-        'last_message_sender_type',
         'total_messages',
-        'unread_messages_count',
-        'has_unread_admin_messages',
-        'has_unread_user_messages',
+        'unread_admin_messages',
+        'unread_student_messages',
+        'unread_staff_messages',
+        'last_message_at',
+        'last_message_by',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
-        'has_unread_admin_messages' => 'boolean',
-        'has_unread_user_messages' => 'boolean',
+        'total_messages' => 'integer',
+        'unread_admin_messages' => 'integer',
+        'unread_student_messages' => 'integer',
+        'unread_staff_messages' => 'integer',
     ];
 
 
@@ -77,7 +78,7 @@ class Complain extends Model
      */
     public function orderedChats()
     {
-        return $this->hasMany(Chat::class)->notDeleted()->orderBy('created_at', 'asc');
+        return $this->hasMany(Chat::class)->orderBy('created_at', 'asc');
     }
     
     /**
@@ -85,71 +86,71 @@ class Complain extends Model
      */
     public function updateChatStatistics()
     {
-        $latestMessage = $this->chats()->notDeleted()->latest()->first();
-        
-        if ($latestMessage) {
-            $this->update([
-                'last_message_at' => $latestMessage->created_at,
-                'last_message_preview' => \Str::limit($latestMessage->message, 100),
-                'last_message_sender_type' => $latestMessage->sender_type,
-                'total_messages' => $this->chats()->notDeleted()->count(),
-            ]);
-        }
-        
-        $this->updateUnreadCounts();
-    }
-    
-    /**
-     * Update unread message counts
-     */
-    public function updateUnreadCounts()
-    {
-        $totalUnread = $this->chats()->unread()->count();
-        $adminUnread = $this->chats()->unread()->where('sender_type', '!=', 'admin')->count();
-        $userUnread = $this->chats()->unread()->where('sender_type', 'admin')->count();
+        $totalMessages = $this->chats()->count();
+        $unreadCount = $this->chats()->where('is_read', false)->count();
+        $latestMessage = $this->chats()->latest()->first();
         
         $this->update([
-            'unread_messages_count' => $totalUnread,
-            'has_unread_admin_messages' => $adminUnread > 0,
-            'has_unread_user_messages' => $userUnread > 0,
+            'total_messages' => $totalMessages,
+            'unread_admin_messages' => $unreadCount,
+            'unread_student_messages' => $unreadCount,
+            'unread_staff_messages' => $unreadCount,
+            'last_message_at' => $latestMessage?->created_at,
+            'last_message_by' => $latestMessage ? 'user' : null,
         ]);
     }
     
     /**
-     * Mark all messages as read for a specific user type
+     * Mark all messages as read for this complaint
      */
-    public function markMessagesAsReadFor($userType, $userId)
+    public function markAllMessagesAsRead()
     {
         $this->chats()
             ->where('is_read', false)
-            ->where(function ($query) use ($userType, $userId) {
-                $query->where('sender_type', '!=', $userType)
-                      ->orWhere('sender_id', '!=', $userId);
-            })
             ->update([
                 'is_read' => true,
                 'read_at' => now(),
             ]);
             
-        $this->updateUnreadCounts();
+        $this->updateChatStatistics();
     }
     
     /**
-     * Get unread count for admin (messages from students/staff)
+     * Get unread message count
      */
-    public function getUnreadCountForAdmin()
+    public function getUnreadCount()
     {
-        return $this->chats()->unread()->where('sender_type', '!=', 'admin')->count();
+        return $this->chats()->where('is_read', false)->count();
     }
     
     /**
-     * Get unread count for user (messages from admin)
+     * Check if complaint has unread messages
      */
-    public function getUnreadCountForUser($userType, $userId)
+    public function hasUnreadMessages()
     {
-        return $this->chats()
-            ->unread()
-            ->where('sender_type', 'admin')
-            ->count();
+        return $this->getUnreadCount() > 0;
+    }
+    
+    /**
+     * Get latest message preview (first 100 characters)
+     */
+    public function getLatestMessagePreview()
+    {
+        $latestMessage = $this->latestChat;
+        return $latestMessage ? \Str::limit($latestMessage->message, 100) : null;
+    }
+    
+    /**
+     * Get chat summary for this complaint
+     */
+    public function getChatSummary()
+    {
+        return [
+            'total_messages' => $this->total_messages,
+            'unread_count' => $this->getUnreadCount(),
+            'has_unread' => $this->hasUnreadMessages(),
+            'last_message_at' => $this->last_message_at,
+            'last_message_preview' => $this->getLatestMessagePreview(),
+        ];
     }
 }

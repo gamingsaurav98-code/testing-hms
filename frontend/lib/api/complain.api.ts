@@ -6,12 +6,14 @@ export interface Complain {
   description: string;
   student_id?: number;
   staff_id?: number;
-  status: 'pending' | 'resolved' | 'rejected';
-  priority: 'low' | 'medium' | 'high';
-  complaint_date: string;
-  resolved_date?: string;
-  resolved_by?: number;
-  remarks?: string;
+  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  complain_attachment?: string;
+  total_messages: number;
+  unread_admin_messages: number;
+  unread_student_messages: number;
+  unread_staff_messages: number;
+  last_message_at?: string;
+  last_message_by?: string;
   created_at: string;
   updated_at: string;
   student?: {
@@ -24,6 +26,9 @@ export interface Complain {
     staff_name: string;
     contact_number: string;
   };
+  chats_count?: number;
+  unread_chats_count?: number;
+  chats?: any[];
 }
 
 export interface ComplainFormData {
@@ -31,10 +36,8 @@ export interface ComplainFormData {
   description: string;
   student_id?: number;
   staff_id?: number;
-  status?: 'pending' | 'resolved' | 'rejected';
-  priority?: 'low' | 'medium' | 'high';
-  complaint_date?: string;
-  remarks?: string;
+  status?: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  complain_attachment?: File;
 }
 
 export const complainApi = {
@@ -79,13 +82,22 @@ export const complainApi = {
 
   // Create a new complain
   async createComplain(data: ComplainFormData): Promise<Complain> {
+    const formData = new FormData();
+    
+    // Add text fields
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    if (data.student_id) formData.append('student_id', data.student_id.toString());
+    if (data.staff_id) formData.append('staff_id', data.staff_id.toString());
+    if (data.status) formData.append('status', data.status);
+    if (data.complain_attachment) formData.append('complain_attachment', data.complain_attachment);
+
     const response = await fetch(`${API_BASE_URL}/complains`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: formData,
     });
     
     return handleResponse<Complain>(response);
@@ -93,13 +105,25 @@ export const complainApi = {
 
   // Update an existing complain
   async updateComplain(id: string, data: ComplainFormData): Promise<Complain> {
+    const formData = new FormData();
+    
+    // Add text fields
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    if (data.student_id) formData.append('student_id', data.student_id.toString());
+    if (data.staff_id) formData.append('staff_id', data.staff_id.toString());
+    if (data.status) formData.append('status', data.status);
+    if (data.complain_attachment) formData.append('complain_attachment', data.complain_attachment);
+    
+    // Add method override for PUT
+    formData.append('_method', 'PUT');
+
     const response = await fetch(`${API_BASE_URL}/complains/${id}`, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: formData,
     });
     
     return handleResponse<Complain>(response);

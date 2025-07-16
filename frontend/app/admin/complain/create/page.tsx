@@ -7,31 +7,18 @@ import { ApiError } from '@/lib/api/core';
 import { 
   Button, 
   SearchBar, 
-  ConfirmModal, 
-  SuccessToast, 
-  TableSkeleton,
-  ActionButtons 
+  TableSkeleton 
 } from '@/components/ui';
+import ChatInterface from '@/components/ui/ChatInterface';
 
-export default function ComplainList() {
+export default function ComplainChatPage() {
   const router = useRouter();
   const [complains, setComplains] = useState<Complain[]>([]);
   const [filteredComplains, setFilteredComplains] = useState<Complain[]>([]);
+  const [selectedComplain, setSelectedComplain] = useState<Complain | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{show: boolean, complainId: string | null}>({
-    show: false,
-    complainId: null
-  });
-  const [alert, setAlert] = useState<{show: boolean, message: string, type: 'success' | 'error'}>({
-    show: false,
-    message: '',
-    type: 'success'
-  });
 
   // Fetch complains from API
   useEffect(() => {
@@ -40,10 +27,9 @@ export default function ComplainList() {
         setIsLoading(true);
         setError(null);
         
-        const response = await complainApi.getComplains(currentPage);
-        setComplains(response.data);
-        setFilteredComplains(response.data);
-        setTotalPages(response.last_page);
+        const response = await complainApi.getAllComplains();
+        setComplains(response);
+        setFilteredComplains(response);
       } catch (error) {
         console.error('Error fetching complains:', error);
         if (error instanceof ApiError) {
@@ -57,7 +43,7 @@ export default function ComplainList() {
     };
 
     fetchComplains();
-  }, [currentPage]);
+  }, []);
 
   // Handle search
   useEffect(() => {
@@ -67,7 +53,6 @@ export default function ComplainList() {
       const filtered = complains.filter(complain =>
         complain.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         complain.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (complain.student?.student_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (complain.staff?.staff_name || '').toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -79,7 +64,9 @@ export default function ComplainList() {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: '2-digit'
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -98,66 +85,19 @@ export default function ComplainList() {
     );
   };
 
-  const handleDeleteComplain = async (complainId: string) => {
-    setDeleteModal({show: true, complainId});
+  const handleSelectComplain = (complain: Complain) => {
+    setSelectedComplain(complain);
   };
 
-  const confirmDelete = async () => {
-    const complainId = deleteModal.complainId;
-    if (!complainId) return;
-
-    try {
-      setIsDeleting(complainId);
-      setDeleteModal({show: false, complainId: null});
-      setAlert({show: true, message: 'Deleting complain...', type: 'success'});
-      
-      await complainApi.deleteComplain(complainId);
-      
-      // Remove from local state
-      const updatedComplains = complains.filter(complain => complain.id !== parseInt(complainId));
-      setComplains(updatedComplains);
-      setFilteredComplains(updatedComplains.filter(complain =>
-        !searchQuery.trim() ||
-        complain.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (complain.student?.student_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (complain.staff?.staff_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-      ));
-      
-      setAlert({show: true, message: 'Complain deleted successfully!', type: 'success'});
-      
-      // Hide alert after 3 seconds
-      setTimeout(() => {
-        setAlert({show: false, message: '', type: 'success'});
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error deleting complain:', error);
-      if (error instanceof ApiError) {
-        setAlert({show: true, message: `Failed to delete complain: ${error.message}`, type: 'error'});
-      } else {
-        setAlert({show: true, message: 'Failed to delete complain. Please try again.', type: 'error'});
-      }
-      
-      // Hide error alert after 5 seconds
-      setTimeout(() => {
-        setAlert({show: false, message: '', type: 'success'});
-      }, 5000);
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  const cancelDelete = () => {
-    setDeleteModal({show: false, complainId: null});
+  const handleBackToList = () => {
+    setSelectedComplain(null);
   };
 
   if (isLoading) {
     return (
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-xl font-medium text-gray-900">Complains</h1>
+          <h1 className="text-xl font-medium text-gray-900">Chat with Users</h1>
           <p className="text-sm text-gray-500 mt-1">Loading complains...</p>
         </div>
         <TableSkeleton />
@@ -186,75 +126,152 @@ export default function ComplainList() {
     );
   }
 
-  return (
-    <div className="p-4 max-w-7xl mx-auto">
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        show={deleteModal.show}
-        title="Delete Complain"
-        message="Are you sure you want to delete this complain? This action cannot be undone and will also delete all chat messages."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        isLoading={isDeleting !== null}
-        variant="danger"
-      />
+  // Show chat interface when a complain is selected
+  if (selectedComplain) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-4">
+        <div className="w-full max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold text-gray-900">
+                  Chat: {selectedComplain.title}
+                </h1>
+                <div className="flex items-center space-x-4 mt-2">
+                  {getStatusBadge(selectedComplain.status)}
+                  <span className="text-sm text-gray-500">
+                    ID: #{selectedComplain.id}
+                  </span>
+                </div>
+              </div>
+              <Button
+                onClick={handleBackToList}
+                variant="secondary"
+              >
+                Back to List
+              </Button>
+            </div>
+          </div>
 
-      {/* Alert Notification */}
-      {alert.type === 'success' && alert.show && (
-        <SuccessToast
-          show={alert.show}
-          message={alert.message}
-          progress={100}
-          onClose={() => setAlert({show: false, message: '', type: 'success'})}
-        />
-      )}
-      {alert.type === 'error' && alert.show && (
-        <div className="fixed top-4 right-4 z-50 max-w-sm w-full bg-red-100 border-red-500 text-red-700 border-l-4 p-4 rounded-lg shadow-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* User Information */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">User Information</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Name</h4>
+                    {selectedComplain.student && (
+                      <div>
+                        <p className="text-gray-900">{selectedComplain.student.student_name}</p>
+                        <p className="text-sm text-gray-500">Student</p>
+                      </div>
+                    )}
+                    {selectedComplain.staff && (
+                      <div>
+                        <p className="text-gray-900">{selectedComplain.staff.staff_name}</p>
+                        <p className="text-sm text-gray-500">Staff</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Contact</h4>
+                    {selectedComplain.student && (
+                      <p className="text-gray-900">{selectedComplain.student.contact_number}</p>
+                    )}
+                    {selectedComplain.staff && (
+                      <p className="text-gray-900">{selectedComplain.staff.contact_number}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Complain Title</h4>
+                    <p className="text-gray-900">{selectedComplain.title}</p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
+                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedComplain.description}</p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Created</h4>
+                    <p className="text-gray-700 text-sm">{formatDate(selectedComplain.created_at)}</p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Messages</h4>
+                    <p className="text-gray-700 text-sm">
+                      {selectedComplain.total_messages || 0} total
+                      {(selectedComplain.unread_admin_messages > 0) && (
+                        <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
+                          {selectedComplain.unread_admin_messages} unread
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">{alert.message}</p>
-            </div>
-            <div className="ml-auto pl-3">
-              <div className="-mx-1.5 -my-1.5">
-                <button
-                  onClick={() => setAlert({show: false, message: '', type: 'success'})}
-                  className="inline-flex rounded-md p-1.5 text-red-500 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+
+            {/* Chat Interface */}
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900">Chat Messages</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Communicate directly with the user about their complain
+                  </p>
+                </div>
+                <div className="p-4">
+                  <ChatInterface
+                    complainId={selectedComplain.id}
+                    currentUserId={1} // This should come from auth context
+                    currentUserType="admin"
+                    currentUserName="Admin"
+                    className="h-96"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Minimal Header */}
+  // Show complain list when no complain is selected
+  return (
+    <div className="p-4 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-xl font-medium text-gray-900">Complains</h1>
-          <p className="text-sm text-gray-500 mt-1">{complains.length} total complains</p>
+          <h1 className="text-xl font-medium text-gray-900">Chat with Users</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Select a complain to start chatting with the user who submitted it
+          </p>
         </div>
+        <Button
+          onClick={() => router.push('/admin/complain')}
+          variant="secondary"
+        >
+          Back to Complains
+        </Button>
       </div>
 
-      {/* Compact Search */}
+      {/* Search */}
       <div className="mb-4">
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search complains..."
+          placeholder="Search complains to chat..."
         />
       </div>
 
-      {/* Clean List View */}
+      {/* Complain List */}
       {filteredComplains.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-lg border border-gray-100">
           <div className="text-gray-300 mb-3">
@@ -263,9 +280,9 @@ export default function ComplainList() {
             </svg>
           </div>
           <h3 className="text-sm font-medium text-gray-900 mb-1">
-            {searchQuery ? 'No complains found' : 'No complains yet'}
+            {searchQuery ? 'No complains found' : 'No complains available'}
           </h3>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-gray-500">
             {searchQuery ? 'Try a different search term' : 'No complaints have been submitted yet'}
           </p>
         </div>
@@ -275,18 +292,22 @@ export default function ComplainList() {
           <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div className="col-span-3">Complain Details</div>
-              <div className="col-span-2">Submitted By</div>
+              <div className="col-span-2">User</div>
               <div className="col-span-2">Status</div>
               <div className="col-span-2">Chat Activity</div>
               <div className="col-span-2">Date</div>
-              <div className="col-span-1 text-center">Actions</div>
+              <div className="col-span-1 text-center">Action</div>
             </div>
           </div>
 
           {/* List Items */}
           <div className="divide-y divide-gray-100">
             {filteredComplains.map((complain) => (
-              <div key={complain.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+              <div 
+                key={complain.id} 
+                className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                onClick={() => handleSelectComplain(complain)}
+              >
                 <div className="grid grid-cols-12 gap-2 items-center">
                   {/* Complain Details */}
                   <div className="col-span-3">
@@ -296,7 +317,7 @@ export default function ComplainList() {
                     </div>
                   </div>
 
-                  {/* Submitted By */}
+                  {/* User */}
                   <div className="col-span-2">
                     {complain.student && (
                       <div>
@@ -324,11 +345,11 @@ export default function ComplainList() {
                   <div className="col-span-2">
                     <div className="flex items-center space-x-2">
                       <div className="text-sm text-gray-600">
-                        {complain.total_messages || complain.chats_count || 0} messages
+                        {complain.total_messages || 0} messages
                       </div>
-                      {(complain.unread_admin_messages > 0 || (complain.unread_chats_count && complain.unread_chats_count > 0)) && (
+                      {complain.unread_admin_messages > 0 && (
                         <div className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
-                          {complain.unread_admin_messages || complain.unread_chats_count} unread
+                          {complain.unread_admin_messages} unread
                         </div>
                       )}
                     </div>
@@ -341,15 +362,17 @@ export default function ComplainList() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="col-span-1">
-                    <ActionButtons 
-                      viewUrl={`/admin/complain/${complain.id}`}
-                      onDelete={() => handleDeleteComplain(complain.id.toString())}
-                      isDeleting={isDeleting === complain.id.toString()}
-                      style="compact"
-                      hideEdit={true}
-                    />
+                  {/* Action */}
+                  <div className="col-span-1 text-center">
+                    <button
+                      className="bg-[#235999] hover:bg-[#1e4d87] text-white text-xs px-3 py-1.5 rounded font-medium"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        handleSelectComplain(complain);
+                      }}
+                    >
+                      Chat
+                    </button>
                   </div>
                 </div>
               </div>
@@ -358,11 +381,11 @@ export default function ComplainList() {
         </div>
       )}
 
-      {/* Minimal Footer */}
+      {/* Footer */}
       {filteredComplains.length > 0 && (
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
-            {filteredComplains.length} of {complains.length} complains
+            {filteredComplains.length} of {complains.length} complains available for chat
             {searchQuery && ` matching "${searchQuery}"`}
           </p>
         </div>

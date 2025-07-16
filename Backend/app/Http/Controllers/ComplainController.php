@@ -26,7 +26,9 @@ class ComplainController extends Controller
     public function index()
     {
         try {
-            $complains = Complain::with(['student', 'staff'])->paginate(10);
+            $complains = Complain::with(['student', 'staff'])
+                ->withCount(['chats', 'unreadChats'])
+                ->paginate(10);
             return response()->json($complains);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch complains: ' . $e->getMessage()], 500);
@@ -86,7 +88,9 @@ class ComplainController extends Controller
     public function show(string $id)
     {
         try {
-            $complain = Complain::with(['student', 'staff'])->findOrFail($id);
+            $complain = Complain::with(['student', 'staff', 'chats'])
+                ->withCount(['chats', 'unreadChats'])
+                ->findOrFail($id);
             return response()->json($complain);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Complain not found'], 404);

@@ -7,83 +7,37 @@ use App\Models\Complain;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 
 class ChatController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Get all chat messages for a complaint
      */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
-
-    /**
-     * Get all chat messages for a specific complaint
-     */
-    public function getComplaintChats(Request $request, $complainId): JsonResponse
+    public function getComplaintChats($complainId): JsonResponse
     {
         try {
             $complain = Complain::findOrFail($complainId);
             
-            $chats = Chat::with(['studentSender', 'staffSender'])
-                ->byComplaint($complainId)
-                ->notDeleted()
+            $chats = Chat::forComplaint($complainId)
                 ->orderBy('created_at', 'asc')
                 ->get();
 
-            // Format the response
+            // Add additional properties to each chat
             $formattedChats = $chats->map(function ($chat) {
                 return [
                     'id' => $chat->id,
-                    'message' => $chat->formatted_message,
-                    'original_message' => $chat->original_message,
-                    'sender_type' => $chat->sender_type,
-                    'sender_name' => $chat->sender_name,
-                    'sender_id' => $chat->sender_id,
+                    'complain_id' => $chat->complain_id,
+                    'message' => $chat->message,
                     'is_edited' => $chat->is_edited,
                     'is_read' => $chat->is_read,
-                    'message_type' => $chat->message_type,
-                    'attachments' => $chat->attachments,
-                    'can_edit' => $chat->canBeEdited(),
-                    'can_delete' => $chat->canBeDeleted(),
-                    'edit_time_remaining' => $chat->edit_time_remaining,
-                    'created_at' => $chat->created_at,
-                    'edited_at' => $chat->edited_at,
                     'read_at' => $chat->read_at,
+                    'created_at' => $chat->created_at,
+                    'updated_at' => $chat->updated_at,
+                    'message_preview' => $chat->getMessagePreview(),
+                    'formatted_timestamp' => $chat->getFormattedTimestamp(),
+                    'time_ago' => $chat->getTimeAgo(),
+                    'is_unread' => $chat->isUnread(),
+                    'is_edited_flag' => $chat->isEdited(),
                 ];
             });
 
@@ -94,17 +48,17 @@ class ChatController extends Controller
                         'id' => $complain->id,
                         'title' => $complain->title,
                         'status' => $complain->status,
+                        'chat_summary' => $complain->getChatSummary(),
                     ],
                     'chats' => $formattedChats,
                     'total_messages' => $chats->count(),
                     'unread_count' => $chats->where('is_read', false)->count(),
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to fetch chat messages: ' . $e->getMessage()
+                'message' => 'Failed to retrieve chat messages: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -117,12 +71,7 @@ class ChatController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'complain_id' => 'required|exists:complains,id',
-                'sender_id' => 'required|integer',
-                'sender_type' => 'required|in:admin,student,staff',
-                'message' => 'required_without:attachments|string|max:1000',
-                'message_type' => 'in:text,file,image',
-                'attachments' => 'array|max:5', // Maximum 5 attachments
-                'attachments.*' => 'file|max:10240', // 10MB max per file
+                'message' => 'required|string|max:1000',
             ]);
 
             if ($validator->fails()) {
@@ -133,53 +82,24 @@ class ChatController extends Controller
                 ], 422);
             }
 
-            $validated = $validator->validated();
-
-            // Handle file attachments
-            $attachments = [];
-            if ($request->hasFile('attachments')) {
-                foreach ($request->file('attachments') as $file) {
-                    $filename = time() . '_' . $file->getClientOriginalName();
-                    $path = $file->storeAs('chat_attachments', $filename, 'public');
-                    
-                    $attachments[] = [
-                        'filename' => $file->getClientOriginalName(),
-                        'path' => $path,
-                        'size' => $file->getSize(),
-                        'mime_type' => $file->getMimeType(),
-                    ];
-                }
-            }
-
             // Create the chat message
             $chat = Chat::create([
-                'complain_id' => $validated['complain_id'],
-                'sender_id' => $validated['sender_id'],
-                'sender_type' => $validated['sender_type'],
-                'message' => $validated['message'] ?? '',
-                'message_type' => $validated['message_type'] ?? Chat::MESSAGE_TYPE_TEXT,
-                'attachments' => !empty($attachments) ? $attachments : null,
+                'complain_id' => $request->complain_id,
+                'message' => $request->message,
+                'is_edited' => false,
+                'is_read' => false,
             ]);
 
-            // Load relationships
-            $chat->load(['studentSender', 'staffSender']);
+            // Update complaint statistics
+            $complain = Complain::find($request->complain_id);
+            if ($complain) {
+                $complain->updateChatStatistics();
+            }
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Message sent successfully',
-                'data' => [
-                    'id' => $chat->id,
-                    'message' => $chat->formatted_message,
-                    'sender_type' => $chat->sender_type,
-                    'sender_name' => $chat->sender_name,
-                    'sender_id' => $chat->sender_id,
-                    'message_type' => $chat->message_type,
-                    'attachments' => $chat->attachments,
-                    'can_edit' => $chat->canBeEdited(),
-                    'can_delete' => $chat->canBeDeleted(),
-                    'edit_time_remaining' => $chat->edit_time_remaining,
-                    'created_at' => $chat->created_at,
-                ]
+                'data' => $chat
             ], 201);
 
         } catch (\Exception $e) {
@@ -198,8 +118,6 @@ class ChatController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'message' => 'required|string|max:1000',
-                'sender_id' => 'required|integer',
-                'sender_type' => 'required|in:admin,student,staff',
             ]);
 
             if ($validator->fails()) {
@@ -211,44 +129,20 @@ class ChatController extends Controller
             }
 
             $chat = Chat::findOrFail($chatId);
-
-            // Check if the user is the sender
-            if ($chat->sender_id != $request->sender_id || $chat->sender_type != $request->sender_type) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'You can only edit your own messages'
-                ], 403);
-            }
-
-            // Check if message can be edited
-            if (!$chat->canBeEdited()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Message cannot be edited. Time limit exceeded or message already edited/deleted.'
-                ], 422);
-            }
-
-            // Edit the message
-            $success = $chat->editMessage($request->message);
-
-            if (!$success) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Failed to edit message'
-                ], 500);
-            }
+            
+            // Use the model method to edit the message
+            $chat->editMessage($request->message);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Message edited successfully',
+                'message' => 'Message updated successfully',
                 'data' => [
                     'id' => $chat->id,
-                    'message' => $chat->formatted_message,
-                    'original_message' => $chat->original_message,
+                    'message' => $chat->message,
                     'is_edited' => $chat->is_edited,
-                    'edited_at' => $chat->edited_at,
-                    'can_edit' => $chat->canBeEdited(),
-                    'edit_time_remaining' => $chat->edit_time_remaining,
+                    'updated_at' => $chat->updated_at,
+                    'message_preview' => $chat->getMessagePreview(),
+                    'formatted_timestamp' => $chat->getFormattedTimestamp(),
                 ]
             ]);
 
@@ -263,52 +157,11 @@ class ChatController extends Controller
     /**
      * Delete a chat message
      */
-    public function deleteMessage(Request $request, $chatId): JsonResponse
+    public function deleteMessage($chatId): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'sender_id' => 'required|integer',
-                'sender_type' => 'required|in:admin,student,staff',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
             $chat = Chat::findOrFail($chatId);
-
-            // Check if the user is the sender or admin
-            $canDelete = ($chat->sender_id == $request->sender_id && $chat->sender_type == $request->sender_type) 
-                        || $request->sender_type == 'admin';
-
-            if (!$canDelete) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'You can only delete your own messages'
-                ], 403);
-            }
-
-            // Check if message can be deleted
-            if (!$chat->canBeDeleted()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Message cannot be deleted. Time limit exceeded.'
-                ], 422);
-            }
-
-            // Delete the message
-            $success = $chat->deleteMessage();
-
-            if (!$success) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Failed to delete message'
-                ], 500);
-            }
+            $chat->delete();
 
             return response()->json([
                 'status' => 'success',
@@ -331,8 +184,6 @@ class ChatController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'complain_id' => 'required|exists:complains,id',
-                'reader_id' => 'required|integer',
-                'reader_type' => 'required|in:admin,student,staff',
             ]);
 
             if ($validator->fails()) {
@@ -343,23 +194,24 @@ class ChatController extends Controller
                 ], 422);
             }
 
-            // Mark all unread messages in this complaint as read
-            // (except messages sent by the reader themselves)
-            $updatedCount = Chat::where('complain_id', $request->complain_id)
-                ->where('is_read', false)
-                ->where(function ($query) use ($request) {
-                    $query->where('sender_id', '!=', $request->reader_id)
-                          ->orWhere('sender_type', '!=', $request->reader_type);
-                })
+            // Use the scope method and update in bulk
+            $markedCount = Chat::forComplaint($request->complain_id)
+                ->unread()
                 ->update([
                     'is_read' => true,
                     'read_at' => now(),
                 ]);
 
+            // Update complaint statistics
+            $complain = Complain::find($request->complain_id);
+            if ($complain) {
+                $complain->updateChatStatistics();
+            }
+
             return response()->json([
                 'status' => 'success',
-                'message' => "Marked {$updatedCount} messages as read",
-                'marked_count' => $updatedCount
+                'message' => 'Messages marked as read',
+                'marked_count' => $markedCount
             ]);
 
         } catch (\Exception $e) {
@@ -371,14 +223,12 @@ class ChatController extends Controller
     }
 
     /**
-     * Get unread message count for a user
+     * Get unread message count
      */
     public function getUnreadCount(Request $request): JsonResponse
     {
         try {
             $validator = Validator::make($request->all(), [
-                'user_id' => 'required|integer',
-                'user_type' => 'required|in:admin,student,staff',
                 'complain_id' => 'sometimes|exists:complains,id',
             ]);
 
@@ -390,12 +240,8 @@ class ChatController extends Controller
                 ], 422);
             }
 
-            $query = Chat::where('is_read', false)
-                ->where(function ($q) use ($request) {
-                    $q->where('sender_id', '!=', $request->user_id)
-                      ->orWhere('sender_type', '!=', $request->user_type);
-                });
-
+            $query = Chat::where('is_read', false);
+            
             if ($request->has('complain_id')) {
                 $query->where('complain_id', $request->complain_id);
             }
