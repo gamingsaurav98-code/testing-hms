@@ -72,10 +72,9 @@ export default function ComplainChatPage() {
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
-      pending: 'bg-yellow-100 text-yellow-800',
+      pending: 'bg-amber-100 text-amber-800',
       in_progress: 'bg-blue-100 text-blue-800',
-      resolved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
+      resolved: 'bg-green-100 text-green-800'
     };
     
     return (
@@ -129,112 +128,104 @@ export default function ComplainChatPage() {
   // Show chat interface when a complain is selected
   if (selectedComplain) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-4">
-        <div className="w-full max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold text-gray-900">
-                  Chat: {selectedComplain.title}
-                </h1>
-                <div className="flex items-center space-x-4 mt-2">
-                  {getStatusBadge(selectedComplain.status)}
-                  <span className="text-sm text-gray-500">
-                    ID: #{selectedComplain.id}
-                  </span>
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Chat: {selectedComplain.title}
+              </h1>
+              <div className="flex items-center gap-4 mt-2">
+                {getStatusBadge(selectedComplain.status)}
+                <span className="text-sm text-gray-500">
+                  ID: #{selectedComplain.id}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* User Information */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">User Information</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Name</h4>
+                  {selectedComplain.student && (
+                    <div>
+                      <p className="text-gray-900">{selectedComplain.student.student_name}</p>
+                      <p className="text-sm text-gray-500">Student</p>
+                    </div>
+                  )}
+                  {selectedComplain.staff && (
+                    <div>
+                      <p className="text-gray-900">{selectedComplain.staff.staff_name}</p>
+                      <p className="text-sm text-gray-500">Staff</p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Contact</h4>
+                  {selectedComplain.student && (
+                    <p className="text-gray-900">{selectedComplain.student.contact_number}</p>
+                  )}
+                  {selectedComplain.staff && (
+                    <p className="text-gray-900">{selectedComplain.staff.contact_number}</p>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Complain Title</h4>
+                  <p className="text-gray-900">{selectedComplain.title}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
+                  <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedComplain.description}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Created</h4>
+                  <p className="text-gray-700 text-sm">{formatDate(selectedComplain.created_at)}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Messages</h4>
+                  <p className="text-gray-700 text-sm">
+                    {selectedComplain.total_messages || 0} total
+                    {(selectedComplain.unread_admin_messages > 0) && (
+                      <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
+                        {selectedComplain.unread_admin_messages} unread
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
-              <Button
-                onClick={handleBackToList}
-                variant="secondary"
-              >
-                Back to List
-              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* User Information */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">User Information</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Name</h4>
-                    {selectedComplain.student && (
-                      <div>
-                        <p className="text-gray-900">{selectedComplain.student.student_name}</p>
-                        <p className="text-sm text-gray-500">Student</p>
-                      </div>
-                    )}
-                    {selectedComplain.staff && (
-                      <div>
-                        <p className="text-gray-900">{selectedComplain.staff.staff_name}</p>
-                        <p className="text-sm text-gray-500">Staff</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Contact</h4>
-                    {selectedComplain.student && (
-                      <p className="text-gray-900">{selectedComplain.student.contact_number}</p>
-                    )}
-                    {selectedComplain.staff && (
-                      <p className="text-gray-900">{selectedComplain.staff.contact_number}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Complain Title</h4>
-                    <p className="text-gray-900">{selectedComplain.title}</p>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedComplain.description}</p>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Created</h4>
-                    <p className="text-gray-700 text-sm">{formatDate(selectedComplain.created_at)}</p>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Messages</h4>
-                    <p className="text-gray-700 text-sm">
-                      {selectedComplain.total_messages || 0} total
-                      {(selectedComplain.unread_admin_messages > 0) && (
-                        <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
-                          {selectedComplain.unread_admin_messages} unread
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
+          {/* Chat Interface */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Chat Messages</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Communicate directly with the user about their complain
+                </p>
               </div>
-            </div>
-
-            {/* Chat Interface */}
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Chat Messages</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Communicate directly with the user about their complain
-                  </p>
-                </div>
-                <div className="p-4">
-                  <ChatInterface
-                    complainId={selectedComplain.id}
-                    currentUserId={1} // This should come from auth context
-                    currentUserType="admin"
-                    currentUserName="Admin"
-                    className="h-96"
-                  />
-                </div>
+              <div className="p-4">
+                <ChatInterface
+                  complainId={selectedComplain.id}
+                  currentUserId={1} // This should come from auth context
+                  currentUserType="admin"
+                  currentUserName="Admin"
+                  className="h-96"
+                />
               </div>
             </div>
           </div>
@@ -245,21 +236,15 @@ export default function ComplainChatPage() {
 
   // Show complain list when no complain is selected
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6">
         <div>
           <h1 className="text-xl font-medium text-gray-900">Chat with Users</h1>
           <p className="text-sm text-gray-500 mt-1">
             Select a complain to start chatting with the user who submitted it
           </p>
         </div>
-        <Button
-          onClick={() => router.push('/admin/complain')}
-          variant="secondary"
-        >
-          Back to Complains
-        </Button>
       </div>
 
       {/* Search */}
@@ -365,7 +350,7 @@ export default function ComplainChatPage() {
                   {/* Action */}
                   <div className="col-span-1 text-center">
                     <button
-                      className="bg-[#235999] hover:bg-[#1e4d87] text-white text-xs px-3 py-1.5 rounded font-medium"
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded font-medium"
                       onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         handleSelectComplain(complain);

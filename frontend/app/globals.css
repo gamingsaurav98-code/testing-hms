@@ -34,6 +34,16 @@ body {
   background: #cbd5e1;
 }
 
+/* Hide scrollbar completely */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .scrollbar-thumb-blue-200::-webkit-scrollbar-thumb {
   background: #bfdbfe;
 }

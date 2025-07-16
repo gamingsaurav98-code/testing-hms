@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::create('complains', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('student_id');
-            $table->foreignId('staff_id');
+            $table->foreignId('student_id')->nullable();
+            $table->foreignId('staff_id')->nullable();
             $table->string('title');
             $table->string('complain_attachment')->nullable();
             $table->text('description');
-            $table->enum('status', ['pending', 'resolved', 'closed'])->default('pending');
+            $table->enum('status', ['pending', 'in_progress', 'resolved'])->default('pending');
             
             // Chat-related fields
             $table->integer('total_messages')->default(0);

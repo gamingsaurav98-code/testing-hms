@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { complainApi, Complain } from '@/lib/api/complain.api';
 import { ApiError } from '@/lib/api/core';
 import { Button, ConfirmModal, TableSkeleton } from '@/components/ui';
 import ChatInterface from '@/components/ui/ChatInterface';
+import { ChevronDown } from 'lucide-react';
 
 export default function ComplainDetail() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function ComplainDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch complain data
   useEffect(() => {
@@ -49,6 +52,20 @@ export default function ComplainDetail() {
     }
   }, [complainId]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowStatusDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -61,10 +78,9 @@ export default function ComplainDetail() {
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
-      pending: 'bg-yellow-100 text-yellow-800',
+      pending: 'bg-amber-100 text-amber-800',
       in_progress: 'bg-blue-100 text-blue-800',
-      resolved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
+      resolved: 'bg-green-100 text-green-800'
     };
     
     return (
@@ -161,13 +177,6 @@ export default function ComplainDetail() {
             >
               Retry
             </Button>
-            <Button
-              onClick={() => router.push('/admin/complain')}
-              variant="ghost"
-              size="sm"
-            >
-              Back to Complains
-            </Button>
           </div>
         </div>
       </div>
@@ -179,19 +188,13 @@ export default function ComplainDetail() {
       <div className="p-6">
         <div className="text-center">
           <p className="text-gray-500">Complain not found</p>
-          <button
-            onClick={() => router.push('/admin/complain')}
-            className="mt-2 text-[#235999] hover:text-[#1e4d87]"
-          >
-            Back to Complains
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         show={deleteModal}
@@ -205,162 +208,229 @@ export default function ComplainDetail() {
         variant="danger"
       />
 
-      <div className="w-full">
-        {/* Header */}
-        <div className="mb-6">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">{complain.title}</h1>
-              <div className="flex items-center space-x-4 mt-2">
-                {getStatusBadge(complain.status)}
-                <span className="text-sm text-gray-500">
-                  ID: #{complain.id}
-                </span>
+            <div className="flex items-center space-x-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{complain.title}</h1>
+                <div className="flex items-center gap-4 mt-2">
+                  {getStatusBadge(complain.status)}
+                  <span className="text-sm text-gray-600 font-medium">ID: #{complain.id}</span>
+                  <span className="text-sm text-gray-500">•</span>
+                  <span className="text-sm text-gray-600">{formatDate(complain.created_at)}</span>
+                </div>
               </div>
             </div>
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => router.push('/admin/complain')}
-                variant="secondary"
-              >
-                Back to List
-              </Button>
-              <Button
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                variant="danger"
-                loading={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
-          </div>
-        </div>
+            
+            <div className="flex items-center space-x-3">
+              {/* Status Update Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                >
+                  <span>Update Status</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Complain Details */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Complain Information</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Title</h4>
-                  <p className="text-gray-900">{complain.title}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
-                  <p className="text-gray-900 whitespace-pre-wrap">{complain.description}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Submitted By</h4>
-                  {complain.student && (
-                    <div>
-                      <p className="text-gray-900">{complain.student.student_name}</p>
-                      <p className="text-sm text-gray-500">Student • {complain.student.contact_number}</p>
-                    </div>
-                  )}
-                  {complain.staff && (
-                    <div>
-                      <p className="text-gray-900">{complain.staff.staff_name}</p>
-                      <p className="text-sm text-gray-500">Staff • {complain.staff.contact_number}</p>
-                    </div>
-                  )}
-                  {!complain.student && !complain.staff && (
-                    <p className="text-gray-500">Unknown</p>
-                  )}
-                </div>
-
-                {/* Status Update */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Update Status</h4>
-                  <div className="space-y-2">
-                    {['pending', 'in_progress', 'resolved', 'rejected'].map((status) => (
+                {/* Dropdown menu */}
+                {showStatusDropdown && (
+                  <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[160px]">
+                    {['pending', 'in_progress', 'resolved'].map((status) => (
                       <button
                         key={status}
-                        onClick={() => handleStatusUpdate(status)}
+                        onClick={() => {
+                          handleStatusUpdate(status);
+                          setShowStatusDropdown(false);
+                        }}
                         disabled={statusUpdating || complain.status === status}
-                        className={`w-full text-left px-3 py-2 rounded text-sm ${
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                           complain.status === status
-                            ? 'bg-blue-100 text-blue-800 cursor-not-allowed'
-                            : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                            ? 'bg-blue-50 text-blue-700 cursor-not-allowed font-medium'
+                            : 'text-gray-700 hover:bg-gray-50'
                         } ${statusUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
-                        {status.replace('_', ' ')}
-                        {complain.status === status && ' (Current)'}
+                        <span className="capitalize">{status.replace('_', ' ')}</span>
+                        {complain.status === status && <span className="text-xs ml-2">✓ Current</span>}
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                {/* Attachment */}
-                {complain.complain_attachment && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Attachment</h4>
-                    <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                      <div className="p-4">
-                        {complain.complain_attachment.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                          <img
-                            src={complain.complain_attachment.startsWith('http') 
-                              ? complain.complain_attachment 
-                              : `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${complain.complain_attachment}`}
-                            alt="Attachment"
-                            className="max-w-full max-h-48 object-contain"
-                          />
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span className="text-sm text-gray-600">View Attachment</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Metadata */}
-              <div className="border-t border-gray-200 mt-6 pt-6">
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-500">Created:</span>
-                    <span className="ml-2 text-gray-900">{formatDate(complain.created_at)}</span>
+              <Button
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+                variant="danger"
+                size="sm"
+                loading={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete Complain"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          {/* Left Sidebar - Complain Details */}
+          <div className="xl:col-span-3">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              {/* Info Section */}
+              <div className="p-7">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-semibold text-gray-900">Complain Details</h3>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>ID: #{complain.id}</span>
                   </div>
-                  {complain.updated_at && (
+                </div>
+                
+                <div className="space-y-8">
+                  <div>
+                    <label className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 block flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                      Title
+                    </label>
+                    <p className="text-lg text-gray-900 leading-relaxed font-medium bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">{complain.title}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 block flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Description
+                    </label>
+                    <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-green-500">
+                      <p className="text-base text-gray-800 leading-relaxed whitespace-pre-wrap">{complain.description}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 block flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Submitted By
+                    </label>
+                    <div className="mt-3">
+                      {complain.student && (
+                        <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                            <span className="text-lg font-bold text-white">S</span>
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold text-gray-900">{complain.student.student_name}</p>
+                            <p className="text-sm text-blue-700 font-medium">Student • {complain.student.contact_number}</p>
+                          </div>
+                        </div>
+                      )}
+                      {complain.staff && (
+                        <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl border border-green-200">
+                          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                            <span className="text-lg font-bold text-white">ST</span>
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold text-gray-900">{complain.staff.staff_name}</p>
+                            <p className="text-sm text-green-700 font-medium">Staff • {complain.staff.contact_number}</p>
+                          </div>
+                        </div>
+                      )}
+                      {!complain.student && !complain.staff && (
+                        <p className="text-sm text-gray-500 italic">Unknown user</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Attachment */}
+                  {complain.complain_attachment && (
                     <div>
-                      <span className="font-medium text-gray-500">Last Updated:</span>
-                      <span className="ml-2 text-gray-900">{formatDate(complain.updated_at)}</span>
+                      <label className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 block flex items-center">
+                        <svg className="w-4 h-4 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        Attachment
+                      </label>
+                      <div className="mt-3 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <div className="p-6">
+                          {complain.complain_attachment.match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                            <img
+                              src={complain.complain_attachment.startsWith('http') 
+                                ? complain.complain_attachment 
+                                : `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${complain.complain_attachment}`}
+                              alt="Attachment"
+                              className="max-w-full max-h-48 object-contain mx-auto rounded-lg shadow-md"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center space-x-3 py-4">
+                              <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span className="text-sm text-gray-700 font-medium">View File</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <div>
-                    <span className="font-medium text-gray-500">Messages:</span>
-                    <span className="ml-2 text-gray-900">{complain.total_messages || 0}</span>
+
+                  {/* Metadata */}
+                  <div className="pt-6 border-t border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Information
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-700 font-medium">Created</span>
+                        <span className="text-gray-900 font-semibold">{formatDate(complain.created_at)}</span>
+                      </div>
+                      {complain.updated_at && (
+                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-700 font-medium">Updated</span>
+                          <span className="text-gray-900 font-semibold">{formatDate(complain.updated_at)}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Chat Interface */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Chat with User</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Communicate directly with the person who submitted this complain
-                </p>
+          {/* Right Main Area - Chat Interface */}
+          <div className="xl:col-span-2">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Conversation</h3>
+                    <p className="text-sm text-gray-600 mt-1">Chat with the complainant</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-green-600">Online</span>
+                  </div>
+                </div>
               </div>
-              <div className="p-4">
+              <div className="flex-1 min-h-0" style={{height: 'calc(100vh - 340px)'}}>
                 <ChatInterface
                   complainId={parseInt(complainId)}
                   currentUserId={1} // This should come from auth context
                   currentUserType="admin"
                   currentUserName="Admin"
-                  className="h-96"
+                  className="h-full"
                 />
               </div>
             </div>

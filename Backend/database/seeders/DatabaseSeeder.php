@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             RoomSeeder::class,          // Then create rooms
             StudentSeeder::class,       // Create students
             CompleteStaffSeeder::class, // Create staff members
+            ComplainSeeder::class,      // Create complains with chat messages
         ]);
     }
 }

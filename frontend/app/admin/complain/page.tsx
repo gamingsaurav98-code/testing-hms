@@ -85,10 +85,9 @@ export default function ComplainList() {
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
-      pending: 'bg-yellow-100 text-yellow-800',
+      pending: 'bg-amber-100 text-amber-800',
       in_progress: 'bg-blue-100 text-blue-800',
-      resolved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
+      resolved: 'bg-green-100 text-green-800'
     };
     
     return (
@@ -274,10 +273,9 @@ export default function ComplainList() {
           {/* Table Header */}
           <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div className="col-span-3">Complain Details</div>
-              <div className="col-span-2">Submitted By</div>
+              <div className="col-span-3">Complain By</div>
+              <div className="col-span-4">Complain Title</div>
               <div className="col-span-2">Status</div>
-              <div className="col-span-2">Chat Activity</div>
               <div className="col-span-2">Date</div>
               <div className="col-span-1 text-center">Actions</div>
             </div>
@@ -288,16 +286,8 @@ export default function ComplainList() {
             {filteredComplains.map((complain) => (
               <div key={complain.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  {/* Complain Details */}
+                  {/* Complain By */}
                   <div className="col-span-3">
-                    <div className="font-medium text-sm text-gray-900">{complain.title}</div>
-                    <div className="text-xs text-gray-600 mt-1 line-clamp-2">
-                      {complain.description}
-                    </div>
-                  </div>
-
-                  {/* Submitted By */}
-                  <div className="col-span-2">
                     {complain.student && (
                       <div>
                         <div className="text-sm text-gray-900">{complain.student.student_name}</div>
@@ -315,23 +305,16 @@ export default function ComplainList() {
                     )}
                   </div>
 
+                  {/* Complain Details */}
+                  <div className="col-span-4">
+                    <div className="font-medium text-sm text-gray-900">
+                      {complain.title.length > 50 ? `${complain.title.substring(0, 50)}...` : complain.title}
+                    </div>
+                  </div>
+
                   {/* Status */}
                   <div className="col-span-2">
                     {getStatusBadge(complain.status)}
-                  </div>
-
-                  {/* Chat Activity */}
-                  <div className="col-span-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="text-sm text-gray-600">
-                        {complain.total_messages || complain.chats_count || 0} messages
-                      </div>
-                      {(complain.unread_admin_messages > 0 || (complain.unread_chats_count && complain.unread_chats_count > 0)) && (
-                        <div className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
-                          {complain.unread_admin_messages || complain.unread_chats_count} unread
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Date */}
