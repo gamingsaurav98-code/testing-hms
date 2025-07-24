@@ -196,10 +196,37 @@ export default function ChatInterface({
 
   // Render message
   const renderMessage = (msg: ChatMessage) => {
-    const isOwnMessage = currentUserType === 'admin';
+    // For admin users, their own messages appear on the right
+    // For student users, their own messages appear on the right
+    const isOwnMessage = msg.sender_type === currentUserType;
     const isEditing = editingMessageId === msg.id;
-    const canEdit = canEditMessage(msg.created_at);
+    const canEdit = canEditMessage(msg.created_at) && isOwnMessage;
     const isDropdownOpen = openDropdownId === msg.id;
+
+    // Determine sender display name and styling
+    const getSenderInfo = () => {
+      if (msg.sender_type === 'admin') {
+        return {
+          name: 'Admin',
+          color: 'text-blue-600',
+          bgColor: isOwnMessage ? 'from-blue-500 to-blue-600' : 'bg-blue-50 border-blue-200'
+        };
+      } else if (msg.sender_type === 'student') {
+        return {
+          name: msg.sender_name || 'Student',
+          color: 'text-green-600',
+          bgColor: isOwnMessage ? 'from-green-500 to-green-600' : 'bg-green-50 border-green-200'
+        };
+      } else {
+        return {
+          name: msg.sender_name || 'User',
+          color: 'text-gray-600',
+          bgColor: isOwnMessage ? 'from-gray-500 to-gray-600' : 'bg-gray-50 border-gray-200'
+        };
+      }
+    };
+
+    const senderInfo = getSenderInfo();
 
     return (
       <div
@@ -209,14 +236,8 @@ export default function ChatInterface({
         <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[75%] relative`}>
           {/* Sender name and time */}
           <div className={`flex items-center space-x-2 mb-2 ${isOwnMessage ? 'flex-row-reverse space-x-reverse' : ''}`}>
-            <span className="text-xs font-semibold text-gray-700">
-              {isOwnMessage ? (
-                <span className="flex items-center space-x-1">
-                  <span>Admin</span>
-                </span>
-              ) : (
-                msg.sender_name || 'User'
-              )}
+            <span className={`text-xs font-semibold ${senderInfo.color}`}>
+              {senderInfo.name}
             </span>
             <span className="text-xs text-gray-500">
               {timeAgo(msg.created_at)}
@@ -231,8 +252,8 @@ export default function ChatInterface({
               <div
                 className={`rounded-2xl px-4 py-3 shadow-sm border transform transition-all duration-300 hover:shadow-md ${
                   isOwnMessage
-                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-500 rounded-br-md'
-                    : 'bg-white border-gray-200 text-gray-900 rounded-bl-md shadow-md'
+                    ? `bg-gradient-to-br ${senderInfo.bgColor} text-white border-transparent rounded-br-md`
+                    : `${senderInfo.bgColor} text-gray-900 rounded-bl-md shadow-md`
                 }`}
                 style={{
                   animation: 'slideInMessage 0.3s ease-out'
@@ -279,7 +300,7 @@ export default function ChatInterface({
               </div>
             </div>
 
-            {/* Three dots menu - only for admin messages */}
+            {/* Three dots menu - only for own messages */}
             {isOwnMessage && !isEditing && (
               <div className="flex-shrink-0 mt-2">
                 <div className="relative" ref={dropdownRef}>
