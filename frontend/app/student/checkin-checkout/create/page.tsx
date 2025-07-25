@@ -92,7 +92,7 @@ export default function CreateCheckinCheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-6">
           <button

@@ -182,7 +182,7 @@ export default function StudentNoticeDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 w-full">
         {/* Header */}
         <div className="mb-6">
           <Button

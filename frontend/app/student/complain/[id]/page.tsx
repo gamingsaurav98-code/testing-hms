@@ -177,7 +177,7 @@ export default function StudentComplainDetail() {
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-5">
+        <div className="w-full px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div>
@@ -222,7 +222,7 @@ export default function StudentComplainDetail() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="w-full px-6 py-6">
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           {/* Left Sidebar - Complain Details */}
           <div className="xl:col-span-3">

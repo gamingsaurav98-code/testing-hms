@@ -166,7 +166,7 @@ export default function StudentNoticeList() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 w-full">
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-start">

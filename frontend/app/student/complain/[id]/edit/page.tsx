@@ -230,7 +230,7 @@ export default function EditComplain() {
   if (complain.status === 'resolved') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="w-full px-6 py-8">
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
             <div className="flex items-center">
               <svg className="w-6 h-6 text-amber-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,7 +304,7 @@ export default function EditComplain() {
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-6 py-5">
+        <div className="w-full px-6 py-5">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Edit Complain</h1>
@@ -325,7 +325,7 @@ export default function EditComplain() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="w-full px-6 py-8">
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             {/* Form Header */}

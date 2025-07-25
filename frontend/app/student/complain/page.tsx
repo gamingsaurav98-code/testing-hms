@@ -185,7 +185,7 @@ export default function StudentComplainList() {
   }
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="p-4 w-full">
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         show={deleteModal.show}

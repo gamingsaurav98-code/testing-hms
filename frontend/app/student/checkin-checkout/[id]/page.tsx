@@ -128,7 +128,7 @@ export default function StudentCheckinCheckoutDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full">
           <div className="animate-pulse">
             <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
             <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
@@ -149,7 +149,7 @@ export default function StudentCheckinCheckoutDetailPage() {
   if (error || !record) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full">
           <button
             onClick={() => router.back()}
             className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
@@ -177,7 +177,7 @@ export default function StudentCheckinCheckoutDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-6">
           <button

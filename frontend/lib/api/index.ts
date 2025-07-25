@@ -69,6 +69,7 @@ export type {
 } from './salary.api';
 
 // Re-export APIs
+export { authApi, tokenStorage, getAuthHeaders } from './auth.api';
 export { blockApi } from './block.api';
 export { roomApi } from './room.api';
 export { incomeApi } from './income.api';

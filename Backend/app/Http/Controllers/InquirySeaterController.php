@@ -250,4 +250,3 @@ class InquirySeaterController extends Controller
         }
     }
 }
-}

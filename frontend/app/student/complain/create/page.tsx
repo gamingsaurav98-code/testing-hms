@@ -155,7 +155,7 @@ export default function CreateComplain() {
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-6 py-5">
+        <div className="w-full px-6 py-5">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Submit New Complain</h1>
@@ -175,7 +175,7 @@ export default function CreateComplain() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="w-full px-6 py-8">
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             {/* Form Header */}
