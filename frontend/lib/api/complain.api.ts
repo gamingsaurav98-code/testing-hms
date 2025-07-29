@@ -10,9 +10,10 @@ export interface Complain {
   status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
   complain_attachment?: string;
   total_messages: number;
-  unread_admin_messages: number;
-  unread_student_messages: number;
-  unread_staff_messages: number;
+  unread_messages: number;
+  unread_admin_messages?: number;
+  unread_student_messages?: number;
+  unread_staff_messages?: number;
   last_message_at?: string;
   last_message_by?: string;
   created_at: string;

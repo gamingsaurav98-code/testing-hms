@@ -185,4 +185,96 @@ class StudentFinancialController extends Controller
             'note' => 'Financial records are separate from student records. Student basic info is handled via /api/students endpoints'
         ]);
     }
+
+    // ========== STUDENT-SPECIFIC METHODS ==========
+
+    /**
+     * Get the authenticated student's financial records
+     */
+    public function getMyFinancials()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record - first try by user_id, then fallback for demo
+            $student = Student::where('user_id', $user->id)->first();
+            
+            // Fallback for demo: if no student found by user_id, get the first student (for demo purposes)
+            if (!$student && $user->email === 'student@hms.com') {
+                $student = Student::where('email', $user->email)
+                    ->orWhere('id', 1) // Get first student as demo
+                    ->first();
+            }
+            
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $financials = StudentFinancial::where('student_id', $student->id)
+                ->with(['student', 'paymentType'])
+                ->orderBy('payment_date', 'desc')
+                ->get();
+
+            return response()->json([
+                'data' => $financials,
+                'total' => $financials->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch financial records: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get the authenticated student's payment history
+     */
+    public function getMyPaymentHistory()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record - first try by user_id, then fallback for demo
+            $student = Student::where('user_id', $user->id)->first();
+            
+            // Fallback for demo: if no student found by user_id, get the first student (for demo purposes)
+            if (!$student && $user->email === 'student@hms.com') {
+                $student = Student::where('email', $user->email)
+                    ->orWhere('id', 1) // Get first student as demo
+                    ->first();
+            }
+            
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $payments = StudentFinancial::where('student_id', $student->id)
+                ->with(['paymentType'])
+                ->select([
+                    'id',
+                    'amount',
+                    'payment_date',
+                    'payment_type_id',
+                    'remark',
+                    'created_at',
+                    'admission_fee',
+                    'form_fee',
+                    'security_deposit',
+                    'monthly_fee'
+                ])
+                ->orderBy('payment_date', 'desc')
+                ->get();
+
+            return response()->json([
+                'data' => $payments,
+                'total' => $payments->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch payment history: ' . $e->getMessage()], 500);
+        }
+    }
 }

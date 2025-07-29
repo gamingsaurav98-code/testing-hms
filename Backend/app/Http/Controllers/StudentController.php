@@ -530,4 +530,101 @@ class StudentController extends Controller
             'note' => 'Financial fields are handled separately via /api/student-financials endpoints'
         ]);
     }
+
+    // ========== STUDENT-SPECIFIC METHODS ==========
+
+    /**
+     * Get the authenticated student's profile
+     */
+    public function getMyProfile()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record - first try by user_id, then fallback for demo
+            $student = Student::where('user_id', $user->id)->first();
+            
+            // Fallback for demo: if no student found by user_id, get the first student (for demo purposes)
+            if (!$student && $user->email === 'student@hms.com') {
+                $student = Student::where('email', $user->email)
+                    ->orWhere('id', 1) // Get first student as demo
+                    ->first();
+            }
+
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $student->load(['room.block', 'financials' => function($query) {
+                $query->latest('created_at');
+            }]);
+
+            return response()->json($student);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch profile: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update the authenticated student's profile
+     */
+    public function updateMyProfile(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            $student = Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            // Validate only updatable fields
+            $request->validate([
+                'contact_number' => 'sometimes|required|string|max:20',
+                'email' => 'sometimes|required|string|email|max:255',
+                'district' => 'sometimes|nullable|string|max:255',
+                'city_name' => 'sometimes|nullable|string|max:255',
+                'ward_no' => 'sometimes|nullable|string|max:10',
+                'street_name' => 'sometimes|nullable|string|max:255',
+                'educational_institution' => 'sometimes|nullable|string|max:255',
+                'class_time' => 'sometimes|nullable|string|max:50',
+                'level_of_study' => 'sometimes|nullable|string|max:100',
+                'expected_stay_duration' => 'sometimes|nullable|string|max:100',
+                'blood_group' => 'sometimes|nullable|string|max:10',
+                'food' => 'sometimes|nullable|string|in:vegetarian,non-vegetarian,egg-only',
+                'disease' => 'sometimes|nullable|string|max:255',
+                'local_guardian_name' => 'sometimes|nullable|string|max:255',
+                'local_guardian_address' => 'sometimes|nullable|string|max:500',
+                'local_guardian_contact' => 'sometimes|nullable|string|max:20',
+                'local_guardian_occupation' => 'sometimes|nullable|string|max:255',
+                'local_guardian_relation' => 'sometimes|nullable|string|max:100',
+                'student_image' => 'sometimes|nullable|file|mimes:jpg,jpeg,png|max:2048',
+            ]);
+
+            $updateData = $request->except(['student_image']);
+
+            // Handle file upload if present
+            if ($request->hasFile('student_image')) {
+                // Delete old image if exists
+                if ($student->student_image) {
+                    Storage::disk('public')->delete($student->student_image);
+                }
+                
+                $updateData['student_image'] = $request->file('student_image')->store('students', 'public');
+            }
+
+            $student->update($updateData);
+            $student->load(['room.block', 'financials']);
+
+            return response()->json($student);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to update profile: ' . $e->getMessage()], 500);
+        }
+    }
 }

@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { studentCheckInCheckOutApi } from '@/lib/api/student-checkincheckout.api';
-import { complainApi } from '@/lib/api/complain.api';
-import { incomeApi } from '@/lib/api/income.api';
+import { studentApi } from '@/lib/api/student.api';
 
 interface StudentDashboardStats {
   currentStatus: 'checked-in' | 'checked-out' | 'pending';
@@ -60,15 +59,19 @@ export default function StudentDashboardPage() {
     try {
       setLoading(true);
       
-      // Fetch student-specific data
+      // Fetch student-specific data using correct endpoints
       const [
+        profileData,
         checkInOutData,
         complaintsData,
         paymentsData,
+        noticesData
       ] = await Promise.all([
-        studentCheckInCheckOutApi.getCheckInCheckOuts(1).catch(() => ({ data: [] })),
-        complainApi.getComplains(1).catch(() => ({ data: [], total: 0 })),
-        incomeApi.getIncomes(1).catch(() => ({ data: [] })),
+        studentApi.getStudentProfile().catch(() => null),
+        studentApi.getStudentCheckInOuts().catch(() => ({ data: [] })),
+        studentApi.getStudentComplains().catch(() => ({ data: [], total: 0 })),
+        studentApi.getStudentPayments().catch(() => ({ data: [] })),
+        studentApi.getStudentNotices().catch(() => ({ data: [] }))
       ]);
 
       const today = new Date().toISOString().split('T')[0];
@@ -76,41 +79,50 @@ export default function StudentDashboardPage() {
       const currentYear = new Date().getFullYear();
 
       // Calculate current status from check-in/out data
-      const myCheckIns = checkInOutData.data?.filter((record: any) => 
-        record.student_id === studentId || (record.student && record.student.id === studentId)
-      ) || [];
+      const myCheckIns = checkInOutData.data || [];
       
-      const latestCheckIn = myCheckIns
-        .filter((record: any) => record.status === 'approved' || record.status === 'checked_in')
-        .sort((a: any, b: any) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime())[0];
-
-      const currentStatus = latestCheckIn && latestCheckIn.checkin_time && !latestCheckIn.checkout_time ? 'checked-in' : 'checked-out';
+      // Get the latest check-in/out record
+      const latestRecord = myCheckIns.length > 0 ? myCheckIns[0] : null;
+      let currentStatus: 'checked-in' | 'checked-out' | 'pending' = 'checked-out';
+      
+      if (latestRecord) {
+        if (latestRecord.checkout_time) {
+          currentStatus = 'checked-out';
+        } else if (latestRecord.checkin_time) {
+          currentStatus = 'checked-in';
+        }
+      }
 
       // Calculate complaint statistics
-      const myComplaints = complaintsData.data?.filter((complaint: any) => 
-        complaint.student_id === studentId || (complaint.student && complaint.student.id === studentId)
-      ) || [];
-      
+      const myComplaints = complaintsData.data || [];
       const pendingComplaints = myComplaints.filter((complaint: any) => 
         complaint.status === 'pending'
       ).length;
-      
       const resolvedComplaints = myComplaints.filter((complaint: any) => 
         complaint.status === 'resolved'
       ).length;
 
-      // Calculate payment statistics
-      const myPayments = paymentsData.data?.filter((payment: any) => 
-        payment.student_id === studentId || (payment.student && payment.student.id === studentId)
-      ) || [];
+      // Calculate payment statistics from student's payment history
+      const myPayments = paymentsData.data || [];
+      const thisMonthPayments = myPayments
+        .filter((payment: any) => {
+          const paymentDate = new Date(payment.payment_date || payment.created_at);
+          return paymentDate.getMonth() === currentMonth && 
+                 paymentDate.getFullYear() === currentYear;
+        })
+        .reduce((sum: number, payment: any) => sum + parseFloat(payment.amount || '0'), 0);
 
-      const thisMonthPayments = myPayments.filter((payment: any) => {
-        const paymentDate = new Date(payment.income_date || payment.created_at);
-        return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
-      }).reduce((sum: number, payment: any) => sum + parseFloat(payment.amount || '0'), 0);
+      // Get latest payment info
+      const latestPayment = myPayments.length > 0 ? myPayments[0] : null;
+      const lastPaymentDate = latestPayment ? latestPayment.payment_date || latestPayment.created_at : '';
+      const lastPaymentAmount = latestPayment ? parseFloat(latestPayment.amount || '0') : 0;
 
-      const lastPayment = myPayments
-        .sort((a: any, b: any) => new Date(b.income_date || b.created_at).getTime() - new Date(a.income_date || a.created_at).getTime())[0];
+      // Calculate outstanding dues (this would need proper logic based on student fees)
+      const outstandingDues = 0; // Placeholder - should be calculated based on student's fee structure
+
+      // Get room information from profile
+      const roomNumber = profileData?.room?.room_name || '';
+      const bedNumber = ''; // This would need to come from specific bed assignment logic
 
       // Generate recent activities
       const recentActivities: Array<{
@@ -177,17 +189,17 @@ export default function StudentDashboardPage() {
 
       setStats({
         currentStatus,
-        roomNumber: (latestCheckIn && latestCheckIn.student && latestCheckIn.student.room && latestCheckIn.student.room.room_name) ? latestCheckIn.student.room.room_name : 'Not Assigned',
-        bedNumber: 'Not Assigned', // This field doesn't seem to exist in the API
-        lastCheckIn: (latestCheckIn && latestCheckIn.checkin_time) ? latestCheckIn.checkin_time : '',
-        lastCheckOut: (latestCheckIn && latestCheckIn.checkout_time) ? latestCheckIn.checkout_time : '',
+        roomNumber: roomNumber || 'Not Assigned',
+        bedNumber: bedNumber || 'Not Assigned',
+        lastCheckIn: latestRecord?.checkin_time || '',
+        lastCheckOut: latestRecord?.checkout_time || '',
         myComplaints: myComplaints.length,
         pendingComplaints,
         resolvedComplaints,
         thisMonthPayments,
-        outstandingDues: 0, // This would need a specific API endpoint
-        lastPaymentDate: (lastPayment && (lastPayment.income_date || lastPayment.created_at)) ? (lastPayment.income_date || lastPayment.created_at) : '',
-        lastPaymentAmount: (lastPayment && lastPayment.amount) ? parseFloat(String(lastPayment.amount)) : 0,
+        outstandingDues,
+        lastPaymentDate,
+        lastPaymentAmount,
         recentActivities: recentActivities.slice(0, 5),
         upcomingPayments: [
           { type: 'Monthly Fee', amount: 15000, dueDate: '2025-08-01' },

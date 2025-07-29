@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Complain;
+use App\Models\Chat;
 use Illuminate\Http\Request;
 use App\Services\ImageService;
 use App\Services\DateService;
@@ -154,6 +155,203 @@ class ComplainController extends Controller
             return response()->json(null, 204);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to delete complain: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // ========== STUDENT-SPECIFIC METHODS ==========
+
+    /**
+     * Get complaints for the authenticated student
+     */
+    public function getMyComplaints()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record - first try by user_id, then fallback for demo
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            
+            // Fallback for demo: if no student found by user_id, get the first student (for demo purposes)
+            if (!$student && $user->email === 'student@hms.com') {
+                $student = \App\Models\Student::where('email', $user->email)
+                    ->orWhere('id', 1) // Get first student as demo
+                    ->first();
+            }
+            
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $complaints = Complain::where('student_id', $student->id)
+                ->with(['student', 'staff'])
+                ->withCount(['chats as total_messages'])
+                ->withCount(['chats as unread_messages' => function($query) {
+                    $query->where('is_read', false);
+                }])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'data' => $complaints,
+                'total' => $complaints->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch your complaints: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Create a new complaint for the authenticated student
+     */
+    public function createComplaint(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string|max:1000',
+            'complain_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+        ]);
+
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $complainData = $request->except('complain_attachment');
+            $complainData['student_id'] = $student->id;
+            $complainData['status'] = 'pending';
+            $complainData['created_at'] = $this->dateService->getCurrentDateTime();
+            
+            // Handle file upload if present
+            if ($request->hasFile('complain_attachment')) {
+                $complainData['complain_attachment'] = $this->imageService->processImageAsync(
+                    $request->file('complain_attachment'),
+                    'complains',
+                    null,
+                    Complain::class,
+                    null, // ID will be available after creation
+                    'complain_attachment'
+                );
+            }
+            
+            $complain = Complain::create($complainData);
+            $complain->load(['student', 'staff']);
+            
+            return response()->json($complain, 201);
+            
+        } catch (\Exception $e) {
+            // Delete the uploaded file if complain creation fails
+            if (isset($complainData['complain_attachment'])) {
+                Storage::disk('public')->delete($complainData['complain_attachment']);
+            }
+            return response()->json(['message' => 'Failed to create complaint: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get a specific complaint for the authenticated student
+     */
+    public function getMyComplaint(string $id)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $complain = Complain::where('id', $id)
+                ->where('student_id', $student->id)
+                ->with(['student', 'staff', 'chats'])
+                ->withCount(['chats', 'unreadChats'])
+                ->first();
+
+            if (!$complain) {
+                return response()->json(['message' => 'Complaint not found'], 404);
+            }
+
+            return response()->json($complain);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch complaint: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update a specific complaint for the authenticated student
+     */
+    public function updateMyComplaint(Request $request, string $id)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string|max:1000',
+            'complain_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+        ]);
+
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $complain = Complain::where('id', $id)
+                ->where('student_id', $student->id)
+                ->first();
+
+            if (!$complain) {
+                return response()->json(['message' => 'Complaint not found'], 404);
+            }
+
+            // Only allow editing if complaint is still pending
+            if ($complain->status !== 'pending') {
+                return response()->json(['message' => 'Cannot edit complaint that is no longer pending'], 403);
+            }
+
+            $complainData = $request->except('complain_attachment');
+            $complainData['updated_at'] = $this->dateService->getCurrentDateTime();
+            
+            // Handle file upload if present
+            if ($request->hasFile('complain_attachment')) {
+                $complainData['complain_attachment'] = $this->imageService->processImageAsync(
+                    $request->file('complain_attachment'),
+                    'complains',
+                    $complain->complain_attachment,
+                    Complain::class,
+                    $complain->id,
+                    'complain_attachment'
+                );
+            }
+            
+            $complain->update($complainData);
+            $complain->load(['student', 'staff']);
+            
+            return response()->json($complain);
+            
+        } catch (\Exception $e) {
+            // Clean up if update fails
+            if (isset($complainData['complain_attachment']) && $request->hasFile('complain_attachment')) {
+                Storage::disk('public')->delete($complainData['complain_attachment']);
+            }
+            return response()->json(['message' => 'Failed to update complaint: ' . $e->getMessage()], 500);
         }
     }
 }

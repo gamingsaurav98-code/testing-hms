@@ -496,4 +496,80 @@ class StudentCheckInCheckOutController extends Controller
             ], 500);
         }
     }
+
+    // ========== STUDENT-SPECIFIC METHODS ==========
+
+    /**
+     * Get the authenticated student's check-in/out records
+     */
+    public function getMyRecords()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get student record - first try by user_id, then fallback for demo
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            
+            // Fallback for demo: if no student found by user_id, get the first student (for demo purposes)
+            if (!$student && $user->email === 'student@hms.com') {
+                $student = \App\Models\Student::where('email', $user->email)
+                    ->orWhere('id', 1) // Get first student as demo
+                    ->first();
+            }
+            
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $records = StudentCheckInCheckOut::where('student_id', $student->id)
+                ->with(['student.room.block', 'block', 'checkoutRule'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'data' => $records,
+                'total' => $records->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch your records: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get the authenticated student's today's attendance
+     */
+    public function getMyTodayAttendance()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'student') {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            $student = \App\Models\Student::where('user_id', $user->id)->first();
+            if (!$student) {
+                return response()->json(['message' => 'Student record not found'], 404);
+            }
+
+            $today = now()->format('Y-m-d');
+            $record = StudentCheckInCheckOut::where('student_id', $student->id)
+                ->whereDate('date', $today)
+                ->with(['student.room.block', 'block'])
+                ->first();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $record,
+                'date' => $today
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch today\'s attendance: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -17,9 +17,6 @@ import {
   Home
 } from 'lucide-react';
 
-// You would get this from authentication context in a real app
-const CURRENT_STUDENT_ID = "1"; // This should come from auth context
-
 export default function StudentCheckinCheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<StudentCheckInCheckOut[]>([]);
@@ -35,10 +32,7 @@ export default function StudentCheckinCheckoutPage() {
   const fetchStudentRecords = async () => {
     try {
       setLoading(true);
-      const response = await studentCheckInCheckOutApi.getCheckInCheckOuts(1, {
-        student_id: CURRENT_STUDENT_ID,
-        all: true
-      });
+      const response = await studentCheckInCheckOutApi.getMyRecords();
       
       // Find the most recent record for today or pending status
       const today = new Date().toISOString().split('T')[0];
@@ -69,8 +63,8 @@ export default function StudentCheckinCheckoutPage() {
       
       // For demo purposes, using a default block_id
       // In a real app, this would come from the student's room assignment
-      await studentCheckInCheckOutApi.checkIn({
-        student_id: CURRENT_STUDENT_ID,
+      await studentCheckInCheckOutApi.studentCheckIn({
+        student_id: "", // Backend will get this from auth
         block_id: "1", // This should come from student's room data
         remarks: "Student self check-in"
       });
@@ -89,8 +83,8 @@ export default function StudentCheckinCheckoutPage() {
       setCheckingOut(true);
       setError(null);
       
-      await studentCheckInCheckOutApi.checkOut({
-        student_id: CURRENT_STUDENT_ID,
+      await studentCheckInCheckOutApi.studentCheckOut({
+        student_id: "", // Backend will get this from auth
         remarks: "Student checkout request"
       });
       

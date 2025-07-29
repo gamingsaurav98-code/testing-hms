@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { incomeApi } from '@/lib/api/income.api';
+import { studentApi } from '@/lib/api/student.api';
 
 interface PaymentRecord {
   id: string;
@@ -30,23 +30,22 @@ export default function StudentPaymentHistoryPage() {
     try {
       setLoading(true);
       
-      // For now, we'll use mock student ID - in real app this would come from auth
-      const currentStudentId = "1";
+      // Use student-specific payment history endpoint
+      const response = await studentApi.getStudentPayments();
       
-      const response = await incomeApi.getIncomes(currentPage);
+      // Handle different response structures
+      const paymentsData = Array.isArray(response) ? response : (response.data || []);
       
-      // Filter payments for current student and map to PaymentRecord
-      const studentPayments: PaymentRecord[] = response.data?.filter((payment: any) => 
-        payment.student_id === currentStudentId
-      ).map((payment: any) => ({
+      // Map to PaymentRecord format
+      const studentPayments: PaymentRecord[] = paymentsData.map((payment: any) => ({
         id: payment.id,
-        amount: payment.amount.toString(),
-        income_date: payment.income_date,
+        amount: payment.amount?.toString() || '0',
+        income_date: payment.payment_date || payment.income_date,
         payment_type: payment.payment_type,
         remark: payment.remark,
         created_at: payment.created_at,
         student_id: payment.student_id,
-      })) || [];
+      }));
       
       setPayments(studentPayments);
       setTotalPages(Math.ceil(studentPayments.length / 10)); // Assuming 10 per page

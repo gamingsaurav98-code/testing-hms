@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { noticeApi, Notice } from '@/lib/api/notice.api';
-import { PaginatedResponse, ApiError } from '@/lib/api/core';
+import { studentApi } from '@/lib/api/student.api';
+import { Notice } from '@/lib/api/notice.api';
+import { ApiError } from '@/lib/api/core';
 import { 
   Button, 
   SearchBar, 
@@ -37,15 +38,18 @@ export default function StudentNoticeList() {
       setLoading(true);
       setError(null);
       
-      // For student notice list, we can use the general notices endpoint
-      // and let the backend filter based on authentication
-      const response = await noticeApi.getNotices(page);
+      // For student notice list, use student-specific endpoint
+      const response = await studentApi.getStudentNotices();
       
-      setNotices(response.data);
-      setFilteredNotices(response.data);
-      setCurrentPage(response.current_page);
-      setTotalPages(response.last_page);
-      setTotalCount(response.total);
+      // Handle different response structures
+      const noticesData = Array.isArray(response) ? response : (response.data || []);
+      const totalCount = Array.isArray(response) ? response.length : (response.total || 0);
+      
+      setNotices(noticesData);
+      setFilteredNotices(noticesData);
+      setCurrentPage(1);
+      setTotalPages(Math.ceil(totalCount / 10)); // Assuming 10 per page
+      setTotalCount(totalCount);
     } catch (err) {
       console.error('Error fetching notices:', err);
       if (err instanceof ApiError) {

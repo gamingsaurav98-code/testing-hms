@@ -297,6 +297,40 @@ export const studentCheckInCheckOutApi = {
     const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/attendance/statistics?${queryParams}`);
     return handleResponse<{ data: AttendanceStatistics }>(response);
   },
+
+  // Get my records (student-specific endpoint)
+  async getMyRecords(): Promise<{ data: StudentCheckInCheckOut[]; total: number }> {
+    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ data: StudentCheckInCheckOut[]; total: number }>(response);
+  },
+
+  // Quick check-in (student-specific endpoint)
+  async studentCheckIn(data: CheckInFormData): Promise<{ data: StudentCheckInCheckOut }> {
+    const response = await fetch(`${API_BASE_URL}/student/checkin`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+  },
+
+  // Quick check-out (student-specific endpoint)
+  async studentCheckOut(data: CheckOutFormData): Promise<{ data: StudentCheckInCheckOut }> {
+    const response = await fetch(`${API_BASE_URL}/student/checkout`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+  },
 };
 
 // API functions for Student Checkout Rules

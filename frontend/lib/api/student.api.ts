@@ -313,6 +313,57 @@ export const studentApi = {
     
     return handleResponse<void>(response);
   },
+
+  // Student-specific methods
+  // Get current student's profile
+  async getStudentProfile(): Promise<StudentWithAmenities> {
+    const response = await fetch(`${API_BASE_URL}/student/profile`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<StudentWithAmenities>(response);
+  },
+
+  // Get current student's complaints
+  async getStudentComplains(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/student/complains`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Get current student's payment history
+  async getStudentPayments(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/student/payment-history`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Get current student's check-in/out records
+  async getStudentCheckInOuts(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Get current student's notices
+  async getStudentNotices(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/student/notices`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
   
   // Upload a student image
   async uploadStudentImage(id: string, file: File): Promise<{ student_image: string }> {

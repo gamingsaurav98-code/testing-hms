@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { studentApi } from '@/lib/api/student.api';
 import { complainApi, Complain } from '@/lib/api/complain.api';
 import { ApiError } from '@/lib/api/core';
 import { 
@@ -40,13 +41,14 @@ export default function StudentComplainList() {
         setIsLoading(true);
         setError(null);
         
-        // In a real app, this would filter by student ID from auth context
-        const response = await complainApi.getComplains(currentPage);
-        // For now, get all complains but in production this should be filtered by student
-        const studentComplains = response.data.filter(complain => complain.student_id !== null);
-        setComplains(studentComplains);
-        setFilteredComplains(studentComplains);
-        setTotalPages(response.last_page);
+        // Use student-specific endpoint to get only the student's complaints
+        const response = await studentApi.getStudentComplains();
+        
+        // Handle different response structures
+        const complainsData = Array.isArray(response) ? response : (response.data || []);
+        setComplains(complainsData);
+        setFilteredComplains(complainsData);
+        setTotalPages(Math.ceil(complainsData.length / 10)); // Assuming 10 per page
       } catch (error) {
         console.error('Error fetching complains:', error);
         if (error instanceof ApiError) {
@@ -320,9 +322,9 @@ export default function StudentComplainList() {
                       <div className="text-sm text-gray-600">
                         {complain.total_messages || 0} messages
                       </div>
-                      {complain.unread_student_messages > 0 && (
+                      {(complain.unread_messages || complain.unread_student_messages || 0) > 0 && (
                         <div className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
-                          {complain.unread_student_messages} unread
+                          {complain.unread_messages || complain.unread_student_messages || 0} unread
                         </div>
                       )}
                     </div>

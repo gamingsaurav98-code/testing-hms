@@ -8,6 +8,7 @@ use App\Models\Student;
 use App\Models\StudentAmenities;
 use App\Models\StudentFinancial;
 use App\Models\Room;
+use App\Models\User;
 use Faker\Factory as Faker;
 use Carbon\Carbon;
 
@@ -110,10 +111,18 @@ class StudentSeeder extends Seeder
             $isGender = $faker->randomElement(['male', 'female']);
             $firstName = $isGender === 'male' ? $faker->randomElement($maleFirstNames) : $faker->randomElement($femaleFirstNames);
             $lastName = $faker->randomElement($lastNames);
-            $fullName = $firstName . ' ' . $lastName;
             
-            // Generate unique email
-            $email = strtolower(str_replace(' ', '.', $firstName . '.' . $lastName)) . $i . '@example.com';
+            // For the first student, use demo student user data
+            if ($i === 1) {
+                $demoStudentUser = User::where('email', 'student@hms.com')->first();
+                $fullName = $demoStudentUser ? $demoStudentUser->name : 'Demo Student';
+                $email = $demoStudentUser ? $demoStudentUser->email : 'demo.student@hms.com';
+                $userId = $demoStudentUser ? $demoStudentUser->id : null;
+            } else {
+                $fullName = $firstName . ' ' . $lastName;
+                $email = strtolower(str_replace(' ', '.', $firstName . '.' . $lastName)) . $i . '@example.com';
+                $userId = null;
+            }
             
             // Find an available room with capacity
             $availableRoom = null;
@@ -133,7 +142,7 @@ class StudentSeeder extends Seeder
             // Create student data
             $studentData = [
                 'student_name' => $fullName,
-                'user_id' => null, // Can be set if User model exists
+                'user_id' => $userId, // Link to demo user for first student
                 'date_of_birth' => $faker->dateTimeBetween('-30 years', '-18 years')->format('Y-m-d'),
                 'contact_number' => '98' . $faker->numberBetween(10000000, 99999999), // Nepali mobile format
                 'email' => $email,
