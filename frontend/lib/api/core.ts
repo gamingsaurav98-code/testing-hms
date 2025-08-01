@@ -1,11 +1,21 @@
-// API configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+// API configuration with environment-specific handling
+const getApiBaseUrl = (): string => {
+  // For client-side (browser) requests, always use localhost
+  if (typeof window !== 'undefined') {
+    return 'http://localhost:8000/api';
+  }
+  
+  // For server-side requests (Docker container), use the service name or environment variable
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000/api';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 // Default timeout for API calls
 export const DEFAULT_API_TIMEOUT = 10000; // 10 seconds
 
 // Debug the API URL being used
-// console.log('Using API URL:', API_BASE_URL); // Removed for performance
+console.log('HMS: Using API URL:', API_BASE_URL, '(client-side:', typeof window !== 'undefined', ')');
 
 export interface PaginatedResponse<T> {
   data: T[];
