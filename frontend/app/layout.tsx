@@ -14,14 +14,14 @@ export const metadata: Metadata = {
   description: "Hostel Management System",
 };
 
-export default function RootLayout({/*  */
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en">
-      <body className={poppins.className}>
+      <body className={poppins.className} suppressHydrationWarning={true}>
         <AuthProvider>
           {children}
         </AuthProvider>

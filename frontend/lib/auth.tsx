@@ -19,13 +19,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   const isAuthenticated = !!user && !!tokenStorage.get();
-
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
 
   const checkAuthStatus = async () => {
     const token = tokenStorage.get();
@@ -95,25 +92,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const verifyToken = async () => {
-    try {
-      const response = await authApi.me();
-      if (response.status === 'success') {
-        setUser(response.data.user);
-        localStorage.setItem('hms_user', JSON.stringify(response.data.user));
-      } else {
-        // Invalid token
-        tokenStorage.remove();
-        localStorage.removeItem('hms_user');
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      tokenStorage.remove();
-      localStorage.removeItem('hms_user');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    setMounted(true);
+    checkAuthStatus();
+  }, []);
+
+  // Don't render children until mounted to prevent hydration issues
+  if (!mounted) {
+    return null;
+  }
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login({ email, password });

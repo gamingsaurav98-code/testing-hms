@@ -29,11 +29,11 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    // Redirect if already authenticated
-    if (isAuthenticated && user) {
+    // Only redirect after component is mounted to avoid hydration issues
+    if (mounted && isAuthenticated && user) {
       redirectToDashboard(user.role);
     }
-  }, [isAuthenticated, user]);
+  }, [mounted, isAuthenticated, user]);
 
   const redirectToDashboard = (role: string) => {
     switch (role) {
@@ -92,14 +92,31 @@ export default function LoginPage() {
     setError('');
   };
 
-  // Show loading only on mount, not for auth loading
+  // Prevent hydration mismatch by not rendering until mounted
   if (!mounted) {
-    return null; // Return nothing during hydration
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
-  // Don't render login form if already authenticated - redirect immediately
-  if (isAuthenticated) {
-    return null; // Let useEffect handle redirect without showing loading
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Don't render login form if already authenticated
+  if (isAuthenticated && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
   return (
