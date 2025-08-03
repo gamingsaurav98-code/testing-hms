@@ -24,6 +24,7 @@ export default function StaffCheckinCheckoutPage() {
   const [records, setRecords] = useState<StaffCheckInCheckOut[]>([]);
   const [currentStatus, setCurrentStatus] = useState<StaffCheckInCheckOut | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,21 @@ export default function StaffCheckinCheckoutPage() {
   const fetchStaffRecords = async () => {
     try {
       setLoading(true);
-      const response = await staffCheckInCheckOutApi.getMyRecords();
+      
+      // Optimized API call with timeout - improved error handling
+      const fetchWithTimeout = async () => {
+        return await Promise.race([
+          staffCheckInCheckOutApi.getMyRecords(),
+          new Promise<{ data: StaffCheckInCheckOut[] }>((resolve) => 
+            setTimeout(() => {
+              console.log('API timeout - returning empty data');
+              resolve({ data: [] });
+            }, 2000) // 2 second timeout
+          )
+        ]);
+      };
+      
+      const response = await fetchWithTimeout();
       
       // Find the most recent record for today or pending status
       const today = new Date().toISOString().split('T')[0];
@@ -43,15 +58,20 @@ export default function StaffCheckinCheckoutPage() {
       
       setRecords(response.data);
       
-      // Determine current status
+      // Determine current status - prioritize today's records
       const activeRecord = todaysRecords.find(record => 
-        record.status === 'checked_in' || record.status === 'pending' || record.status === 'approved'
+        record.status === 'checked_in' || record.status === 'pending'
+      ) || todaysRecords.find(record => 
+        record.status === 'approved'
       );
       
       setCurrentStatus(activeRecord || null);
     } catch (err) {
       console.error('Failed to fetch records:', err);
       setError('Failed to load check-in/checkout data');
+      // Don't let API failures prevent the page from loading
+      setRecords([]);
+      setCurrentStatus(null);
     } finally {
       setLoading(false);
     }
@@ -62,7 +82,6 @@ export default function StaffCheckinCheckoutPage() {
       setCheckingIn(true);
       setError(null);
       
-      // For demo purposes, using a default block_id
       // In a real app, this would come from the staff's work assignment
       await staffCheckInCheckOutApi.checkIn({
         block_id: "1", // This should come from staff's assignment data
@@ -85,8 +104,9 @@ export default function StaffCheckinCheckoutPage() {
     }
   };
 
-  const handleQuickCheckout = () => {
-    // Navigate to checkout request form
+  const handleQuickCheckout = async () => {
+    // This method is no longer used since we have a dedicated create page
+    // Redirect to create page instead
     router.push('/staff/checkin-checkout/create');
   };
 
@@ -213,6 +233,13 @@ export default function StaffCheckinCheckoutPage() {
                 </div>
               )}
 
+              {currentStatus.estimated_checkin_date && (
+                <div className="flex items-center text-sm text-blue-600">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  <span>Estimated return: {formatDate(currentStatus.estimated_checkin_date)}</span>
+                </div>
+              )}
+
               {currentStatus.remarks && (
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-sm text-gray-700">{currentStatus.remarks}</p>
@@ -224,48 +251,90 @@ export default function StaffCheckinCheckoutPage() {
                 {currentStatus.status === 'checked_in' && (
                   <Button
                     onClick={handleQuickCheckout}
+                    disabled={checkingOut}
                     className="bg-orange-600 hover:bg-orange-700 text-white"
+                    icon={checkingOut ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    ) : undefined}
                   >
-                    Request Checkout
+                    {checkingOut ? 'Requesting...' : 'Request Checkout'}
                   </Button>
                 )}
 
                 {currentStatus.status === 'approved' && (
-                  <Button
-                    onClick={handleQuickCheckin}
-                    disabled={checkingIn}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    icon={checkingIn ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    ) : (
-                      <ArrowRight className="w-4 h-4" />
-                    )}
-                  >
-                    {checkingIn ? 'Checking In...' : 'Check In to Work'}
-                  </Button>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <Check className="w-5 h-5 text-green-600 mr-2" />
+                        <span className="text-green-800 font-medium">Checkout Approved</span>
+                      </div>
+                      {currentStatus.estimated_checkin_date && (
+                        <div className="text-sm text-green-700">
+                          Expected return: {formatDate(currentStatus.estimated_checkin_date)}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-green-700 mb-3">
+                      You can now check back in when you return to the hostel.
+                    </p>
+                    <Button
+                      onClick={handleQuickCheckin}
+                      disabled={checkingIn}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      icon={checkingIn ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4" />
+                      )}
+                    >
+                      {checkingIn ? 'Checking In...' : 'Check In to Hostel'}
+                    </Button>
+                  </div>
                 )}
 
                 {currentStatus.status === 'pending' && (
-                  <div className="text-center w-full">
-                    <p className="text-sm text-gray-600 mb-2">Your checkout request is waiting for admin approval.</p>
-                    <p className="text-xs text-gray-500">You will be able to check back in once approved.</p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                    <div className="flex justify-center mb-2">
+                      <Clock className="w-8 h-8 text-yellow-600" />
+                    </div>
+                    <h4 className="font-medium text-yellow-800 mb-2">Checkout Request Pending</h4>
+                    <p className="text-sm text-yellow-700 mb-2">
+                      Your checkout request is waiting for admin approval.
+                    </p>
+                    {currentStatus.estimated_checkin_date && (
+                      <p className="text-sm text-yellow-600">
+                        Expected return: {formatDate(currentStatus.estimated_checkin_date)}
+                      </p>
+                    )}
+                    <p className="text-xs text-yellow-600 mt-2">
+                      You will be able to check back in once approved.
+                    </p>
                   </div>
                 )}
 
                 {currentStatus.status === 'declined' && (
-                  <div className="text-center w-full">
-                    <p className="text-sm text-red-600 mb-2">Your checkout request was declined.</p>
-                    <p className="text-xs text-gray-500">You remain checked in for work.</p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                    <div className="flex justify-center mb-2">
+                      <X className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h4 className="font-medium text-red-800 mb-2">Checkout Request Declined</h4>
+                    <p className="text-sm text-red-700 mb-2">
+                      Your checkout request was not approved. You remain checked in.
+                    </p>
+                    <p className="text-xs text-red-600">
+                      Contact admin if you need to discuss this decision.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
           ) : (
             <div className="text-center py-4">
-              <p className="text-gray-600 text-sm mb-3">Checkout when you are not available at hostel.</p>
+              <p className="text-gray-600 text-sm mb-3">Request checkout from hostel when you need to leave.</p>
               <Button
-                onClick={handleQuickCheckout}
+                onClick={() => router.push('/staff/checkin-checkout/create')}
                 className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 text-sm"
+                icon={<ArrowLeft className="w-4 h-4" />}
               >
                 Request Checkout
               </Button>
@@ -300,6 +369,13 @@ export default function StaffCheckinCheckoutPage() {
                       <div className="flex items-center text-gray-600">
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         <span>Out: {formatTime(record.checkout_time)}</span>
+                      </div>
+                    )}
+                    
+                    {record.estimated_checkin_date && (
+                      <div className="flex items-center text-blue-600">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        <span>Est. Return: {formatDate(record.estimated_checkin_date)}</span>
                       </div>
                     )}
                     

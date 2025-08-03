@@ -544,16 +544,9 @@ class StudentController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
 
-            // Get student record - first try by user_id, then fallback for demo
+            // Get student record
             $student = Student::where('user_id', $user->id)->first();
             
-            // Fallback for demo: if no student found by user_id, get the first student (for demo purposes)
-            if (!$student && $user->email === 'student@hms.com') {
-                $student = Student::where('email', $user->email)
-                    ->orWhere('id', 1) // Get first student as demo
-                    ->first();
-            }
-
             if (!$student) {
                 return response()->json(['message' => 'Student record not found'], 404);
             }

@@ -131,10 +131,10 @@ export default function EditComplain() {
         type: 'success'
       });
 
-      // Redirect to the complain detail page after a short delay
+      // Redirect to the complain detail page after a short delay - optimized
       setTimeout(() => {
         router.push(`/student/complain/${complainId}`);
-      }, 2000);
+      }, 1500); // Reduced from 2000ms
 
     } catch (error) {
       console.error('Error updating complain:', error);
@@ -152,10 +152,10 @@ export default function EditComplain() {
         });
       }
       
-      // Hide error alert after 5 seconds
+      // Hide error alert after 3 seconds - optimized
       setTimeout(() => {
         setAlert({show: false, message: '', type: 'success'});
-      }, 5000);
+      }, 3000); // Reduced from 5000ms
     } finally {
       setIsSubmitting(false);
     }

@@ -18,6 +18,7 @@ return new class extends Migration
             $table->datetime('requested_checkout_time')->nullable();
             $table->timestamp('checkin_time')->nullable();
             $table->timestamp('checkout_time')->nullable();
+            $table->date('estimated_checkin_date')->nullable();
             $table->date('date');
             $table->foreignId('block_id');
             $table->foreignId('checkout_rule_id')->nullable();

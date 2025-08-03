@@ -30,8 +30,18 @@ export default function StudentPaymentHistoryPage() {
     try {
       setLoading(true);
       
-      // Use student-specific payment history endpoint
-      const response = await studentApi.getStudentPayments();
+      // Optimized API call with timeout
+      const fetchWithTimeout = async () => {
+        return await Promise.race([
+          studentApi.getStudentPayments(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
+          )
+        ]);
+      };
+      
+      // Use student-specific payment history endpoint with timeout
+      const response = await fetchWithTimeout().catch(() => ({ data: [] }));
       
       // Handle different response structures
       const paymentsData = Array.isArray(response) ? response : (response.data || []);

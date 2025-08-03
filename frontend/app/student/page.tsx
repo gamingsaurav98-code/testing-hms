@@ -59,7 +59,22 @@ export default function StudentDashboardPage() {
     try {
       setLoading(true);
       
-      // Fetch student-specific data using correct endpoints
+      // Fetch student-specific data with optimized timeouts (2 seconds each)
+      const fetchWithTimeout = async (apiCall: any, fallback: any) => {
+        try {
+          return await Promise.race([
+            apiCall(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout after 2 seconds')), 2000)
+            )
+          ]);
+        } catch (error) {
+          console.warn('API call failed, using fallback:', error);
+          return fallback;
+        }
+      };
+      
+      // Fetch student-specific data using optimized API calls
       const [
         profileData,
         checkInOutData,
@@ -67,11 +82,11 @@ export default function StudentDashboardPage() {
         paymentsData,
         noticesData
       ] = await Promise.all([
-        studentApi.getStudentProfile().catch(() => null),
-        studentApi.getStudentCheckInOuts().catch(() => ({ data: [] })),
-        studentApi.getStudentComplains().catch(() => ({ data: [], total: 0 })),
-        studentApi.getStudentPayments().catch(() => ({ data: [] })),
-        studentApi.getStudentNotices().catch(() => ({ data: [] }))
+        fetchWithTimeout(() => studentApi.getStudentProfile(), null),
+        fetchWithTimeout(() => studentApi.getStudentCheckInOuts(), { data: [] }),
+        fetchWithTimeout(() => studentApi.getStudentComplains(), { data: [], total: 0 }),
+        fetchWithTimeout(() => studentApi.getStudentPayments(), { data: [] }),
+        fetchWithTimeout(() => studentApi.getStudentNotices(), { data: [] })
       ]);
 
       const today = new Date().toISOString().split('T')[0];

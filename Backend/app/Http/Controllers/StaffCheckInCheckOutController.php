@@ -87,6 +87,7 @@ class StaffCheckInCheckOutController extends Controller
             'date' => 'required|date',
             'checkin_time' => 'nullable|date',
             'checkout_time' => 'nullable|date',
+            'estimated_checkin_date' => 'nullable|date|after_or_equal:today',
             'remarks' => 'nullable|string',
         ]);
 
@@ -121,6 +122,7 @@ class StaffCheckInCheckOutController extends Controller
                 'date',
                 'checkin_time',
                 'checkout_time',
+                'estimated_checkin_date',
                 'remarks'
             ]);
 
@@ -187,6 +189,7 @@ class StaffCheckInCheckOutController extends Controller
             'date' => 'sometimes|date',
             'checkin_time' => 'nullable|date',
             'checkout_time' => 'nullable|date',
+            'estimated_checkin_date' => 'nullable|date|after_or_equal:today',
             'remarks' => 'nullable|string',
         ]);
 
@@ -213,6 +216,7 @@ class StaffCheckInCheckOutController extends Controller
                 'date',
                 'checkin_time',
                 'checkout_time',
+                'estimated_checkin_date',
                 'remarks'
             ]);
 
@@ -307,7 +311,33 @@ class StaffCheckInCheckOutController extends Controller
 
             $today = Carbon::today()->toDateString();
             
-            // Check if staff is already checked in today
+            // Check for approved checkout record that hasn't been checked in yet
+            $approvedCheckout = StaffCheckInCheckOut::where('staff_id', $staff->id)
+                ->where('status', 'approved')
+                ->whereNotNull('checkout_time')
+                ->whereNull('checkin_time')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if ($approvedCheckout) {
+                // Update the existing approved checkout record with checkin time
+                $approvedCheckout->update([
+                    'checkin_time' => $request->checkin_time ?? Carbon::now(),
+                    'block_id' => $request->block_id, // Update block if different
+                    'remarks' => $request->remarks ? $approvedCheckout->remarks . '. Check-in: ' . $request->remarks : $approvedCheckout->remarks,
+                    'status' => 'checked_in'
+                ]);
+
+                $approvedCheckout->load(['staff', 'block']);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Staff checked in successfully',
+                    'data' => $approvedCheckout
+                ], 201);
+            }
+
+            // Check if staff is already checked in today without checkout
             $existingRecord = StaffCheckInCheckOut::where('staff_id', $staff->id)
                 ->whereDate('date', $today)
                 ->whereNotNull('checkin_time')
@@ -321,6 +351,7 @@ class StaffCheckInCheckOutController extends Controller
                 ], 422);
             }
 
+            // Create new check-in record for new day/session
             $data = [
                 'staff_id' => $staff->id,
                 'block_id' => $request->block_id,
@@ -370,6 +401,7 @@ class StaffCheckInCheckOutController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'checkout_time' => 'nullable|date',
+                'estimated_checkin_date' => 'nullable|date|after_or_equal:today',
                 'remarks' => 'nullable|string',
             ]);
 
@@ -383,23 +415,27 @@ class StaffCheckInCheckOutController extends Controller
 
             $today = Carbon::today()->toDateString();
             
-            // Find the check-in record for today for the authenticated staff
-            $record = StaffCheckInCheckOut::where('staff_id', $staff->id)
+            // Check if staff already has a pending checkout request for today
+            $existingRequest = StaffCheckInCheckOut::where('staff_id', $staff->id)
                 ->whereDate('date', $today)
-                ->whereNotNull('checkin_time')
-                ->whereNull('checkout_time')
+                ->whereIn('status', ['pending', 'approved'])
                 ->first();
 
-            if (!$record) {
+            if ($existingRequest) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'No active check-in record found for today'
+                    'message' => 'You already have a checkout request for today. Status: ' . ucfirst($existingRequest->status)
                 ], 422);
             }
 
-            $record->update([
+            // Create a new checkout request without requiring prior checkin
+            $record = StaffCheckInCheckOut::create([
+                'staff_id' => $staff->id,
+                'block_id' => 1, // Default block - this could be improved to use staff's assigned block
+                'date' => $today,
                 'checkout_time' => $request->checkout_time ?? Carbon::now(),
-                'remarks' => $request->remarks ?? $record->remarks,
+                'estimated_checkin_date' => $request->estimated_checkin_date,
+                'remarks' => $request->remarks ?? 'Staff checkout request',
                 'status' => 'pending' // Checkout pending approval
             ]);
 

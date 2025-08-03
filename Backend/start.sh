@@ -5,7 +5,7 @@ set -e
 echo "Waiting for database to be ready..."
 until php artisan db:monitor 2>/dev/null; do
   echo "Database is unavailable - sleeping"
-  sleep 2
+  sleep 1  # Reduced from 2 seconds to 1 second for faster startup
 done
 
 echo "Database is ready!"

@@ -326,9 +326,9 @@ export default function StudentStructure({ children }: { children: React.ReactNo
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              await navigator.clipboard.writeText('student@hms.com');
+                              await navigator.clipboard.writeText(user?.email || '');
                               setEmailCopied(true);
-                              setTimeout(() => setEmailCopied(false), 2000);
+                              setTimeout(() => setEmailCopied(false), 1500); // Reduced from 2000ms
                             } catch (err) {
                               console.error('Failed to copy email:', err);
                             }
@@ -343,7 +343,7 @@ export default function StudentStructure({ children }: { children: React.ReactNo
                             </div>
                           ) : (
                             <div className="flex items-center space-x-1 group">
-                              <span>student@hms.com</span>
+                              <span>{user?.email || 'No email'}</span>
                               <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                               </svg>

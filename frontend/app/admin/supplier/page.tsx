@@ -107,10 +107,10 @@ export default function SupplierList() {
       
       setAlert({show: true, message: 'Supplier deleted successfully!', type: 'success'});
       
-      // Hide alert after 3 seconds
+      // Hide alert after 2 seconds - optimized for faster UX
       setTimeout(() => {
         setAlert({show: false, message: '', type: 'success'});
-      }, 3000);
+      }, 2000);
       
     } catch (error) {
       console.error('Error deleting supplier:', error);
@@ -120,10 +120,10 @@ export default function SupplierList() {
         setAlert({show: true, message: 'Failed to delete supplier. Please try again.', type: 'error'});
       }
       
-      // Hide error alert after 5 seconds
+      // Hide error alert after 3 seconds - optimized
       setTimeout(() => {
         setAlert({show: false, message: '', type: 'success'});
-      }, 5000);
+      }, 3000);
     } finally {
       setIsDeleting(null);
     }

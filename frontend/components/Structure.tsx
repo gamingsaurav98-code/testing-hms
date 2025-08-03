@@ -457,7 +457,7 @@ export default function Structure({ children }: { children: React.ReactNode }) {
                             try {
                               await navigator.clipboard.writeText('admin@hms.com');
                               setEmailCopied(true);
-                              setTimeout(() => setEmailCopied(false), 2000);
+                              setTimeout(() => setEmailCopied(false), 1500); // Reduced from 2000ms
                             } catch (err) {
                               console.error('Failed to copy email:', err);
                             }

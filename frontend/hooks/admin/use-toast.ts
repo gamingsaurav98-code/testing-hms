@@ -6,7 +6,7 @@ export function useToast() {
   const [showSuccessToast, setShowSuccessToast] = useState(false)
   const [toastProgress, setToastProgress] = useState(100)
 
-  const showSuccess = (duration = 2000) => {
+  const showSuccess = (duration = 1500) => { // Reduced from 2000ms to 1500ms for faster feedback
     setShowSuccessToast(true)
     setToastProgress(100)
     

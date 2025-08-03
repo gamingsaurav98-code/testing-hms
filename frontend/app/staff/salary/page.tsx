@@ -37,7 +37,17 @@ export default function StaffSalaryPage() {
       setLoading(true);
       setError(null);
       
-      const response = await SalaryApi.getMySalaryHistory();
+      // Optimized API call with timeout
+      const fetchWithTimeout = async () => {
+        return await Promise.race([
+          SalaryApi.getMySalaryHistory(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
+          )
+        ]);
+      };
+      
+      const response = await fetchWithTimeout().catch(() => []);
       const salariesArray = Array.isArray(response) ? response : [];
       
       // No need to filter since getMySalaryHistory() already returns only current staff's salaries

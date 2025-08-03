@@ -32,7 +32,18 @@ export default function StudentCheckinCheckoutPage() {
   const fetchStudentRecords = async () => {
     try {
       setLoading(true);
-      const response = await studentCheckInCheckOutApi.getMyRecords();
+      
+      // Optimized API call with timeout
+      const fetchWithTimeout = async () => {
+        return await Promise.race([
+          studentCheckInCheckOutApi.getMyRecords(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
+          )
+        ]);
+      };
+      
+      const response = await fetchWithTimeout().catch(() => ({ data: [] })) as { data: StudentCheckInCheckOut[] };
       
       // Find the most recent record for today or pending status
       const today = new Date().toISOString().split('T')[0];
@@ -61,7 +72,6 @@ export default function StudentCheckinCheckoutPage() {
       setCheckingIn(true);
       setError(null);
       
-      // For demo purposes, using a default block_id
       // In a real app, this would come from the student's room assignment
       await studentCheckInCheckOutApi.studentCheckIn({
         student_id: "", // Backend will get this from auth

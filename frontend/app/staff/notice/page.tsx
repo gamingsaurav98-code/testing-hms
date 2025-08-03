@@ -46,52 +46,9 @@ export default function StaffNoticePage() {
       setLoading(true);
       setError(null);
       
-      // Mock data since notice API might not be available
-      const mockNotices: Notice[] = [
-        {
-          id: '1',
-          title: 'Monthly Staff Meeting',
-          content: 'All staff members are requested to attend the monthly meeting scheduled for July 30th, 2025 at 10:00 AM in the conference room. Please prepare your monthly reports.',
-          type: 'announcement',
-          target_audience: 'staff',
-          created_at: '2025-07-25T10:00:00Z',
-          updated_at: '2025-07-25T10:00:00Z',
-          is_active: true
-        },
-        {
-          id: '2',
-          title: 'Maintenance Schedule - Block A',
-          content: 'Block A will undergo scheduled maintenance on July 29th from 2:00 PM to 6:00 PM. Please inform students about potential water supply interruptions.',
-          type: 'maintenance',
-          target_audience: 'all',
-          created_at: '2025-07-24T14:00:00Z',
-          updated_at: '2025-07-24T14:00:00Z',
-          is_active: true
-        },
-        {
-          id: '3',
-          title: 'New Safety Protocols',
-          content: 'Important safety protocols have been updated. All staff must review and implement the new emergency procedures. Training session will be held on August 1st.',
-          type: 'urgent',
-          target_audience: 'staff',
-          created_at: '2025-07-23T09:00:00Z',
-          updated_at: '2025-07-23T09:00:00Z',
-          is_active: true
-        },
-        {
-          id: '4',
-          title: 'Hostel Fee Collection Reminder',
-          content: 'Please remind students about the upcoming fee payment deadline. Monthly fees are due by the 5th of every month.',
-          type: 'general',
-          target_audience: 'staff',
-          created_at: '2025-07-22T08:00:00Z',
-          updated_at: '2025-07-22T08:00:00Z',
-          is_active: true
-        }
-      ];
-      
-      setNotices(mockNotices);
-      setFilteredNotices(mockNotices);
+      // TODO: Implement actual API call when notice API is ready
+      setNotices([]);
+      setFilteredNotices([]);
     } catch (err) {
       console.error('Error fetching notices:', err);
       setError('Failed to load notices. Please try again.');

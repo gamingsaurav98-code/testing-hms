@@ -43,13 +43,13 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  status: 'success';
+  status: 'success' | 'error';
   message: string;
   data: {
     user: User;
     token: string;
     token_type: 'Bearer';
-  };
+  } | null;
 }
 
 export interface UserMeResponse {
@@ -78,6 +78,21 @@ export interface RegisterRequest {
   password_confirmation: string;
   role: 'admin' | 'student' | 'staff';
   user_type_id?: number;
+}
+
+export interface CreateAccountRequest {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface CreateAccountResponse {
+  status: 'success';
+  message: string;
+  data: {
+    user: User;
+  };
 }
 
 // Cleaned up - removed unused interfaces: ActiveSession, ActiveSessionsResponse
@@ -127,17 +142,38 @@ export const authApi = {
         'Accept': 'application/json',
       },
       body: JSON.stringify(credentials),
-      signal: AbortSignal.timeout(30000), // 30 second timeout for login
     });
 
-    const data = await handleResponse<LoginResponse>(response);
+    const contentType = response.headers.get('content-type');
+    let responseData: any;
     
+    if (contentType && contentType.includes('application/json')) {
+      responseData = await response.json();
+    } else {
+      responseData = { message: 'Login failed' };
+    }
+
+    // For login errors, return the error in the response format instead of throwing
+    if (!response.ok) {
+      let errorMessage = 'Authentication failed';
+      if (responseData.message) {
+        errorMessage = responseData.message;
+      }
+      
+      // Return error as a "successful" response that the UI can handle
+      return {
+        status: 'error' as const,
+        message: errorMessage,
+        data: null as any
+      };
+    }
+
     // Store token if login successful
-    if (data.status === 'success' && data.data.token) {
-      tokenStorage.set(data.data.token);
+    if (responseData.status === 'success' && responseData.data.token) {
+      tokenStorage.set(responseData.data.token);
     }
     
-    return data;
+    return responseData as LoginResponse;
   },
 
   // Logout user
@@ -206,13 +242,17 @@ export const authApi = {
 
   // Get current user
   async me(): Promise<UserMeResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-      signal: AbortSignal.timeout(15000), // 15 second timeout
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
 
-    return handleResponse<UserMeResponse>(response);
+      return handleResponse<UserMeResponse>(response);
+    } catch (error) {
+      console.error('Get user error:', error);
+      throw error;
+    }
   },
 
   // Change password
@@ -235,6 +275,20 @@ export const authApi = {
     });
 
     return handleResponse(response);
+  },
+
+  // Create account for pre-registered staff/student (public)
+  async createAccount(data: CreateAccountRequest): Promise<CreateAccountResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/create-account`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    return handleResponse<CreateAccountResponse>(response);
   },
 
   // Note: refreshToken, checkPermission, and getActiveSessions methods removed as they are not used in the frontend

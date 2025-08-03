@@ -223,6 +223,15 @@ export default function StaffCheckinCheckoutDetailPage() {
                     </p>
                   </div>
                 )}
+                {record.estimated_checkin_date && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Estimated Return Date</label>
+                    <p className="mt-1 text-sm text-blue-600 flex items-center">
+                      <Calendar className="w-4 h-4 mr-1" />
+                      {formatDate(record.estimated_checkin_date)}
+                    </p>
+                  </div>
+                )}
                 {record.checkout_duration && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Duration</label>
@@ -262,6 +271,20 @@ export default function StaffCheckinCheckoutDetailPage() {
                       <div>
                         <p className="text-sm font-medium text-orange-900">Checkout Time</p>
                         <p className="text-lg font-semibold text-orange-800">{formatDateTime(record.checkout_time)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {record.estimated_checkin_date && (
+                  <div className="flex items-start justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Estimated Return Date</p>
+                        <p className="text-lg font-semibold text-blue-800">{formatDate(record.estimated_checkin_date)}</p>
                       </div>
                     </div>
                   </div>
@@ -344,12 +367,6 @@ export default function StaffCheckinCheckoutDetailPage() {
                   className="w-full"
                 >
                   View All Records
-                </Button>
-                <Button
-                  onClick={() => router.push('/staff/checkin-checkout/create')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Create New Record
                 </Button>
               </div>
             </div>

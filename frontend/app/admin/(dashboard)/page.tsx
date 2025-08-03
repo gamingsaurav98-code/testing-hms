@@ -90,13 +90,13 @@ export default function AdminDashboardPage() {
     try {
       setLoading(true);
       
-      // Fetch critical data first with shorter timeouts (8 seconds each)
+      // Fetch critical data first with optimized timeouts (3 seconds each for faster response)
       const fetchWithTimeout = async (apiCall: any, fallback: any) => {
         try {
           return await Promise.race([
             apiCall(),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout after 8 seconds')), 8000)
+              setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
             )
           ]);
         } catch (error) {

@@ -34,6 +34,7 @@ use App\Http\Controllers\StaffCheckoutRuleController;
 // Authentication routes
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::post('auth/register', [AuthController::class, 'register']); // Admin only in practice
+Route::post('auth/create-account', [AuthController::class, 'createAccount']); // Public account creation for pre-registered staff/students
 
 // =============================================================================
 // AUTHENTICATED ROUTES (Require Authentication)

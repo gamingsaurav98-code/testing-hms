@@ -116,7 +116,7 @@ export default function CreateNotice() {
         } else if (name === 'block_id') {
           fetchBlocks(value);
         }
-      }, 500);
+      }, 200); // Reduced from 500ms to 200ms for faster search response
       
       setSearchTimeout(timeout);
     }

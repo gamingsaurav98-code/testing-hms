@@ -38,8 +38,18 @@ export default function StudentNoticeList() {
       setLoading(true);
       setError(null);
       
-      // For student notice list, use student-specific endpoint
-      const response = await studentApi.getStudentNotices();
+      // Optimized API call with timeout
+      const fetchWithTimeout = async () => {
+        return await Promise.race([
+          studentApi.getStudentNotices(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
+          )
+        ]);
+      };
+      
+      // For student notice list, use student-specific endpoint with timeout
+      const response = await fetchWithTimeout().catch(() => ({ data: [] }));
       
       // Handle different response structures
       const noticesData = Array.isArray(response) ? response : (response.data || []);

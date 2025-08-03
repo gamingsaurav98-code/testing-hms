@@ -16,6 +16,7 @@ class StaffCheckInCheckOut extends Model
         'requested_checkout_time',
         'checkin_time',
         'checkout_time',
+        'estimated_checkin_date',
         'date',
         'block_id',
         'remarks',

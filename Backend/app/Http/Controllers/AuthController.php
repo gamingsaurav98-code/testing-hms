@@ -50,10 +50,21 @@ class AuthController extends Controller
             ]);
             
         } catch (ValidationException $e) {
+            // Extract the actual error message from validation errors
+            $errors = $e->errors();
+            $errorMessage = 'Authentication failed';
+            if (!empty($errors)) {
+                // Get the first error message from the errors array
+                $firstError = reset($errors);
+                if (is_array($firstError) && !empty($firstError)) {
+                    $errorMessage = $firstError[0];
+                }
+            }
+            
             return response()->json([
                 'status' => 'error',
-                'message' => 'Authentication failed',
-                'errors' => $e->errors()
+                'message' => $errorMessage,
+                'errors' => $errors
             ], 401);
         } catch (\Exception $e) {
             return response()->json([
@@ -191,6 +202,121 @@ class AuthController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Registration failed',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Create account for pre-registered staff/student
+     */
+    public function createAccount(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string|min:8|confirmed',
+            'name' => 'required|string|max:255'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $email = $request->email;
+            
+            // Check if user already exists
+            if (User::where('email', $email)->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'An account with this email already exists'
+                ], 409);
+            }
+
+            // Check if email exists in students table
+            $student = Student::where('email', $email)->first();
+            if ($student) {
+                // Check if student already has a user account
+                if ($student->user_id) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Account already exists for this email'
+                    ], 409);
+                }
+
+                // Create user account for student
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $email,
+                    'password' => Hash::make($request->password),
+                    'role' => 'student',
+                    'is_active' => true
+                ]);
+
+                // Link student to user
+                $student->user_id = $user->id;
+                $student->save();
+
+                $userData = $this->authService->formatUserData($user);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Account created successfully! Please login to access your dashboard.',
+                    'data' => [
+                        'user' => $userData
+                    ]
+                ], 201);
+            }
+
+            // Check if email exists in staff table
+            $staff = Staff::where('email', $email)->first();
+            if ($staff) {
+                // Check if staff already has a user account
+                if ($staff->user_id) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Account already exists for this email'
+                    ], 409);
+                }
+
+                // Create user account for staff
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $email,
+                    'password' => Hash::make($request->password),
+                    'role' => 'staff',
+                    'is_active' => true
+                ]);
+
+                // Link staff to user
+                $staff->user_id = $user->id;
+                $staff->save();
+
+                $userData = $this->authService->formatUserData($user);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Account created successfully! Please login to access your dashboard.',
+                    'data' => [
+                        'user' => $userData
+                    ]
+                ], 201);
+            }
+
+            // Email not found in students or staff tables
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This email is not registered by admin. Please contact administrator to register your details first.'
+            ], 403);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Account creation failed',
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }

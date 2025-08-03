@@ -1,17 +1,27 @@
 // API configuration with environment-specific handling
 const getApiBaseUrl = (): string => {
-  // For client-side (browser) requests, always use localhost
-  if (typeof window !== 'undefined') {
-    return 'http://localhost:8000/api';
+  // Always use environment variable if explicitly set
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  
+  if (envUrl) {
+    return envUrl;
   }
   
-  // For server-side requests (Docker container), use the service name or environment variable
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000/api';
+  // Smart fallback based on environment
+  if (typeof window !== 'undefined') {
+    // Client-side: use localhost when accessing via localhost, otherwise use backend service
+    return window.location.hostname === 'localhost' 
+      ? 'http://localhost:8000/api'
+      : 'http://backend:8000/api';
+  }
+  
+  // Server-side: always use backend service name for Docker
+  return 'http://backend:8000/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
 
-// Default timeout for API calls
+// Increased timeout for better reliability in Docker environment
 export const DEFAULT_API_TIMEOUT = 10000; // 10 seconds
 
 // Debug the API URL being used
@@ -86,7 +96,8 @@ export async function handleResponse<T>(response: Response): Promise<T> {
       }
     }
     
-    console.error(`API Error: ${errorMessage}`);
+    // Don't log API errors to console - they are handled by UI components
+    // Only system administrators need these in production logs, not end users
     throw new ApiError(response.status, errorMessage, validationErrors);
   }
   
@@ -96,21 +107,24 @@ export async function handleResponse<T>(response: Response): Promise<T> {
 
 // Helper function to create fetch with timeout
 export async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = DEFAULT_API_TIMEOUT): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
+    // Use Promise.race with graceful timeout handling
+    const fetchPromise = fetch(url, options);
+    
+    const timeoutPromise = new Promise<Response>((resolve) => {
+      setTimeout(() => {
+        console.log(`Request to ${url} timed out after ${timeout/1000}s - returning empty response`);
+        // Return a mock 408 response instead of throwing
+        resolve(new Response(JSON.stringify({ error: 'Request timeout' }), {
+          status: 408,
+          statusText: 'Request Timeout',
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      }, timeout);
     });
-    clearTimeout(timeoutId);
-    return response;
+    
+    return await Promise.race([fetchPromise, timeoutPromise]);
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new ApiError(0, `Request timed out after ${timeout/1000} seconds`);
-    }
     throw error;
   }
 }

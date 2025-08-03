@@ -117,9 +117,9 @@ export default function StaffStructure({ children }: { children: React.ReactNode
   };
 
   const handleEmailCopy = () => {
-    navigator.clipboard.writeText('staff@hms.com');
+    navigator.clipboard.writeText(user?.email || '');
     setEmailCopied(true);
-    setTimeout(() => setEmailCopied(false), 2000);
+    setTimeout(() => setEmailCopied(false), 1500); // Reduced from 2000ms
   };
 
   // Sidebar items for staff
@@ -271,7 +271,7 @@ export default function StaffStructure({ children }: { children: React.ReactNode
                 </div>
                 <div className="hidden md:flex flex-col items-start">
                   <span className="text-sm font-semibold text-gray-800 group-hover:text-blue-600 transition-colors duration-200">Staff Member</span>
-                  <span className="text-xs text-gray-500">staff@hms.com</span>
+                  <span className="text-xs text-gray-500">{user?.email || 'No email'}</span>
                 </div>
                 <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -293,7 +293,7 @@ export default function StaffStructure({ children }: { children: React.ReactNode
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900">Staff Member</p>
                         <div className="flex items-center space-x-2">
-                          <p className="text-xs text-gray-500">staff@hms.com</p>
+                          <p className="text-xs text-gray-500">{user?.email || 'No email'}</p>
                           <button
                             onClick={handleEmailCopy}
                             className="text-xs text-blue-600 hover:text-blue-700 transition-colors duration-200"

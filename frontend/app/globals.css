@@ -82,7 +82,7 @@ a:focus-visible {
 }
 
 .animate-in {
-  animation: slideInFromTop 0.2s ease-out forwards;
+  animation: slideInFromTop 0.15s ease-out forwards; /* Reduced from 0.2s to 0.15s */
 }
 
 /* Custom pulse animation */
@@ -96,7 +96,7 @@ a:focus-visible {
 }
 
 .animate-pulse {
-  animation: customPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: customPulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; /* Reduced from 2s to 1.5s */
 }
 
 /* You can add any truly global styles here */

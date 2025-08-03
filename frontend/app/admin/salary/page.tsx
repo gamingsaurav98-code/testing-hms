@@ -86,7 +86,7 @@ export default function SalaryList() {
       
       setTimeout(() => {
         setAlert({show: false, message: '', type: 'success'});
-      }, 3000);
+      }, 2000); // Reduced from 3000ms
       
     } catch (err) {
       setAlert({
@@ -97,7 +97,7 @@ export default function SalaryList() {
       
       setTimeout(() => {
         setAlert({show: false, message: '', type: 'success'});
-      }, 5000);
+      }, 3000); // Reduced from 5000ms
     } finally {
       setIsDeleting(null);
     }

@@ -39,7 +39,6 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_BASE_URL=http://backend:8000/api
     networks:
       - hms_network
 

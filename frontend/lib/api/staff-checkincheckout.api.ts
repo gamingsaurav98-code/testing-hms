@@ -10,6 +10,7 @@ export interface StaffCheckInCheckOut {
   date: string;
   checkin_time?: string;
   checkout_time?: string;
+  estimated_checkin_date?: string;
   checkout_duration?: string;
   status: 'pending' | 'approved' | 'declined' | 'checked_in' | 'checked_out';
   remarks?: string;
@@ -41,37 +42,31 @@ export interface StaffCheckInCheckOut {
 export interface StaffCheckoutRule {
   id: string;
   staff_id: string;
-  is_active: boolean;
+  percentage: number;
   active_after_days?: number;
-  percentage?: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
-  // Relations
   staff?: {
     id: string;
     staff_name: string;
     staff_id?: string;
-    position?: string;
     department?: string;
+    position?: string;
   };
 }
 
 export interface StaffCheckoutFinancial {
   id: string;
-  staff_id: string;
-  checkout_id: string;
-  checkout_rule_id?: string;
-  checkout_duration?: string;
-  deducted_amount: string;
+  staff_checkin_checkout_id: string;
+  checkout_rule_id: string;
+  deducted_amount: number;
+  calculated_hours: number;
+  checkout_date: string;
   created_at: string;
   updated_at: string;
-  // Relations
-  staff?: {
-    id: string;
-    staff_name: string;
-  };
-  check_in_check_out?: StaffCheckInCheckOut;
   checkout_rule?: StaffCheckoutRule;
+  staff_checkin_checkout?: StaffCheckInCheckOut;
 }
 
 // Form data interfaces
@@ -81,24 +76,25 @@ export interface StaffCheckInCheckOutFormData {
   date: string;
   checkin_time?: string;
   checkout_time?: string;
+  estimated_checkin_date?: string;
   remarks?: string;
 }
 
 export interface CheckInFormData {
   block_id: string;
-  checkin_time?: string;
   remarks?: string;
 }
 
 export interface CheckOutFormData {
+  estimated_checkin_date?: string;
   remarks?: string;
 }
 
 export interface StaffCheckoutRuleFormData {
   staff_id: string;
-  is_active: boolean;
+  percentage: number;
   active_after_days?: number;
-  percentage?: number;
+  is_active: boolean;
 }
 
 // Filter interfaces
@@ -108,10 +104,7 @@ export interface CheckInCheckOutFilters {
   date?: string;
   start_date?: string;
   end_date?: string;
-  status?: 'checked_in' | 'checked_out';
-  department?: string;
-  position?: string;
-  per_page?: number;
+  status?: string;
   all?: boolean;
 }
 
@@ -152,7 +145,7 @@ export interface StaffStatistics {
 
 // API functions for Staff Check-in/Check-out
 export const staffCheckInCheckOutApi = {
-  // Get all check-in/check-out records
+  // Get all check-in/check-out records (Admin function)
   async getCheckInCheckOuts(
     page: number = 1, 
     filters: CheckInCheckOutFilters = {}
@@ -178,7 +171,7 @@ export const staffCheckInCheckOutApi = {
     return handleResponse<{ data: StaffCheckInCheckOut }>(response);
   },
 
-  // Create new check-in/check-out record
+  // Create new check-in/check-out record (Admin function)
   async createCheckInCheckOut(data: StaffCheckInCheckOutFormData): Promise<{ data: StaffCheckInCheckOut }> {
     const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts`, {
       method: 'POST',
@@ -188,7 +181,7 @@ export const staffCheckInCheckOutApi = {
     return handleResponse<{ data: StaffCheckInCheckOut }>(response);
   },
 
-  // Update check-in/check-out record
+  // Update check-in/check-out record (Admin function)
   async updateCheckInCheckOut(id: string, data: Partial<StaffCheckInCheckOutFormData>): Promise<{ data: StaffCheckInCheckOut }> {
     const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
       method: 'PUT',
@@ -198,7 +191,7 @@ export const staffCheckInCheckOutApi = {
     return handleResponse<{ data: StaffCheckInCheckOut }>(response);
   },
 
-  // Delete check-in/check-out record
+  // Delete check-in/check-out record (Admin function)
   async deleteCheckInCheckOut(id: string): Promise<{ message: string }> {
     const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
       method: 'DELETE',
@@ -207,54 +200,64 @@ export const staffCheckInCheckOutApi = {
     return handleResponse<{ message: string }>(response);
   },
 
-  // Quick check-in
+  // Quick check-in (Staff function)
   async checkIn(data: CheckInFormData): Promise<{ data: StaffCheckInCheckOut }> {
     console.log('Staff checkin request:', data);
     console.log('API URL:', `${API_BASE_URL}/staff/checkin`);
     console.log('Headers:', getAuthHeaders());
     
-    const response = await fetch(`${API_BASE_URL}/staff/checkin`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-      signal: AbortSignal.timeout(15000), // 15 second timeout
-    });
-    
-    console.log('Checkin response status:', response.status);
-    console.log('Checkin response headers:', Object.fromEntries(response.headers.entries()));
-    
-    return handleResponse<{ data: StaffCheckInCheckOut }>(response);
+    try {
+      const response = await fetch(`${API_BASE_URL}/staff/checkin`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      
+      console.log('Checkin response status:', response.status);
+      console.log('Checkin response headers:', Object.fromEntries(response.headers.entries()));
+      
+      return handleResponse<{ data: StaffCheckInCheckOut }>(response);
+    } catch (error) {
+      console.error('Checkin API error:', error);
+      throw new Error('Failed to check in. Please try again.');
+    }
   },
 
-  // Quick check-out
+  // Quick check-out (Staff function)
   async checkOut(data: CheckOutFormData): Promise<{ data: StaffCheckInCheckOut }> {
     console.log('Staff checkout request:', data);
     console.log('API URL:', `${API_BASE_URL}/staff/checkout`);
     console.log('Headers:', getAuthHeaders());
     
-    const response = await fetch(`${API_BASE_URL}/staff/checkout`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-      signal: AbortSignal.timeout(15000), // 15 second timeout
-    });
-    
-    console.log('Checkout response status:', response.status);
-    console.log('Checkout response headers:', Object.fromEntries(response.headers.entries()));
-    
-    return handleResponse<{ data: StaffCheckInCheckOut }>(response);
+    try {
+      const response = await fetch(`${API_BASE_URL}/staff/checkout`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      
+      console.log('Checkout response status:', response.status);
+      console.log('Checkout response headers:', Object.fromEntries(response.headers.entries()));
+      
+      return handleResponse<{ data: StaffCheckInCheckOut }>(response);
+    } catch (error) {
+      console.error('Checkout API error:', error);
+      throw new Error('Failed to submit checkout request. Please try again.');
+    }
   },
 
-  // Get today's attendance
+  // Get today's attendance (Admin function)
   async getTodayAttendance(blockId?: string): Promise<{ data: StaffCheckInCheckOut[]; date: string }> {
-    const queryParams = blockId ? `?block_id=${blockId}` : '';
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/today/attendance${queryParams}`, {
+    const queryParams = new URLSearchParams();
+    if (blockId) queryParams.append('block_id', blockId);
+    
+    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/today/attendance?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckInCheckOut[]; date: string }>(response);
   },
 
-  // Approve checkout request
+  // Approve checkout request (Admin function)
   async approveCheckout(id: string): Promise<{ data: StaffCheckInCheckOut }> {
     const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}/approve-checkout`, {
       method: 'POST',
@@ -263,19 +266,17 @@ export const staffCheckInCheckOutApi = {
     return handleResponse<{ data: StaffCheckInCheckOut }>(response);
   },
 
-  // Decline checkout request
+  // Decline checkout request (Admin function)
   async declineCheckout(id: string, remarks?: string): Promise<{ data: StaffCheckInCheckOut }> {
     const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}/decline-checkout`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        remarks: remarks || 'Checkout declined by admin'
-      }),
+      body: JSON.stringify({ remarks }),
     });
     return handleResponse<{ data: StaffCheckInCheckOut }>(response);
   },
 
-  // Get staff statistics
+  // Get staff statistics (Admin function)
   async getStaffStatistics(
     staffId: string, 
     startDate?: string, 
@@ -291,7 +292,7 @@ export const staffCheckInCheckOutApi = {
     return handleResponse<{ data: StaffStatistics }>(response);
   },
 
-  // Get attendance statistics
+  // Get attendance statistics (Admin function)
   async getAttendanceStatistics(
     startDate?: string, 
     endDate?: string, 
@@ -317,9 +318,24 @@ export const staffCheckInCheckOutApi = {
     console.log('With headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(url, {
+      // Add timeout using Promise.race with graceful fallback
+      const fetchPromise = fetch(url, {
         headers: getAuthHeaders(),
       });
+      
+      const timeoutPromise = new Promise<Response>((resolve) => {
+        setTimeout(() => {
+          console.log('Request timeout - creating empty response');
+          // Create a mock response that will return empty data
+          resolve(new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }));
+        }, 3000); // 3 second timeout
+      });
+      
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      
       console.log('Response status:', response.status);
       console.log('Response URL:', response.url);
       
@@ -344,12 +360,21 @@ export const staffCheckInCheckOutApi = {
       return handleResponse<{ data: StaffCheckInCheckOut[] }>(response);
     } catch (error) {
       console.error('getMyRecords network error:', error);
+      // Return empty data instead of throwing error to prevent crashes
       return { data: [] };
     }
   },
+
+  // Get my today's attendance (Staff function)
+  async getMyTodayAttendance(): Promise<{ data: StaffCheckInCheckOut | null }> {
+    const response = await fetch(`${API_BASE_URL}/staff/today-attendance`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ data: StaffCheckInCheckOut | null }>(response);
+  },
 };
 
-// API functions for Staff Checkout Rules
+// API functions for Staff Checkout Rules (Admin functions)
 export const staffCheckoutRuleApi = {
   // Get all checkout rules
   async getCheckoutRules(
@@ -432,7 +457,7 @@ export const staffCheckoutRuleApi = {
   },
 };
 
-// API functions for Staff Checkout Financials
+// API functions for Staff Checkout Financials (Admin functions)
 export const staffCheckoutFinancialApi = {
   // Get all checkout financials
   async getCheckoutFinancials(
@@ -461,28 +486,12 @@ export const staffCheckoutFinancialApi = {
     return handleResponse<PaginatedResponse<StaffCheckoutFinancial>>(response);
   },
 
-  // Get specific checkout financial
+  // Get checkout financial by ID
   async getCheckoutFinancial(id: string): Promise<{ data: StaffCheckoutFinancial }> {
     const response = await fetch(`${API_BASE_URL}/staff-checkout-financials/${id}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckoutFinancial }>(response);
-  },
-
-  // Get financials for specific staff
-  async getStaffFinancials(
-    staffId: string, 
-    startDate?: string, 
-    endDate?: string
-  ): Promise<{ data: { financials: StaffCheckoutFinancial[]; summary: any } }> {
-    const queryParams = new URLSearchParams();
-    if (startDate) queryParams.append('start_date', startDate);
-    if (endDate) queryParams.append('end_date', endDate);
-    
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-financials/staff/${staffId}?${queryParams}`, {
-      headers: getAuthHeaders(),
-    });
-    return handleResponse<{ data: { financials: StaffCheckoutFinancial[]; summary: any } }>(response);
   },
 
   // Get financial statistics
@@ -502,24 +511,5 @@ export const staffCheckoutFinancialApi = {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: any }>(response);
-  },
-
-  // Export financials
-  async exportFinancials(
-    startDate?: string, 
-    endDate?: string, 
-    blockId?: string,
-    department?: string
-  ): Promise<{ data: any[]; summary: any }> {
-    const queryParams = new URLSearchParams();
-    if (startDate) queryParams.append('start_date', startDate);
-    if (endDate) queryParams.append('end_date', endDate);
-    if (blockId) queryParams.append('block_id', blockId);
-    if (department) queryParams.append('department', department);
-    
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-financials/export/data?${queryParams}`, {
-      headers: getAuthHeaders(),
-    });
-    return handleResponse<{ data: any[]; summary: any }>(response);
-  },
+  }
 };

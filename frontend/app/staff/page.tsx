@@ -69,13 +69,28 @@ export default function StaffDashboardPage() {
     try {
       setLoading(true);
       
-      // Fetch staff-specific data using correct endpoints
+      // Fetch staff-specific data with optimized timeouts (2 seconds each)
+      const fetchWithTimeout = async (apiCall: any, fallback: any) => {
+        try {
+          return await Promise.race([
+            apiCall(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout after 2 seconds')), 2000)
+            )
+          ]);
+        } catch (error) {
+          console.warn('API call failed, using fallback:', error);
+          return fallback;
+        }
+      };
+      
+      // Fetch staff-specific data using optimized API calls
       const [
         checkInOutData,
         salaryData,
       ] = await Promise.all([
-        staffCheckInCheckOutApi.getMyRecords().catch(() => ({ data: [] })),
-        SalaryApi.getMySalaryHistory().catch(() => []),
+        fetchWithTimeout(() => staffCheckInCheckOutApi.getMyRecords(), { data: [] }),
+        fetchWithTimeout(() => SalaryApi.getMySalaryHistory(), []),
       ]);
 
       const today = new Date().toISOString().split('T')[0];

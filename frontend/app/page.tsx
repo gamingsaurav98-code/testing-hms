@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import RegisterForm from '@/components/auth/RegisterForm';
 import Image from "next/image";
 
 interface LoginFormData {
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
   const { login, isAuthenticated, isLoading: authLoading, user } = useAuth();
   const router = useRouter();
 
@@ -65,29 +67,28 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await login(formData.email, formData.password);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      if (error.response?.data?.message) {
-        setError(error.response.data.message);
-      } else if (error.message) {
-        setError(error.message);
-      } else {
-        setError('Login failed. Please check your credentials and try again.');
+      const result = await login(formData.email, formData.password);
+      if (!result.success && result.message) {
+        setError(result.message);
       }
+      // If successful, login function handles redirect automatically
+    } catch (error: any) {
+      // Handle any unexpected errors
+      setError('Login failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const demoCredentials = [
-    { role: 'Admin', email: 'admin@hms.com', password: 'password123' },
-    { role: 'Student', email: 'student@hms.com', password: 'password123' },
-    { role: 'Staff', email: 'staff@hms.com', password: 'password123' }
-  ];
 
-  const fillDemoCredentials = (email: string, password: string) => {
-    setFormData({ email, password });
+
+  const handleCreateAccountSuccess = () => {
+    setShowCreateAccount(false);
+    setError('');
+  };
+
+  const handleBackToLogin = () => {
+    setShowCreateAccount(false);
     setError('');
   };
 
@@ -112,113 +113,127 @@ export default function LoginPage() {
             </svg>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome to HMS
+            {showCreateAccount ? 'Create Account' : 'Welcome to HMS'}
           </h2>
           <p className="text-sm text-gray-600">
-            Hostel Management System - Sign in to your account
+            {showCreateAccount 
+              ? 'Create your account to access the system' 
+              : 'Hostel Management System - Sign in to your account'
+            }
           </p>
         </div>
 
-        {/* Login Form */}
-        <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                <div className="flex items-center">
-                  <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  {error}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter your email"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter your password"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                {loading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Signing in...
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    Sign In
+        {/* Login or Register Form */}
+        {showCreateAccount ? (
+          <RegisterForm 
+            onSuccess={handleCreateAccountSuccess} 
+            onBackToLogin={handleBackToLogin} 
+          />
+        ) : (
+          <>
+            {/* Login Form */}
+            <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
+              <form className="space-y-6" onSubmit={handleSubmit}>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      {error}
+                    </div>
                   </div>
                 )}
-              </Button>
-            </div>
-          </form>
-        </div>
 
-        {/* Demo Credentials */}
-        <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-4">Demo Credentials:</h3>
-          <div className="space-y-3">
-            {demoCredentials.map((demo, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">{demo.role}</span>
-                    <button
-                      type="button"
-                      onClick={() => fillDemoCredentials(demo.email, demo.password)}
-                      className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
-                    >
-                      Use
-                    </button>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your email"
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">{demo.email}</p>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                      Password
+                    </label>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    {loading ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Signing in...
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        Sign In
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </form>
+
+              {/* Create Account Option */}
+              <div className="mt-6">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setShowCreateAccount(true)}
+                    className="w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                  >
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      Create Account
+                    </div>
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-3 text-center">
-            Click "Use" to automatically fill the credentials for testing
-          </p>
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Footer */}
         <div className="text-center">
