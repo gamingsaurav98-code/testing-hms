@@ -27,9 +27,18 @@ class ComplainController extends Controller
     public function index()
     {
         try {
-            $complains = Complain::with(['student', 'staff'])
-                ->withCount(['chats', 'unreadChats'])
-                ->paginate(10);
+            $query = Complain::with(['student', 'staff'])
+                ->withCount(['chats', 'unreadChats']);
+            
+            // Handle staff filtering for staff users
+            if (request('staff_filter') && auth()->user()->role === 'staff') {
+                $staff = \App\Models\Staff::where('user_id', auth()->user()->id)->first();
+                if ($staff) {
+                    $query->where('staff_id', $staff->id);
+                }
+            }
+            
+            $complains = $query->paginate(10);
             return response()->json($complains);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch complains: ' . $e->getMessage()], 500);

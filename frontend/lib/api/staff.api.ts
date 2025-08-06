@@ -395,7 +395,7 @@ export const staffApi = {
   // Staff-specific methods for authenticated staff portal
   // Get current staff's profile
   async getStaffProfile(): Promise<StaffWithAmenities> {
-    const response = await fetch(`${API_BASE_URL}/staff/profile`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/profile`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -405,7 +405,7 @@ export const staffApi = {
 
   // Update current staff's profile
   async updateStaffProfile(data: Partial<StaffFormData>): Promise<StaffWithAmenities> {
-    const response = await fetch(`${API_BASE_URL}/staff/profile`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/profile`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -419,7 +419,7 @@ export const staffApi = {
 
   // Get current staff's check-in/out records
   async getStaffCheckInOuts(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/staff/checkincheckouts`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/my-checkincheckouts`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -429,7 +429,40 @@ export const staffApi = {
 
   // Get current staff's complaints
   async getStaffComplains(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/staff/complains`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/complaints-list`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Create a new staff complaint
+  async createStaffComplaint(data: {
+    title: string;
+    description: string;
+    complain_attachment?: File;
+  }): Promise<any> {
+    const formData = new FormData();
+    
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    if (data.complain_attachment) {
+      formData.append('complain_attachment', data.complain_attachment);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/my-staff/complaints-create`, {
+      method: 'POST',
+      headers: getAuthHeadersForFormData(),
+      body: formData,
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Get a specific staff complaint
+  async getStaffComplaint(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/my-staff/complaints-view/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -439,7 +472,7 @@ export const staffApi = {
 
   // Get current staff's notices
   async getStaffNotices(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/staff/notices`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/notices`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -449,7 +482,7 @@ export const staffApi = {
 
   // Get current staff's salary history
   async getStaffSalaryHistory(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/staff/salary-history`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/salary-history`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });

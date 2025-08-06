@@ -37,6 +37,7 @@ Route::post('auth/register', [AuthController::class, 'register']); // Admin only
 Route::post('auth/create-account', [AuthController::class, 'createAccount']); // Public account creation for pre-registered staff/students
 
 // =============================================================================
+// =============================================================================
 // AUTHENTICATED ROUTES (Require Authentication)
 // =============================================================================
 
@@ -52,7 +53,72 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('auth/active-sessions', [AuthController::class, 'getActiveSessions']);
     
     // =============================================================================
-    // ADMIN-ONLY ROUTES
+    // STUDENT-ONLY ROUTES (Must come BEFORE admin routes to prevent conflicts)
+    // =============================================================================
+    
+    Route::middleware(['role:student'])->group(function () {
+        
+        // Student profile and data (own data only)
+        Route::get('student/profile', [StudentController::class, 'getMyProfile']);
+        Route::put('student/profile', [StudentController::class, 'updateMyProfile']);
+        
+        // Student check-in/check-out (own records only)
+        Route::post('student/checkin', [StudentCheckInCheckOutController::class, 'checkIn']);
+        Route::post('student/checkout', [StudentCheckInCheckOutController::class, 'checkOut']);
+        Route::get('student/checkincheckouts', [StudentCheckInCheckOutController::class, 'getMyRecords']);
+        Route::get('student/today-attendance', [StudentCheckInCheckOutController::class, 'getMyTodayAttendance']);
+        
+        // Student financial records (own records only)
+        Route::get('student/financials', [StudentFinancialController::class, 'getMyFinancials']);
+        Route::get('student/payment-history', [StudentFinancialController::class, 'getMyPaymentHistory']);
+        Route::get('student/outstanding-dues', [StudentFinancialController::class, 'getMyOutstandingDues']);
+        
+        // Student complaints (own complaints only)
+        Route::get('student/complains', [ComplainController::class, 'getMyComplaints']);
+        Route::post('student/complains', [ComplainController::class, 'createComplaint']);
+        Route::get('student/complains/{id}', [ComplainController::class, 'getMyComplaint']);
+        Route::put('student/complains/{id}', [ComplainController::class, 'updateMyComplaint']);
+        
+        // Student notices (notices targeted to student)
+        Route::get('student/notices', [NoticeController::class, 'getMyNotices']);
+        Route::get('student/notices/{id}', [NoticeController::class, 'getNotice']);
+        
+    });
+    
+    // =============================================================================
+    // STAFF-ONLY ROUTES (Must come BEFORE admin routes to prevent conflicts)
+    // =============================================================================
+    
+    Route::middleware(['role:staff'])->group(function () {
+        
+        // Staff profile and data (own data only)
+        Route::get('my-staff/profile', [StaffController::class, 'getMyProfile']);
+        Route::put('my-staff/profile', [StaffController::class, 'updateMyProfile']);
+        
+        // Staff check-in/check-out (own records only)
+        Route::post('my-staff/checkin', [StaffCheckInCheckOutController::class, 'checkIn']);
+        Route::post('my-staff/checkout', [StaffCheckInCheckOutController::class, 'checkOut']);
+        Route::get('my-staff/my-checkincheckouts', [StaffCheckInCheckOutController::class, 'getMyRecords']);
+        Route::get('my-staff/today-attendance', [StaffCheckInCheckOutController::class, 'getMyTodayAttendance']);
+        
+        // Staff financial records (own records only)
+        Route::get('my-staff/financials', [StaffFinancialController::class, 'getMyFinancials']);
+        Route::get('my-staff/salary-history', [StaffFinancialController::class, 'getMySalaryHistory']);
+        
+        // Staff complaints to admin (own complaints only)
+        Route::get('my-staff/complaints-list', [ComplainController::class, 'getMyStaffComplaints']);
+        Route::post('my-staff/complaints-create', [ComplainController::class, 'createStaffComplaint']);
+        Route::get('my-staff/complaints-view/{id}', [ComplainController::class, 'getMyStaffComplaint']);
+        Route::put('my-staff/complaints-update/{id}', [ComplainController::class, 'updateMyStaffComplaint']);
+        
+        // Staff notices (notices targeted to staff)
+        Route::get('my-staff/notices', [NoticeController::class, 'getMyNotices']);
+        Route::get('my-staff/notices/{id}', [NoticeController::class, 'getNotice']);
+        
+    });
+    
+    // =============================================================================
+    // ADMIN-ONLY ROUTES (Must come AFTER specific user routes)
     // =============================================================================
     
     Route::middleware(['role:admin'])->group(function () {
@@ -146,71 +212,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('inquiries/block/{blockId}', [InquiryController::class, 'getInquiriesByBlock']);
         Route::get('inquiry-seaters/inquiry/{inquiryId}', [InquirySeaterController::class, 'getSeatersByInquiry']);
         Route::get('inquiry-seaters/room/{roomId}', [InquirySeaterController::class, 'getSeatersByRoom']);
-        
-    });
-    
-    // =============================================================================
-    // STUDENT-ONLY ROUTES
-    // =============================================================================
-    
-    Route::middleware(['role:student'])->group(function () {
-        
-        // Student profile and data (own data only)
-        Route::get('student/profile', [StudentController::class, 'getMyProfile']);
-        Route::put('student/profile', [StudentController::class, 'updateMyProfile']);
-        
-        // Student check-in/check-out (own records only)
-        Route::post('student/checkin', [StudentCheckInCheckOutController::class, 'checkIn']);
-        Route::post('student/checkout', [StudentCheckInCheckOutController::class, 'checkOut']);
-        Route::get('student/checkincheckouts', [StudentCheckInCheckOutController::class, 'getMyRecords']);
-        Route::get('student/today-attendance', [StudentCheckInCheckOutController::class, 'getMyTodayAttendance']);
-        
-        // Student financial records (own records only)
-        Route::get('student/financials', [StudentFinancialController::class, 'getMyFinancials']);
-        Route::get('student/payment-history', [StudentFinancialController::class, 'getMyPaymentHistory']);
-        Route::get('student/outstanding-dues', [StudentFinancialController::class, 'getMyOutstandingDues']);
-        
-        // Student complaints (own complaints only)
-        Route::get('student/complains', [ComplainController::class, 'getMyComplaints']);
-        Route::post('student/complains', [ComplainController::class, 'createComplaint']);
-        Route::get('student/complains/{id}', [ComplainController::class, 'getMyComplaint']);
-        Route::put('student/complains/{id}', [ComplainController::class, 'updateMyComplaint']);
-        
-        // Student notices (notices targeted to student)
-        Route::get('student/notices', [NoticeController::class, 'getMyNotices']);
-        Route::get('student/notices/{id}', [NoticeController::class, 'getNotice']);
-        
-    });
-    
-    // =============================================================================
-    // STAFF-ONLY ROUTES  
-    // =============================================================================
-    
-    Route::middleware(['role:staff'])->group(function () {
-        
-        // Staff profile and data (own data only)
-        Route::get('staff/profile', [StaffController::class, 'getMyProfile']);
-        Route::put('staff/profile', [StaffController::class, 'updateMyProfile']);
-        
-        // Staff check-in/check-out (own records only)
-        Route::post('staff/checkin', [StaffCheckInCheckOutController::class, 'checkIn']);
-        Route::post('staff/checkout', [StaffCheckInCheckOutController::class, 'checkOut']);
-        Route::get('staff/my-checkincheckouts', [StaffCheckInCheckOutController::class, 'getMyRecords']);
-        Route::get('staff/today-attendance', [StaffCheckInCheckOutController::class, 'getMyTodayAttendance']);
-        
-        // Staff financial records (own records only)
-        Route::get('staff/financials', [StaffFinancialController::class, 'getMyFinancials']);
-        Route::get('staff/salary-history', [StaffFinancialController::class, 'getMySalaryHistory']);
-        
-        // Staff complaints to admin (own complaints only)
-        Route::get('staff/complains', [ComplainController::class, 'getMyStaffComplaints']);
-        Route::post('staff/complains', [ComplainController::class, 'createStaffComplaint']);
-        Route::get('staff/complains/{id}', [ComplainController::class, 'getMyStaffComplaint']);
-        Route::put('staff/complains/{id}', [ComplainController::class, 'updateMyStaffComplaint']);
-        
-        // Staff notices (notices targeted to staff)
-        Route::get('staff/notices', [NoticeController::class, 'getMyNotices']);
-        Route::get('staff/notices/{id}', [NoticeController::class, 'getNotice']);
         
     });
     

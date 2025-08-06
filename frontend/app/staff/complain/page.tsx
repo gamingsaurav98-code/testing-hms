@@ -3,15 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { staffApi } from '@/lib/api/staff.api';
-import { complainApi, Complain } from '@/lib/api/complain.api';
+import { Complain } from '@/lib/api/complain.api';
 import { ApiError } from '@/lib/api/core';
 import { 
   Button, 
   SearchBar, 
-  ConfirmModal, 
   SuccessToast, 
-  TableSkeleton,
-  ActionButtons 
+  TableSkeleton
 } from '@/components/ui';
 
 export default function StaffComplainList() {
@@ -21,13 +19,6 @@ export default function StaffComplainList() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{show: boolean, complainId: string | null}>({
-    show: false,
-    complainId: null
-  });
   const [alert, setAlert] = useState<{show: boolean, message: string, type: 'success' | 'error'}>({
     show: false,
     message: '',
@@ -48,7 +39,6 @@ export default function StaffComplainList() {
         const complainsData = Array.isArray(response) ? response : (response.data || []);
         setComplains(complainsData);
         setFilteredComplains(complainsData);
-        setTotalPages(Math.ceil(complainsData.length / 10)); // Assuming 10 per page
       } catch (error) {
         console.error('Error fetching complains:', error);
         if (error instanceof ApiError) {
@@ -62,7 +52,7 @@ export default function StaffComplainList() {
     };
 
     fetchComplains();
-  }, [currentPage]);
+  }, []);
 
   // Handle search
   useEffect(() => {
@@ -100,59 +90,6 @@ export default function StaffComplainList() {
     );
   };
 
-  const handleDeleteComplain = async (complainId: string) => {
-    setDeleteModal({show: true, complainId});
-  };
-
-  const confirmDelete = async () => {
-    const complainId = deleteModal.complainId;
-    if (!complainId) return;
-
-    try {
-      setIsDeleting(complainId);
-      setDeleteModal({show: false, complainId: null});
-      setAlert({show: true, message: 'Deleting complain...', type: 'success'});
-      
-      await complainApi.deleteComplain(complainId);
-      
-      // Remove from local state
-      const updatedComplains = complains.filter(complain => complain.id !== parseInt(complainId));
-      setComplains(updatedComplains);
-      setFilteredComplains(updatedComplains.filter(complain =>
-        !searchQuery.trim() ||
-        complain.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.status.toLowerCase().includes(searchQuery.toLowerCase())
-      ));
-      
-      setAlert({show: true, message: 'Complain deleted successfully!', type: 'success'});
-      
-      // Hide alert after 2 seconds - optimized
-      setTimeout(() => {
-        setAlert({show: false, message: '', type: 'success'});
-      }, 2000); // Reduced from 3000ms
-      
-    } catch (error) {
-      console.error('Error deleting complain:', error);
-      if (error instanceof ApiError) {
-        setAlert({show: true, message: `Failed to delete complain: ${error.message}`, type: 'error'});
-      } else {
-        setAlert({show: true, message: 'Failed to delete complain. Please try again.', type: 'error'});
-      }
-      
-      // Hide error alert after 3 seconds - optimized
-      setTimeout(() => {
-        setAlert({show: false, message: '', type: 'success'});
-      }, 3000); // Reduced from 5000ms
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  const cancelDelete = () => {
-    setDeleteModal({show: false, complainId: null});
-  };
-
   if (isLoading) {
     return (
       <div className="p-6">
@@ -188,19 +125,6 @@ export default function StaffComplainList() {
 
   return (
     <div className="p-4 w-full">
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        show={deleteModal.show}
-        title="Delete Complain"
-        message="Are you sure you want to delete this complain? This action cannot be undone and will also delete all chat messages."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        isLoading={isDeleting !== null}
-        variant="danger"
-      />
-
       {/* Alert Notification */}
       {alert.type === 'success' && alert.show && (
         <SuccessToast
@@ -339,13 +263,16 @@ export default function StaffComplainList() {
 
                   {/* Actions */}
                   <div className="col-span-1">
-                    <ActionButtons 
-                      viewUrl={`/staff/complain/${complain.id}`}
-                      editUrl={`/staff/complain/${complain.id}/edit`}
-                      onDelete={() => handleDeleteComplain(complain.id.toString())}
-                      isDeleting={isDeleting === complain.id.toString()}
-                      style="compact"
-                    />
+                    <div className="flex justify-center">
+                      <Button
+                        onClick={() => router.push(`/staff/complain/${complain.id}`)}
+                        variant="secondary"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        View
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -82,7 +82,7 @@ class NoticeController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'schedule_time' => 'required|date',
+            'schedule_time' => 'nullable|date|after:now', // Allow null, but if provided must be future date
             'status' => 'nullable|string|in:active,inactive',
             'target_type' => 'required|string|in:all,student,staff,specific_student,specific_staff,block',
             'notice_type' => 'nullable|string|in:general,urgent,event,announcement',
@@ -100,7 +100,7 @@ class NoticeController extends Controller
         $notice = Notice::create([
             'title' => $request->title,
             'description' => $request->description,
-            'schedule_time' => $request->schedule_time,
+            'schedule_time' => $request->schedule_time ?? now(), // Use current time if not scheduled
             'status' => $request->status ?? 'active',
             'target_type' => $request->target_type,
             'notice_type' => $request->notice_type ?? 'general',
@@ -176,7 +176,7 @@ class NoticeController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
             'description' => 'sometimes|required|string',
-            'schedule_time' => 'sometimes|required|date',
+            'schedule_time' => 'nullable|date|after:now', // Allow null, but if provided must be future date
             'status' => 'nullable|string|in:active,inactive',
             'target_type' => 'sometimes|required|string|in:all,student,staff,specific_student,specific_staff,block',
             'notice_type' => 'nullable|string|in:general,urgent,event,announcement',
@@ -759,34 +759,64 @@ class NoticeController extends Controller
     // ========== STUDENT-SPECIFIC METHODS ==========
 
     /**
-     * Get notices for the authenticated student
+     * Get notices for the authenticated user (student or staff)
      */
     public function getMyNotices()
     {
         try {
             $user = auth()->user();
-            if (!$user || $user->role !== 'student') {
+            if (!$user) {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
 
-            // Get student record
-            $student = Student::where('user_id', $user->id)->first();
+            // Check if user is student or staff
+            $student = null;
+            $staff = null;
             
-            if (!$student) {
-                return response()->json(['message' => 'Student record not found'], 404);
+            if ($user->role === 'student') {
+                $student = Student::where('user_id', $user->id)->first();
+                if (!$student) {
+                    return response()->json(['message' => 'Student record not found'], 404);
+                }
+            } elseif ($user->role === 'staff') {
+                $staff = Staff::where('user_id', $user->id)->first();
+                if (!$staff) {
+                    return response()->json(['message' => 'Staff record not found'], 404);
+                }
+            } else {
+                return response()->json(['message' => 'Unauthorized'], 401);
             }
 
-            // Get notices targeted to this student
-            $notices = Notice::where(function($query) use ($student) {
-                $query->where('target_type', 'all')
-                      ->orWhere(function($q) use ($student) {
-                          $q->where('target_type', 'student')
-                            ->where('student_id', $student->id);
-                      })
-                      ->orWhere(function($q) use ($student) {
-                          $q->where('target_type', 'block')
-                            ->where('block_id', $student->room->block_id ?? null);
-                      });
+            // Build query based on user type
+            $notices = Notice::where(function($query) use ($student, $staff) {
+                $query->where('target_type', 'all');
+                
+                if ($student) {
+                    // Student-specific notices
+                    $query->orWhere('target_type', 'student')
+                          ->orWhere(function($q) use ($student) {
+                              $q->where('target_type', 'specific_student')
+                                ->where('student_id', $student->id);
+                          });
+                    
+                    // Block notices if student has a room
+                    if ($student->room_id) {
+                        $room = Room::find($student->room_id);
+                        if ($room && $room->block_id) {
+                            $query->orWhere(function($q) use ($room) {
+                                $q->where('target_type', 'block')
+                                  ->where('block_id', $room->block_id);
+                            });
+                        }
+                    }
+                } elseif ($staff) {
+                    // Staff-specific notices
+                    $query->orWhere('target_type', 'staff')
+                          ->orWhere(function($q) use ($staff) {
+                              $q->where('target_type', 'specific_staff')
+                                ->where('staff_id', $staff->id);
+                          });
+                }
             })
             ->with(['attachments', 'student', 'staff', 'block'])
             ->orderBy('created_at', 'desc')

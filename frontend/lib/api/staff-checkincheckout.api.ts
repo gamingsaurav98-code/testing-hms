@@ -203,11 +203,11 @@ export const staffCheckInCheckOutApi = {
   // Quick check-in (Staff function)
   async checkIn(data: CheckInFormData): Promise<{ data: StaffCheckInCheckOut }> {
     console.log('Staff checkin request:', data);
-    console.log('API URL:', `${API_BASE_URL}/staff/checkin`);
+    console.log('API URL:', `${API_BASE_URL}/my-staff/checkin`);
     console.log('Headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(`${API_BASE_URL}/staff/checkin`, {
+      const response = await fetch(`${API_BASE_URL}/my-staff/checkin`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -226,11 +226,11 @@ export const staffCheckInCheckOutApi = {
   // Quick check-out (Staff function)
   async checkOut(data: CheckOutFormData): Promise<{ data: StaffCheckInCheckOut }> {
     console.log('Staff checkout request:', data);
-    console.log('API URL:', `${API_BASE_URL}/staff/checkout`);
+    console.log('API URL:', `${API_BASE_URL}/my-staff/checkout`);
     console.log('Headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(`${API_BASE_URL}/staff/checkout`, {
+      const response = await fetch(`${API_BASE_URL}/my-staff/checkout`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -313,7 +313,7 @@ export const staffCheckInCheckOutApi = {
 
   // Staff-specific method to get current user's check-in/checkout records
   async getMyRecords(): Promise<{ data: StaffCheckInCheckOut[] }> {
-    const url = `${API_BASE_URL}/staff/my-checkincheckouts`;
+    const url = `${API_BASE_URL}/my-staff/my-checkincheckouts`;
     console.log('=== STAFF API CALL DEBUG ===');
     console.log('Making request to:', url);
     console.log('With headers:', getAuthHeaders());
@@ -381,7 +381,7 @@ export const staffCheckInCheckOutApi = {
 
   // Get my today's attendance (Staff function)
   async getMyTodayAttendance(): Promise<{ data: StaffCheckInCheckOut | null }> {
-    const response = await fetch(`${API_BASE_URL}/staff/today-attendance`, {
+    const response = await fetch(`${API_BASE_URL}/my-staff/today-attendance`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckInCheckOut | null }>(response);

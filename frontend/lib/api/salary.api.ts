@@ -124,7 +124,7 @@ export class SalaryApi {
   // Staff-specific method to get current user's salary history
   static async getMySalaryHistory(): Promise<Salary[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/staff/salary-history`, {
+      const response = await fetch(`${API_BASE_URL}/my-staff/salary-history`, {
         headers: getAuthHeaders(),
       });
       

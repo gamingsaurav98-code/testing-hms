@@ -236,6 +236,33 @@ export default function NoticeList() {
     }
   };
 
+  // Function to get the sent time display
+  const getSentTimeDisplay = (notice: Notice) => {
+    // Use schedule_time if it exists, otherwise use created_at
+    const sentTime = notice.schedule_time || notice.created_at;
+    const dateObj = new Date(sentTime);
+    
+    // Format date and time separately
+    const dateStr = dateObj.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    const timeStr = dateObj.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    return (
+      <div className="flex flex-col">
+        <span className="text-sm text-gray-900">{dateStr}</span>
+        <span className="text-sm text-gray-500">{timeStr}</span>
+      </div>
+    );
+  };
+
   // Determine status badge based on notice status
   const renderStatusBadge = (status: string) => {
     if (status === 'active') {
@@ -394,9 +421,9 @@ export default function NoticeList() {
           <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div className="col-span-3">Title</div>
-              <div className="col-span-2">Schedule</div>
-              <div className="col-span-2">Target</div>
               <div className="col-span-2">Description</div>
+              <div className="col-span-2">Sent Date</div>
+              <div className="col-span-2">Target</div>
               <div className="col-span-1 text-center">Status</div>
               <div className="col-span-2 text-center">Actions</div>
             </div>
@@ -410,34 +437,35 @@ export default function NoticeList() {
                   {/* Notice Title */}
                   <div className="col-span-3">
                     <div className="font-medium text-sm text-gray-900">{notice.title}</div>
-                    <div className="flex items-center text-xs text-gray-500 mt-1">
-                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {formatDate(notice.created_at)}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {notice.notice_type && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          {notice.notice_type.charAt(0).toUpperCase() + notice.notice_type.slice(1)}
+                        </span>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Schedule */}
-                  <div className="col-span-2">
-                    <div className="text-sm text-gray-900">{formatDate(notice.schedule_time)}</div>
-                  </div>
-
-                  {/* Target */}
-                  <div className="col-span-2">
-                    <div className="text-sm text-gray-700">{getTargetDisplay(notice.target_type)}</div>
                   </div>
 
                   {/* Description */}
                   <div className="col-span-2">
-                    <div className="text-xs text-gray-600 truncate">
+                    <div className="text-sm text-gray-600 truncate">
                       {notice.description 
-                        ? notice.description.length > 50 
+                        ? notice.description.length > 30 
                           ? `${notice.description.substring(0, 30)}...` 
                           : notice.description
                         : 'No description'
                       }
                     </div>
+                  </div>
+
+                  {/* Sent Date */}
+                  <div className="col-span-2">
+                    {getSentTimeDisplay(notice)}
+                  </div>
+
+                  {/* Target */}
+                  <div className="col-span-2">
+                    <div className="text-sm text-gray-700">{getTargetDisplay(notice.target_type)}</div>
                   </div>
 
                   {/* Status */}

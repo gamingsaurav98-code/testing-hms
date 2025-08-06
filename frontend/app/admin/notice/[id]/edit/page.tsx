@@ -58,6 +58,9 @@ export default function EditNotice() {
     block_id: 0,
   });
   
+  const [showScheduleDate, setShowScheduleDate] = useState(false);
+  const [originalNotice, setOriginalNotice] = useState<Notice | null>(null);
+  
   const [attachments, setAttachments] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([]);
@@ -85,10 +88,24 @@ export default function EditNotice() {
         
         // Fetch notice data first
         const noticeData = await noticeApi.getNotice(noticeId);
+        setOriginalNotice(noticeData);
         
-        // Format schedule_time for datetime-local input
-        const scheduleDate = new Date(noticeData.schedule_time);
-        const formattedScheduleTime = scheduleDate.toISOString().slice(0, 16);
+        // Check if we should show schedule date field
+        let formattedScheduleTime = '';
+        let shouldShowScheduleDate = false;
+        
+        if (noticeData.schedule_time) {
+          const scheduleDate = new Date(noticeData.schedule_time);
+          const currentDate = new Date();
+          
+          // Only show schedule date if it's in the future
+          if (scheduleDate > currentDate) {
+            shouldShowScheduleDate = true;
+            formattedScheduleTime = scheduleDate.toISOString().slice(0, 16);
+          }
+        }
+        
+        setShowScheduleDate(shouldShowScheduleDate);
         
         // Now fetch the students, staff, and blocks data using the appropriate API methods
         try {
@@ -122,7 +139,7 @@ export default function EditNotice() {
         setFormData({
           title: noticeData.title,
           description: noticeData.description,
-          schedule_time: formattedScheduleTime,
+          schedule_time: shouldShowScheduleDate ? formattedScheduleTime : undefined,
           target_type: noticeData.target_type,
           notice_type: noticeData.notice_type || 'general',
           status: noticeData.status || 'active',
@@ -130,35 +147,6 @@ export default function EditNotice() {
           student_id: noticeData.student_id || null,
           staff_id: noticeData.staff_id || null,
           block_id: noticeData.block_id || null,
-        });
-
-        // Set existing attachments
-        if (noticeData.attachments && noticeData.attachments.length > 0) {
-          const mappedAttachments = noticeData.attachments.map(attachment => ({
-            id: attachment.id,
-            image: attachment.path,
-            is_primary: false,
-            name: attachment.name,
-            type: attachment.type,
-          }));
-          
-          setExistingAttachments(mappedAttachments);
-        }
-        
-        setIsLoading(false);
-        
-        // Set form data
-        setFormData({
-          title: noticeData.title,
-          description: noticeData.description,
-          schedule_time: formattedScheduleTime,
-          target_type: noticeData.target_type,
-          notice_type: noticeData.notice_type || 'general',
-          status: noticeData.status || 'active',
-          notice_attachments: [],
-          student_id: noticeData.student_id || 0,
-          staff_id: noticeData.staff_id || 0,
-          block_id: noticeData.block_id || 0,
         });
 
         // Set existing attachments
@@ -186,6 +174,22 @@ export default function EditNotice() {
 
     fetchData();
   }, [noticeId]);
+
+  // Auto-resize textarea function
+  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto';
+    element.style.height = `${Math.max(element.scrollHeight, 56)}px`;
+  };
+
+  // Auto-resize description textarea when data is loaded
+  useEffect(() => {
+    const textarea = document.getElementById('description') as HTMLTextAreaElement;
+    if (textarea && formData.description) {
+      setTimeout(() => {
+        autoResizeTextarea(textarea);
+      }, 0);
+    }
+  }, [formData.description]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -255,7 +259,7 @@ export default function EditNotice() {
       newErrors.description = 'Description is required';
     }
 
-    if (!formData.schedule_time) {
+    if (showScheduleDate && !formData.schedule_time) {
       newErrors.schedule_time = 'Schedule time is required';
     }
 
@@ -296,14 +300,24 @@ export default function EditNotice() {
 
     try {
       // Make sure IDs are properly formatted
-      const processedFormData = {
-        ...formData,
+      const processedFormData: any = {
+        title: formData.title,
+        description: formData.description,
+        target_type: formData.target_type,
+        notice_type: formData.notice_type,
+        status: formData.status,
+        notice_attachments: formData.notice_attachments,
         // Make sure null or empty string IDs are sent as null
         student_id: formData.target_type === 'specific_student' ? formData.student_id || null : null,
         staff_id: formData.target_type === 'specific_staff' ? formData.staff_id || null : null,
         block_id: formData.target_type === 'block' ? formData.block_id || null : null,
         removed_attachments: removedAttachmentIds
       };
+      
+      // Only include schedule_time if it should be shown and updated
+      if (showScheduleDate && formData.schedule_time) {
+        processedFormData.schedule_time = formData.schedule_time;
+      }
       
       console.log('Submitting notice data:', processedFormData);
       await noticeApi.updateNotice(noticeId, processedFormData as any);
@@ -339,11 +353,41 @@ export default function EditNotice() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-2 py-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-50 px-4 py-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-900">Edit Notice</h1>
+          
+          {/* Status Switch - Only Toggle */}
+          <div className="flex items-center space-x-3">
+            <span className={`text-sm transition-colors ${formData.status === 'inactive' ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+              Inactive
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const newStatus = formData.status === 'active' ? 'inactive' : 'active';
+                setFormData(prev => ({ ...prev, status: newStatus }));
+                if (errors.status) {
+                  setErrors(prev => ({ ...prev, status: '' }));
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hover:shadow-md ${
+                formData.status === 'active' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-200 hover:bg-gray-300'
+              }`}
+              title={`Switch to ${formData.status === 'active' ? 'inactive' : 'active'}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
+                  formData.status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm transition-colors ${formData.status === 'active' ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+              Active
+            </span>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -358,72 +402,125 @@ export default function EditNotice() {
 
         {/* Form Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="space-y-6">
-              {/* Notice Title */}
-              <FormField
-                name="title"
-                label="Notice Title"
-                required
-                value={formData.title}
-                onChange={handleInputChange}
-                error={errors.title}
-                placeholder="Enter notice title"
-              />
-
-              {/* Notice Description */}
-              <FormField
-                name="description"
-                label="Notice Description"
-                required
-                value={formData.description}
-                onChange={handleInputChange}
-                error={errors.description}
-                placeholder="Enter notice description"
-                type="textarea"
-                rows={5}
-              />
-
-              {/* Schedule Date/Time */}
-              <div className="space-y-1.5">
-                <label htmlFor="schedule_time" className="block text-sm font-semibold text-neutral-900">
-                  Schedule Date <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  id="schedule_time"
-                  name="schedule_time"
-                  value={formData.schedule_time}
+          <form onSubmit={handleSubmit} className="p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column */}
+              <div className="space-y-6">
+                {/* Notice Title */}
+                <FormField
+                  name="title"
+                  label="Notice Title"
+                  required
+                  value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                  error={errors.title}
+                  placeholder="Enter notice title"
                 />
-                {errors.schedule_time && (
-                  <div className="flex items-center mt-1.5 text-xs text-red-600">
-                    <AlertCircle className="h-3.5 w-3.5 mr-2" />
-                    {errors.schedule_time}
-                  </div>
-                )}
+
+                {/* Notice Description */}
+                <div className="space-y-1.5">
+                  <label htmlFor="description" className="block text-sm font-semibold text-neutral-900">
+                    Notice Description <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                      const target = e.target as HTMLTextAreaElement;
+                      if (target.scrollHeight > 56) {
+                        autoResizeTextarea(target);
+                      } else {
+                        target.style.height = '56px';
+                      }
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      if (target.scrollHeight > 56) {
+                        autoResizeTextarea(target);
+                      } else {
+                        target.style.height = '56px';
+                      }
+                    }}
+                    placeholder="Enter notice description"
+                    className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200 resize-none overflow-hidden"
+                    style={{ minHeight: '56px', height: '56px' }}
+                    rows={1}
+                  />
+                  {errors.description && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                      {errors.description}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Target Audience */}
-              <FormField
-                name="target_type"
-                label="Send Notice To"
-                type="select"
-                required
-                value={formData.target_type}
-                onChange={handleInputChange}
-                error={errors.target_type}
-                options={[
-                  { value: 'all', label: 'Everyone' },
-                  { value: 'student', label: 'All Students' },
-                  { value: 'staff', label: 'All Staff' },
-                  { value: 'specific_student', label: 'Specific Student' },
-                  { value: 'specific_staff', label: 'Specific Staff' },
-                  { value: 'block', label: 'Specific Block' }
-                ]}
-              />
+              {/* Right Column */}
+              <div className="space-y-6">
+                {/* Schedule Date/Time - Only show if notice originally had schedule time and it's in the future */}
+                {showScheduleDate && (
+                  <div className="space-y-1.5">
+                    <label htmlFor="schedule_time" className="block text-sm font-semibold text-neutral-900">
+                      Schedule Date <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="schedule_time"
+                      name="schedule_time"
+                      value={formData.schedule_time || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                    />
+                    {errors.schedule_time && (
+                      <div className="flex items-center mt-1.5 text-xs text-red-600">
+                        <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                        {errors.schedule_time}
+                      </div>
+                    )}
+                  </div>
+                )}
 
+                {/* Target Audience */}
+                <FormField
+                  name="target_type"
+                  label="Send Notice To"
+                  type="select"
+                  required
+                  value={formData.target_type}
+                  onChange={handleInputChange}
+                  error={errors.target_type}
+                  options={[
+                    { value: 'all', label: 'Everyone' },
+                    { value: 'student', label: 'All Students' },
+                    { value: 'staff', label: 'All Staff' },
+                    { value: 'specific_student', label: 'Specific Student' },
+                    { value: 'specific_staff', label: 'Specific Staff' },
+                    { value: 'block', label: 'Specific Block' }
+                  ]}
+                />
+
+                {/* Notice Type */}
+                <FormField
+                  name="notice_type"
+                  label="Notice Type"
+                  type="select"
+                  value={formData.notice_type || ''}
+                  onChange={handleInputChange}
+                  error={errors.notice_type}
+                  options={[
+                    { value: 'general', label: 'General' },
+                    { value: 'urgent', label: 'Urgent' },
+                    { value: 'event', label: 'Event' },
+                    { value: 'announcement', label: 'Announcement' }
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Full Width Sections */}
+            <div className="space-y-6 mt-8">
               {/* Conditional Field for Specific Student */}
               {formData.target_type === 'specific_student' && (
                 <FormField
@@ -483,36 +580,6 @@ export default function EditNotice() {
                   ]}
                 />
               )}
-
-              {/* Notice Type */}
-              <FormField
-                name="notice_type"
-                label="Notice Type"
-                type="select"
-                value={formData.notice_type || ''}
-                onChange={handleInputChange}
-                error={errors.notice_type}
-                options={[
-                  { value: 'general', label: 'General' },
-                  { value: 'urgent', label: 'Urgent' },
-                  { value: 'event', label: 'Event' },
-                  { value: 'announcement', label: 'Announcement' }
-                ]}
-              />
-
-              {/* Status */}
-              <FormField
-                name="status"
-                label="Status"
-                type="select"
-                value={formData.status || ''}
-                onChange={handleInputChange}
-                error={errors.status}
-                options={[
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' }
-                ]}
-              />
 
               {/* Attachments */}
               <div>

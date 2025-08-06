@@ -24,8 +24,7 @@ export default function CreateNotice() {
   const [formData, setFormData] = useState<NoticeFormData>({
     title: '',
     description: '',
-    schedule_time: new Date().toISOString().split('T')[0] + 'T' + 
-      new Date().toTimeString().split(' ')[0].substring(0, 5),
+    schedule_time: '',
     target_type: 'all',
     notice_type: 'general',
     status: 'active',
@@ -35,6 +34,7 @@ export default function CreateNotice() {
     block_id: null,
   });
   
+  const [isScheduled, setIsScheduled] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -51,6 +51,28 @@ export default function CreateNotice() {
     blocks: boolean;
   }>({ students: false, staff: false, blocks: false });
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // Handle schedule toggle change
+  const handleScheduleToggle = (enabled: boolean) => {
+    setIsScheduled(enabled);
+    if (enabled) {
+      // Set default schedule time to current date/time + 1 hour
+      const now = new Date();
+      now.setHours(now.getHours() + 1);
+      const scheduleTime = now.toISOString().split('T')[0] + 'T' + 
+        now.toTimeString().split(' ')[0].substring(0, 5);
+      setFormData(prev => ({
+        ...prev,
+        schedule_time: scheduleTime
+      }));
+    } else {
+      // Clear schedule time for immediate sending
+      setFormData(prev => ({
+        ...prev,
+        schedule_time: ''
+      }));
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -192,8 +214,18 @@ export default function CreateNotice() {
       newErrors.description = 'Description is required';
     }
 
-    if (!formData.schedule_time) {
-      newErrors.schedule_time = 'Schedule time is required';
+    // Only validate schedule_time if scheduling is enabled
+    if (isScheduled) {
+      if (!formData.schedule_time) {
+        newErrors.schedule_time = 'Schedule time is required when scheduling is enabled';
+      } else {
+        // Validate that scheduled time is in the future
+        const scheduleDate = new Date(formData.schedule_time);
+        const now = new Date();
+        if (scheduleDate <= now) {
+          newErrors.schedule_time = 'Schedule time must be in the future';
+        }
+      }
     }
 
     if (!formData.target_type) {
@@ -297,26 +329,48 @@ export default function CreateNotice() {
                 rows={5}
               />
 
-              {/* Schedule Date/Time */}
-              <div className="space-y-1.5">
-                <label htmlFor="schedule_time" className="block text-sm font-semibold text-neutral-900">
-                  Schedule Date <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  id="schedule_time"
-                  name="schedule_time"
-                  value={formData.schedule_time}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
-                />
-                {errors.schedule_time && (
-                  <div className="flex items-center mt-1.5 text-xs text-red-600">
-                    <AlertCircle className="h-3.5 w-3.5 mr-2" />
-                    {errors.schedule_time}
-                  </div>
-                )}
+              {/* Schedule Toggle */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="schedule_toggle"
+                    checked={isScheduled}
+                    onChange={(e) => handleScheduleToggle(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <label htmlFor="schedule_toggle" className="text-sm font-medium text-gray-900 cursor-pointer">
+                    Schedule this notice for later
+                  </label>
+                </div>
               </div>
+
+              {/* Schedule Date/Time - Only show when scheduling is enabled */}
+              {isScheduled && (
+                <div className="space-y-1.5">
+                  <label htmlFor="schedule_time" className="block text-sm font-semibold text-neutral-900">
+                    Schedule Date & Time <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    id="schedule_time"
+                    name="schedule_time"
+                    value={formData.schedule_time}
+                    onChange={handleInputChange}
+                    min={new Date().toISOString().slice(0, 16)} // Prevent past dates
+                    className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                  />
+                  {errors.schedule_time && (
+                    <div className="flex items-center mt-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" />
+                      {errors.schedule_time}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500">
+                    The notice will be automatically sent at the specified date and time.
+                  </div>
+                </div>
+              )}
 
               {/* Target Audience */}
               <FormField
@@ -435,9 +489,9 @@ export default function CreateNotice() {
               <CancelButton onClick={() => router.back()} />
               <SubmitButton 
                 loading={isSubmitting} 
-                loadingText="Creating..."
+                loadingText={isScheduled ? "Scheduling..." : "Sending..."}
               >
-                Create Notice
+                {isScheduled ? "Schedule Notice" : "Send Notice Now"}
               </SubmitButton>
             </div>
           </form>

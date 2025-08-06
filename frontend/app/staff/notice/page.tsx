@@ -6,7 +6,8 @@ import { staffApi } from '@/lib/api/staff.api';
 import { 
   Button, 
   SearchBar, 
-  TableSkeleton 
+  TableSkeleton,
+  ActionButtons 
 } from '@/components/ui';
 import { 
   AlertCircle, 
@@ -15,28 +16,32 @@ import {
   Clock,
   User,
   Home,
-  Settings
+  Settings,
+  Check,
+  X
 } from 'lucide-react';
 
 interface Notice {
   id: string;
   title: string;
   content: string;
+  description?: string;
   type: 'general' | 'urgent' | 'announcement' | 'maintenance';
   target_audience: 'all' | 'staff' | 'students';
   created_at: string;
   updated_at: string;
-  is_active: boolean;
+  status?: string; // Match admin interface - 'active', 'inactive'
+  is_active?: boolean; // Keep for backward compatibility
 }
 
 export default function StaffNoticePage() {
   const router = useRouter();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [filteredNotices, setFilteredNotices] = useState<Notice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'general' | 'urgent' | 'announcement' | 'maintenance'>('all');
+  const [error, setError] = useState<string | null>(null);
+  const [totalNotices, setTotalNotices] = useState(0);
 
   useEffect(() => {
     fetchNotices();
@@ -44,7 +49,7 @@ export default function StaffNoticePage() {
 
   const fetchNotices = async () => {
     try {
-      setLoading(true);
+      setIsLoading(true);
       setError(null);
       
       const response = await staffApi.getStaffNotices();
@@ -52,83 +57,93 @@ export default function StaffNoticePage() {
       
       setNotices(noticesData);
       setFilteredNotices(noticesData);
+      setTotalNotices(noticesData.length);
     } catch (err) {
       console.error('Error fetching notices:', err);
       setError('Failed to load notices. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Filter notices based on search query and filter
+  // Handle search
   useEffect(() => {
-    let filtered = notices;
-    
-    if (filter !== 'all') {
-      filtered = filtered.filter(notice => notice.type === filter);
-    }
-    
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(notice =>
+    if (!searchQuery.trim()) {
+      setFilteredNotices(notices);
+    } else {
+      const filtered = notices.filter(notice =>
         notice.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        notice.content.toLowerCase().includes(searchQuery.toLowerCase())
+        notice.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (notice.description && notice.description.toLowerCase().includes(searchQuery.toLowerCase()))
       );
+      setFilteredNotices(filtered);
     }
-    
-    setFilteredNotices(filtered);
-  }, [searchQuery, filter, notices]);
+  }, [searchQuery, notices]);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  const handleViewNotice = (noticeId: string) => {
-    // In a real app, this would navigate to notice detail page
-    console.log('View notice:', noticeId);
-  };
-
-  const getNoticeTypeColor = (type: string) => {
-    const colors = {
-      urgent: 'bg-red-100 text-red-800 border-red-200',
-      announcement: 'bg-blue-100 text-blue-800 border-blue-200',
-      maintenance: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      general: 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-    return colors[type as keyof typeof colors] || colors.general;
-  };
-
-  const getTargetIcon = (targetType: string) => {
+  // Function to get target audience display text
+  const getTargetDisplay = (targetType: string): string => {
     switch (targetType) {
       case 'all':
-        return <User className="w-4 h-4" />;
-      case 'staff':
-        return <User className="w-4 h-4" />;
+        return 'Everyone';
       case 'students':
-        return <Home className="w-4 h-4" />;
+        return 'Students Only';
+      case 'staff':
+        return 'Staff Only';
       default:
-        return <Settings className="w-4 h-4" />;
+        return targetType;
     }
   };
 
-  const getTargetDisplay = (notice: Notice) => {
-    switch (notice.target_audience) {
-      case 'all':
-        return 'All Users';
-      case 'staff':
-        return 'All Staff';
-      case 'students':
-        return 'All Students';
-      default:
-        return 'Unknown';
-    }
-  };
-
-  if (loading && filteredNotices.length === 0) {
+  // Function to get the sent time display
+  const getSentTimeDisplay = (notice: Notice) => {
+    const dateObj = new Date(notice.created_at);
+    
+    // Format date and time separately
+    const dateStr = dateObj.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    const timeStr = dateObj.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
     return (
-      <div className="p-6 w-full">
+      <div className="flex flex-col">
+        <span className="text-sm text-gray-900">{dateStr}</span>
+        <span className="text-sm text-gray-500">{timeStr}</span>
+      </div>
+    );
+  };
+
+  // Determine status badge based on notice status (matching admin page)
+  const renderStatusBadge = (status: string) => {
+    if (status === 'active') {
+      return (
+        <div className="inline-flex items-center bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+          <Check className="w-3 h-3 mr-1" />
+          Active
+        </div>
+      );
+    } else {
+      return (
+        <div className="inline-flex items-center bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+          <X className="w-3 h-3 mr-1" />
+          Inactive
+        </div>
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Staff Notices</h1>
-          <p className="text-gray-600">Stay updated with important announcements and information</p>
+          <h1 className="text-xl font-medium text-gray-900">Staff Notices</h1>
+          <p className="text-sm text-gray-500 mt-1">Loading notices...</p>
         </div>
         <TableSkeleton />
       </div>
@@ -137,15 +152,12 @@ export default function StaffNoticePage() {
 
   if (error) {
     return (
-      <div className="p-6 w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Staff Notices</h1>
-          <p className="text-gray-600">Stay updated with important announcements and information</p>
-        </div>
-        
+      <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+            <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             <p className="text-red-800">{error}</p>
           </div>
           <button
@@ -160,148 +172,118 @@ export default function StaffNoticePage() {
   }
 
   return (
-    <div className="p-6 w-full">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Staff Notices</h1>
-            <p className="text-gray-600">Stay updated with important announcements and information</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">{notices.length} total notices</p>
-          </div>
+    <div className="p-4 max-w-7xl mx-auto">
+      {/* Minimal Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-xl font-medium text-gray-900">Staff Notices</h1>
+          <p className="text-sm text-gray-500 mt-1">{totalNotices} total notices</p>
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      {/* Compact Search */}
+      <div className="mb-4">
         <SearchBar
           value={searchQuery}
-          onChange={handleSearch}
-          placeholder="Search notices by title or content..."
+          onChange={setSearchQuery}
+          placeholder="Search notices..."
         />
-        
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => setFilter('all')}
-            variant={filter === 'all' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            All Notices
-          </Button>
-          <Button
-            onClick={() => setFilter('urgent')}
-            variant={filter === 'urgent' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            Urgent
-          </Button>
-          <Button
-            onClick={() => setFilter('announcement')}
-            variant={filter === 'announcement' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            Announcements
-          </Button>
-          <Button
-            onClick={() => setFilter('maintenance')}
-            variant={filter === 'maintenance' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            Maintenance
-          </Button>
-          <Button
-            onClick={() => setFilter('general')}
-            variant={filter === 'general' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            General
-          </Button>
-        </div>
       </div>
 
-      {/* Notices List */}
+      {/* Clean List View */}
       {filteredNotices.length === 0 ? (
-        <div className="text-center py-12">
-          <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No notices found</h3>
-          <p className="text-gray-500">
-            {searchQuery || filter !== 'all' 
-              ? 'Try adjusting your search criteria or filters' 
-              : 'No notices have been posted yet'
-            }
+        <div className="text-center py-16 bg-white rounded-lg border border-gray-100">
+          <div className="text-gray-300 mb-3">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 className="text-sm font-medium text-gray-900 mb-1">
+            {searchQuery ? 'No notices found' : 'No notices yet'}
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {searchQuery ? 'Try a different search term' : 'No notices have been posted yet'}
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredNotices.map((notice) => (
-            <div
-              key={notice.id}
-              className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    {/* Notice Header */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex items-center gap-2">
-                        {getTargetIcon(notice.target_audience)}
-                        <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 cursor-pointer"
-                            onClick={() => handleViewNotice(notice.id)}>
-                          {notice.title}
-                        </h3>
-                      </div>
-                      
-                      {/* Notice Type Badge */}
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getNoticeTypeColor(notice.type)}`}>
-                        {notice.type === 'urgent' && <AlertCircle className="w-3 h-3 mr-1" />}
-                        {notice.type === 'announcement' && <Calendar className="w-3 h-3 mr-1" />}
-                        {notice.type === 'maintenance' && <Settings className="w-3 h-3 mr-1" />}
-                        {notice.type}
-                      </span>
-                    </div>
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Table Header */}
+          <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+            <div className="grid grid-cols-10 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="col-span-3">Title</div>
+              <div className="col-span-3">Description</div>
+              <div className="col-span-2">Posted Date</div>
+              <div className="col-span-1 text-center">Status</div>
+              <div className="col-span-1 text-center">Actions</div>
+            </div>
+          </div>
 
-                    {/* Notice Description */}
-                    <p className="text-gray-600 mb-4 line-clamp-2">
-                      {notice.content}
-                    </p>
-
-                    {/* Notice Meta Information */}
-                    <div className="flex items-center gap-6 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        <span>For: {getTargetDisplay(notice)}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>Posted: {new Date(notice.created_at).toLocaleDateString()}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        <div className={`w-2 h-2 rounded-full ${notice.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                        <span>{notice.is_active ? 'Active' : 'Inactive'}</span>
-                      </div>
+          {/* List Items */}
+          <div className="divide-y divide-gray-100">
+            {filteredNotices.map((notice) => (
+              <div key={notice.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div className="grid grid-cols-10 gap-2 items-center">
+                  {/* Notice Title */}
+                  <div className="col-span-3">
+                    <div className="font-medium text-sm text-gray-900">{notice.title}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {notice.type && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          {notice.type.charAt(0).toUpperCase() + notice.type.slice(1)}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Action Button */}
-                  <div className="ml-4">
-                    <Button
-                      onClick={() => handleViewNotice(notice.id)}
-                      variant="secondary"
-                      size="sm"
-                      className="flex items-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View Details
-                    </Button>
+                  {/* Description */}
+                  <div className="col-span-3">
+                    <div className="text-sm text-gray-600 truncate">
+                      {notice.description 
+                        ? notice.description.length > 50 
+                          ? `${notice.description.substring(0, 50)}...` 
+                          : notice.description
+                        : 'No description'
+                      }
+                    </div>
+                  </div>
+
+                  {/* Posted Date */}
+                  <div className="col-span-2">
+                    {getSentTimeDisplay(notice)}
+                  </div>
+
+                  {/* Status */}
+                  <div className="col-span-1">
+                    <div className="flex justify-center">
+                      {renderStatusBadge(notice.status || (notice.is_active ? 'active' : 'inactive'))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="col-span-1">
+                    <div className="flex justify-center">
+                      <ActionButtons 
+                        viewUrl={`/staff/notice/${notice.id}`}
+                        hideEdit={true}
+                        hideDelete={true}
+                        style="compact"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Minimal Footer */}
+      {filteredNotices.length > 0 && (
+        <div className="mt-6 text-center">
+          <p className="text-xs text-gray-500">
+            {filteredNotices.length} of {totalNotices} notices
+            {searchQuery && ` matching "${searchQuery}"`}
+          </p>
         </div>
       )}
     </div>

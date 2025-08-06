@@ -1,11 +1,11 @@
 import { API_BASE_URL, handleResponse } from './core';
-import { getAuthHeaders } from './auth.api';
+import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { PaginatedResponse } from './core';
 
 export interface NoticeFormData {
   title: string;
   description: string;
-  schedule_time: string;
+  schedule_time?: string; // Made optional for immediate vs scheduled notices
   status?: string; // 'active', 'inactive'
   target_type: string; // 'all', 'student', 'staff', 'specific_student', 'specific_staff', 'block'
   notice_type?: string; // 'general', 'urgent', 'event', 'announcement'
@@ -155,56 +155,127 @@ export const noticeApi = {
 
   // Create a new notice
   async createNotice(noticeData: NoticeFormData): Promise<Notice> {
-    // Convert to FormData if files are included
-    const formData = new FormData();
+    // Check if we have files to upload
+    const hasFiles = noticeData.notice_attachments && 
+                     Array.isArray(noticeData.notice_attachments) && 
+                     noticeData.notice_attachments.length > 0;
     
-    // Add all fields to FormData
-    Object.entries(noticeData).forEach(([key, value]) => {
-      if (key === 'notice_attachments' && value) {
-        // Add each file to form data
-        Array.from(value as File[]).forEach((file, index) => {
-          formData.append(`notice_attachments[${index}]`, file);
-        });
-      } else if (value !== null && value !== undefined) {
-        formData.append(key, value as string);
-      }
-    });
+    if (hasFiles) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      
+      // Add all fields to FormData
+      Object.entries(noticeData).forEach(([key, value]) => {
+        if (key === 'notice_attachments' && value) {
+          // Add each file to form data
+          Array.from(value as File[]).forEach((file, index) => {
+            formData.append(`notice_attachments[${index}]`, file);
+          });
+        } else if (key === 'title' || key === 'description' || key === 'target_type') {
+          // Always include required fields, even if empty
+          formData.append(key, (value as string) || '');
+        } else if (key === 'schedule_time' && (!value || value === '')) {
+          // Skip empty schedule_time to let backend use default (now)
+          return;
+        } else if (value !== null && value !== undefined && value !== '' && typeof value !== 'object') {
+          // Only add non-empty primitive values for optional fields
+          formData.append(key, value as string);
+        }
+      });
 
-    const response = await fetch(`${API_BASE_URL}/notices`, {
-      method: 'POST',
-      body: formData,
-      // Don't set Content-Type header when sending FormData
-      // The browser will set it with the correct boundary
-    });
-    
-    return handleResponse<Notice>(response);
+      const response = await fetch(`${API_BASE_URL}/notices`, {
+        method: 'POST',
+        headers: getAuthHeadersForFormData(), // Use FormData-specific headers without Content-Type
+        body: formData,
+      });
+      
+      return handleResponse<Notice>(response);
+    } else {
+      // Use JSON for simple form submission without files
+      const cleanData = Object.entries(noticeData).reduce((acc: any, [key, value]) => {
+        // Exclude file-related fields from JSON
+        if (key === 'notice_attachments') {
+          return acc; // Skip file attachments in JSON mode
+        }
+        // Include all required fields even if they are empty strings
+        else if (key === 'title' || key === 'description' || key === 'target_type') {
+          acc[key] = value || '';
+        } else if (key === 'schedule_time' && (!value || value === '')) {
+          // Skip empty schedule_time to let backend use default (now)
+          return acc;
+        } else if (value !== null && value !== undefined && value !== '' && typeof value !== 'object') {
+          // Only include primitive, non-empty values for optional fields
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+
+      const response = await fetch(`${API_BASE_URL}/notices`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(cleanData),
+      });
+      
+      return handleResponse<Notice>(response);
+    }
   },
 
   // Update an existing notice
   async updateNotice(id: string, noticeData: NoticeFormData): Promise<Notice> {
-    // Convert to FormData
-    const formData = new FormData();
-    formData.append('_method', 'PUT'); // For Laravel to handle as PUT request
+    // Check if we have file attachments
+    const hasFiles = noticeData.notice_attachments && noticeData.notice_attachments.length > 0;
     
-    // Add all fields to FormData
-    Object.entries(noticeData).forEach(([key, value]) => {
-      if (key === 'notice_attachments' && value) {
-        // Add each file to form data
-        Array.from(value as File[]).forEach((file, index) => {
-          formData.append(`notice_attachments[${index}]`, file);
-        });
-      } else if (value !== null && value !== undefined) {
-        formData.append(key, value as string);
-      }
-    });
+    if (hasFiles) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      formData.append('_method', 'PUT'); // For Laravel to handle as PUT request
+      
+      // Add all fields to FormData
+      Object.entries(noticeData).forEach(([key, value]) => {
+        if (key === 'notice_attachments' && value) {
+          // Add each file to form data
+          Array.from(value as File[]).forEach((file, index) => {
+            formData.append(`notice_attachments[${index}]`, file);
+          });
+        } else if (value !== null && value !== undefined) {
+          formData.append(key, value as string);
+        }
+      });
 
-    const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
-      method: 'POST', // Use POST for multipart form data with _method=PUT
-      body: formData,
-      // Don't set Content-Type header when sending FormData
-    });
-    
-    return handleResponse<Notice>(response);
+      const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
+        method: 'POST', // Use POST for multipart form data with _method=PUT
+        headers: {
+          ...getAuthHeaders()
+          // Don't set Content-Type when sending FormData - browser will set it with boundary
+        },
+        body: formData,
+      });
+      
+      return handleResponse<Notice>(response);
+    } else {
+      // Use regular PUT request for JSON data
+      const cleanData = Object.entries(noticeData).reduce((acc: any, [key, value]) => {
+        // Always include required fields
+        if (key === 'title' || key === 'description' || key === 'target_type') {
+          acc[key] = value || '';
+        } else if (key === 'schedule_time' && (!value || value === '')) {
+          // Skip empty schedule_time
+          return acc;
+        } else if (value !== null && value !== undefined && value !== '' && typeof value !== 'object') {
+          // Include non-empty primitive values
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+
+      const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
+        method: 'PUT', // Use PUT for JSON updates
+        headers: getAuthHeaders(),
+        body: JSON.stringify(cleanData),
+      });
+      
+      return handleResponse<Notice>(response);
+    }
   },
 
   // Delete a notice
