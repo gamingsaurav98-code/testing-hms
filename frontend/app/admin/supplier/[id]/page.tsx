@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supplierApi, Supplier, ApiError } from '@/lib/api/index';
 import { Button, ConfirmModal, TableSkeleton, SuccessToast } from '@/components/ui';
+import { getImageUrl } from '@/lib/utils';
 
 export default function SupplierDetail() {
   const router = useRouter();
@@ -785,7 +786,7 @@ export default function SupplierDetail() {
                     <p className="text-sm text-gray-500">{attachment.type}</p>
                     <div className="mt-3 flex items-center justify-between">
                       <a 
-                        href={`${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${attachment.path}`}
+                        href={getImageUrl(attachment.path)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[#235999] hover:text-[#1e4d87] text-sm"

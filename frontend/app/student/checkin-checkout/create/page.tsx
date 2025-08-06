@@ -30,20 +30,9 @@ export default function CreateCheckinCheckoutPage() {
 
   const fetchBlocks = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api'}/blocks?all=true`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch blocks');
-      }
-      
-      const data = await response.json();
-      const blocksData = Array.isArray(data) ? data : (data.data || []);
+      // Get all blocks (first page with high limit)
+      const response = await blockApi.getBlocks(1);
+      const blocksData = response.data || [];
       
       setBlocks(blocksData);
       

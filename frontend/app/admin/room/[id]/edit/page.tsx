@@ -12,6 +12,7 @@ import {
   ImageModal,
   SingleImageUploadEdit
 } from '@/components/ui';
+import { getImageUrl } from '@/lib/utils';
 
 export default function EditRoom() {
   const router = useRouter();
@@ -61,9 +62,7 @@ export default function EditRoom() {
 
         // Set existing image preview if available
         if (room.room_attachment) {
-          const imageUrl = room.room_attachment.startsWith('http') 
-            ? room.room_attachment 
-            : `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${room.room_attachment}`;
+          const imageUrl = getImageUrl(room.room_attachment);
           setImagePreview(imageUrl);
         }
         
@@ -420,9 +419,7 @@ export default function EditRoom() {
                 
                 <SingleImageUploadEdit
                   imagePreview={imagePreview}
-                  existingImageUrl={currentRoom?.room_attachment?.startsWith('http') 
-                    ? currentRoom.room_attachment 
-                    : currentRoom?.room_attachment ? `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${currentRoom.room_attachment}` : null}
+                  existingImageUrl={currentRoom?.room_attachment ? getImageUrl(currentRoom.room_attachment) : null}
                   onFileSelect={processFile}
                   onRemove={removeImage}
                   error={errors.room_attachment}

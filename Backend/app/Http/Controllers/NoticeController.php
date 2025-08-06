@@ -459,8 +459,12 @@ class NoticeController extends Controller
                     'block' => function($query) {
                         $query->withCount('rooms'); // Include room count for blocks
                     }
-                ])
-                ->where('status', 'active');
+                ]);
+                
+        // Only filter by active status for students, staff can see all notices
+        if ($student) {
+            $query->where('status', 'active');
+        }
                     
         if ($student) {
             // If user is a student, get student-specific notices
@@ -828,6 +832,92 @@ class NoticeController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch notices: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get a single notice for authenticated user (student or staff)
+     */
+    public function getNotice(string $id)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Check if user is student or staff
+            $student = null;
+            $staff = null;
+            
+            if ($user->role === 'student') {
+                $student = Student::where('user_id', $user->id)->first();
+                if (!$student) {
+                    return response()->json(['message' => 'Student record not found'], 404);
+                }
+            } elseif ($user->role === 'staff') {
+                $staff = Staff::where('user_id', $user->id)->first();
+                if (!$staff) {
+                    return response()->json(['message' => 'Staff record not found'], 404);
+                }
+            } else {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            // Get the notice and check if user has access to it
+            $notice = Notice::with([
+                'attachments', 
+                'student' => function($query) {
+                    $query->with('room.block');
+                },
+                'staff',
+                'block' => function($query) {
+                    $query->withCount('rooms');
+                }
+            ])
+            ->where('id', $id)
+            ->where(function($query) use ($student, $staff) {
+                $query->where('target_type', 'all');
+                
+                if ($student) {
+                    // Student-specific notices
+                    $query->orWhere('target_type', 'student')
+                          ->orWhere(function($q) use ($student) {
+                              $q->where('target_type', 'specific_student')
+                                ->where('student_id', $student->id);
+                          });
+                    
+                    // Block notices if student has a room
+                    if ($student->room_id) {
+                        $room = Room::find($student->room_id);
+                        if ($room && $room->block_id) {
+                            $query->orWhere(function($q) use ($room) {
+                                $q->where('target_type', 'block')
+                                  ->where('block_id', $room->block_id);
+                            });
+                        }
+                    }
+                } elseif ($staff) {
+                    // Staff-specific notices
+                    $query->orWhere('target_type', 'staff')
+                          ->orWhere(function($q) use ($staff) {
+                              $q->where('target_type', 'specific_staff')
+                                ->where('staff_id', $staff->id);
+                          });
+                }
+            })
+            ->first();
+
+            if (!$notice) {
+                return response()->json(['message' => 'Notice not found or access denied'], 404);
+            }
+
+            // Add detailed profile information
+            $notice = $this->addDetailedProfileData($notice);
+
+            return response()->json($notice);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch notice: ' . $e->getMessage()], 500);
         }
     }
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { roomApi, Room, ApiError } from '@/lib/api/index';
 import { Button, ConfirmModal, TableSkeleton, ImageModal } from '@/components/ui';
+import { getImageUrl } from '@/lib/utils';
 
 export default function RoomDetail() {
   const router = useRouter();
@@ -222,9 +223,7 @@ export default function RoomDetail() {
                 <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
                   <div className="flex items-center justify-center p-4">
                     <img
-                      src={room.room_attachment.startsWith('http') 
-                        ? room.room_attachment 
-                        : `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${room.room_attachment}`}
+                      src={getImageUrl(room.room_attachment)}
                       alt={room.room_name}
                       className="max-w-full max-h-80 object-contain"
                     />

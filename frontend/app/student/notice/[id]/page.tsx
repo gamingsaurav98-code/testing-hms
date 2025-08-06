@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { noticeApi, Notice } from '@/lib/api/notice.api';
 import { ApiError } from '@/lib/api/core';
 import { Button, TableSkeleton } from '@/components/ui';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getImageUrl } from '@/lib/utils';
 import { 
   ArrowLeft,
   AlertCircle, 
@@ -101,7 +101,7 @@ export default function StudentNoticeDetail() {
   const handleDownloadAttachment = (attachment: { id: number; path: string; name: string }) => {
     // Create a download link for the attachment
     const link = document.createElement('a');
-    link.href = attachment.path;
+    link.href = getImageUrl(attachment.path);
     link.download = attachment.name;
     link.target = '_blank';
     document.body.appendChild(link);

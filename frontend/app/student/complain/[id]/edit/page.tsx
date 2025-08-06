@@ -11,6 +11,7 @@ import {
   TableSkeleton,
   SingleImageUploadEdit
 } from '@/components/ui';
+import { getImageUrl } from '@/lib/utils';
 
 export default function EditComplain() {
   const router = useRouter();
@@ -376,11 +377,7 @@ export default function EditComplain() {
                   Upload an image or document to help illustrate your issue
                 </p>
                 <SingleImageUploadEdit
-                  existingImageUrl={existingAttachment ? 
-                    (existingAttachment.startsWith('http') 
-                      ? existingAttachment 
-                      : `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${existingAttachment}`) 
-                    : null}
+                  existingImageUrl={existingAttachment ? getImageUrl(existingAttachment) : null}
                   imagePreview={attachment ? URL.createObjectURL(attachment) : null}
                   onFileSelect={setAttachment}
                   onRemove={() => {

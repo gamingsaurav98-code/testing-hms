@@ -480,6 +480,16 @@ export const staffApi = {
     return handleResponse<any>(response);
   },
 
+  // Get a specific staff notice by ID
+  async getStaffNotice(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/my-staff/notices/${id}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
   // Get current staff's salary history
   async getStaffSalaryHistory(): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/my-staff/salary-history`, {

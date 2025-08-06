@@ -6,6 +6,7 @@ import { complainApi, Complain } from '@/lib/api/complain.api';
 import { ApiError } from '@/lib/api/core';
 import { Button, ConfirmModal, TableSkeleton } from '@/components/ui';
 import ChatInterface from '@/components/ui/ChatInterface';
+import { getImageUrl } from '@/lib/utils';
 
 export default function StudentComplainDetail() {
   const router = useRouter();
@@ -276,9 +277,7 @@ export default function StudentComplainDetail() {
                         <div className="p-6">
                           {complain.complain_attachment.match(/\.(jpg|jpeg|png|gif)$/i) ? (
                             <img
-                              src={complain.complain_attachment.startsWith('http') 
-                                ? complain.complain_attachment 
-                                : `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '')}/storage/${complain.complain_attachment}`}
+                              src={getImageUrl(complain.complain_attachment)}
                               alt="Attachment"
                               className="max-w-full max-h-48 object-contain mx-auto rounded-lg shadow-md"
                             />
