@@ -23,9 +23,7 @@ export default function StaffSalaryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     thisMonthSalary: 0,
-    lastMonthSalary: 0,
-    totalEarnings: 0,
-    averageSalary: 0
+    lastMonthSalary: 0
   });
 
   useEffect(() => {
@@ -96,17 +94,9 @@ export default function StaffSalaryPage() {
       salary.month === lastMonth && salary.year === lastMonthYear
     );
 
-    const totalEarnings = salariesData.reduce((total, salary) => 
-      total + parseFloat(String(salary.amount || '0')), 0
-    );
-
-    const averageSalary = salariesData.length > 0 ? totalEarnings / salariesData.length : 0;
-
     setStats({
       thisMonthSalary: thisMonthSalary ? parseFloat(String(thisMonthSalary.amount || '0')) : 0,
-      lastMonthSalary: lastMonthSalary ? parseFloat(String(lastMonthSalary.amount || '0')) : 0,
-      totalEarnings,
-      averageSalary
+      lastMonthSalary: lastMonthSalary ? parseFloat(String(lastMonthSalary.amount || '0')) : 0
     });
   };
 
@@ -173,7 +163,7 @@ export default function StaffSalaryPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -198,34 +188,6 @@ export default function StaffSalaryPage() {
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Earnings</p>
-              <p className="text-2xl font-bold text-gray-900">
-                Rs.{Math.round(stats.totalEarnings).toLocaleString()}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Search className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Average Salary</p>
-              <p className="text-2xl font-bold text-gray-900">
-                Rs.{Math.round(stats.averageSalary).toLocaleString()}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-yellow-600" />
             </div>
           </div>
         </div>

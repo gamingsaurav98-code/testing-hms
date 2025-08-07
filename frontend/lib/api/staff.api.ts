@@ -158,6 +158,50 @@ export interface StaffFinancialFormData {
 
 // Staff API functions
 export const staffApi = {
+  // Get dashboard statistics (accessible to all authenticated users)
+  async getDashboardStats(): Promise<{
+    rooms: { 
+      total: number; 
+      occupied: number; 
+      available: number;
+      total_capacity: number;
+      occupied_beds: number;
+      available_beds: number;
+    };
+    students: { total: number };
+  }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Dashboard stats API failed with status: ${response.status}`);
+      }
+      
+      const result = await handleResponse<{
+        rooms: { 
+          total: number; 
+          occupied: number; 
+          available: number;
+          total_capacity: number;
+          occupied_beds: number;
+          available_beds: number;
+        };
+        students: { total: number };
+      }>(response);
+      
+      return result;
+    } catch (error) {
+      console.error('getDashboardStats error:', error);
+      // Return fallback data structure
+      return {
+        rooms: { total: 0, occupied: 0, available: 0, total_capacity: 0, occupied_beds: 0, available_beds: 0 },
+        students: { total: 0 }
+      };
+    }
+  },
+
   // Get available amenities for staff creation/edit
   async getAvailableAmenities(): Promise<StaffAmenity[]> {
     const response = await fetch(`${API_BASE_URL}/staff-amenities`, {

@@ -219,6 +219,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // SHARED AUTHENTICATED ROUTES (All authenticated users)
     // =============================================================================
     
+    // Dashboard statistics (accessible to all authenticated users)
+    Route::get('dashboard/stats', [StaffController::class, 'getDashboardStats']);
+    
     // Chat routes for complaint communication (accessible to all authenticated users)
     Route::prefix('chats')->group(function () {
         Route::get('/complaint/{complainId}', [ChatController::class, 'getComplaintChats']);

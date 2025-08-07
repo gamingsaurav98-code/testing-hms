@@ -610,6 +610,57 @@ class StaffController extends Controller
         }
     }
 
+        /**
+     * Get dashboard statistics for staff (accessible to all authenticated users)
+     */
+    public function getDashboardStats(): JsonResponse
+    {
+        try {
+            // Get detailed room and capacity statistics
+            $rooms = \App\Models\Room::with(['students' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $totalRooms = $rooms->count();
+            $totalCapacity = $rooms->sum('capacity');
+            $occupiedBeds = 0;
+            $roomsWithStudents = 0;
+
+            foreach ($rooms as $room) {
+                $studentCount = $room->students->count();
+                $occupiedBeds += $studentCount;
+                if ($studentCount > 0) {
+                    $roomsWithStudents++;
+                }
+            }
+
+            $availableBeds = $totalCapacity - $occupiedBeds;
+            $availableRooms = $totalRooms - $roomsWithStudents;
+
+            // Get student statistics
+            $totalStudents = \App\Models\Student::where('is_active', true)->count();
+
+            return response()->json([
+                'rooms' => [
+                    'total' => $totalRooms,
+                    'occupied' => $roomsWithStudents,
+                    'available' => $availableRooms,
+                    'total_capacity' => $totalCapacity,
+                    'occupied_beds' => $occupiedBeds,
+                    'available_beds' => $availableBeds,
+                ],
+                'students' => [
+                    'total' => $totalStudents,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to fetch dashboard stats',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Parse boolean values from string inputs
      */

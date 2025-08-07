@@ -24,6 +24,9 @@ interface StaffDashboardStats {
   totalRooms: number;
   occupiedRooms: number;
   availableRooms: number;
+  totalCapacity: number;
+  occupiedBeds: number;
+  availableBeds: number;
   totalStudents: number;
   monthlySalary: number;
   lastSalaryDate: string;
@@ -53,6 +56,9 @@ export default function StaffDashboardPage() {
     totalRooms: 0,
     occupiedRooms: 0,
     availableRooms: 0,
+    totalCapacity: 0,
+    occupiedBeds: 0,
+    availableBeds: 0,
     totalStudents: 0,
     monthlySalary: 0,
     lastSalaryDate: '',
@@ -93,13 +99,16 @@ export default function StaffDashboardPage() {
         checkInOutData,
         salaryData,
         complaintsData,
-        noticesData
+        noticesData,
+        dashboardStats
       ] = await Promise.all([
         fetchWithTimeout(() => staffApi.getStaffProfile(), null),
         fetchWithTimeout(() => staffApi.getStaffCheckInOuts(), { data: [] }),
         fetchWithTimeout(() => SalaryApi.getMySalaryHistory(), []),
         fetchWithTimeout(() => staffApi.getStaffComplains(), { data: [], total: 0 }),
-        fetchWithTimeout(() => staffApi.getStaffNotices(), { data: [] })
+        fetchWithTimeout(() => staffApi.getStaffNotices(), { data: [] }),
+        // Call dashboard stats directly without timeout wrapper
+        staffApi.getDashboardStats()
       ]);
 
       const today = new Date().toISOString().split('T')[0];
@@ -115,12 +124,14 @@ export default function StaffDashboardPage() {
 
       const currentStatus = (latestCheckIn as any)?.checkin_time && !(latestCheckIn as any)?.checkout_time ? 'checked-in' : 'checked-out';
 
-      // For staff dashboard, we'll use placeholder/limited data for room and student stats
-      // since these require admin privileges to access
-      const totalRooms = 0; // Staff doesn't need access to room statistics
-      const occupiedRooms = 0;
-      const availableRooms = 0;
-      const totalStudents = 0; // Staff doesn't need access to student statistics
+      // Use real data from API for room and student stats
+      const totalRooms = dashboardStats.rooms.total;
+      const occupiedRooms = dashboardStats.rooms.occupied;
+      const availableRooms = dashboardStats.rooms.available;
+      const totalCapacity = dashboardStats.rooms.total_capacity;
+      const occupiedBeds = dashboardStats.rooms.occupied_beds;
+      const availableBeds = dashboardStats.rooms.available_beds;
+      const totalStudents = dashboardStats.students.total;
 
       // Calculate salary statistics
       const mySalaries = Array.isArray(salaryData) ? salaryData : [];
@@ -201,13 +212,16 @@ export default function StaffDashboardPage() {
       setStats({
         currentStatus,
         workShift: 'Day Shift (8AM - 4PM)', // This should come from staff data
-        department: 'General', // This should come from staff data
-        position: 'Staff Member', // This should come from staff data
+        department: profileData?.department || 'General',
+        position: profileData?.position || 'Staff Member',
         lastCheckIn: (latestCheckIn as any)?.checkin_time || '',
         lastCheckOut: (latestCheckIn as any)?.checkout_time || '',
         totalRooms,
         occupiedRooms,
         availableRooms,
+        totalCapacity,
+        occupiedBeds,
+        availableBeds,
         totalStudents,
         monthlySalary: thisMonthSalary ? parseFloat(String(thisMonthSalary.amount || '0')) : 0,
         lastSalaryDate: lastSalary ? `${lastSalary.year}-${String(lastSalary.month).padStart(2, '0')}-01` : '',
@@ -288,11 +302,18 @@ export default function StaffDashboardPage() {
                     <Home className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Rooms</h3>
-                    <p className="text-sm text-gray-500">Contact admin</p>
+                    <h3 className="font-semibold text-gray-900">Room Capacity</h3>
+                    <p className="text-sm text-gray-500">
+                      {stats.availableBeds > 0 ? `${stats.availableBeds} beds vacant` : 'All beds occupied'}
+                    </p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">N/A</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalCapacity}</p>
+                {stats.totalCapacity > 0 && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    {stats.occupiedBeds} occupied • {stats.availableBeds} vacant
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -306,10 +327,10 @@ export default function StaffDashboardPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">Students</h3>
-                    <p className="text-sm text-gray-500">Contact admin</p>
+                    <p className="text-sm text-gray-500">Total active students</p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">N/A</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalStudents}</p>
               </div>
             </div>
           </div>

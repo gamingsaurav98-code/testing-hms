@@ -24,9 +24,6 @@ export const API_BASE_URL = getApiBaseUrl();
 // Increased timeout for better reliability in Docker environment
 export const DEFAULT_API_TIMEOUT = 10000; // 10 seconds
 
-// Debug the API URL being used
-console.log('HMS: Using API URL:', API_BASE_URL, '(client-side:', typeof window !== 'undefined', ')');
-
 export interface PaginatedResponse<T> {
   data: T[];
   current_page: number;
@@ -47,12 +44,8 @@ export class ApiError extends Error {
 
 // Helper function to handle API responses
 export async function handleResponse<T>(response: Response): Promise<T> {
-  console.log(`API Response: ${response.url} - Status: ${response.status}`);
-  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-  
   // Handle network errors
   if (!response) {
-    console.error('No response received from API');
     throw new ApiError(0, 'No response from server. Please check your connection.');
   }
 
@@ -101,7 +94,6 @@ export async function handleResponse<T>(response: Response): Promise<T> {
     throw new ApiError(response.status, errorMessage, validationErrors);
   }
   
-  console.log('API Data received:', responseData);
   return responseData as T;
 }
 
@@ -113,7 +105,6 @@ export async function fetchWithTimeout(url: string, options: RequestInit = {}, t
     
     const timeoutPromise = new Promise<Response>((resolve) => {
       setTimeout(() => {
-        console.log(`Request to ${url} timed out after ${timeout/1000}s - returning empty response`);
         // Return a mock 408 response instead of throwing
         resolve(new Response(JSON.stringify({ error: 'Request timeout' }), {
           status: 408,
