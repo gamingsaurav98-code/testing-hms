@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { noticeApi, Notice } from '@/lib/api/notice.api';
+import { studentApi } from '@/lib/api/student.api';
 import { ApiError } from '@/lib/api/core';
 import { Button, TableSkeleton } from '@/components/ui';
 import { formatDate, getImageUrl } from '@/lib/utils';
@@ -23,7 +23,7 @@ export default function StudentNoticeDetail() {
   const params = useParams();
   const noticeId = params.id as string;
   
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +32,7 @@ export default function StudentNoticeDetail() {
       setLoading(true);
       setError(null);
       
-      const response = await noticeApi.getNotice(noticeId);
+      const response = await studentApi.getStudentNotice(noticeId);
       setNotice(response);
     } catch (err) {
       console.error('Error fetching notice:', err);
@@ -75,7 +75,7 @@ export default function StudentNoticeDetail() {
     }
   };
 
-  const getTargetDisplay = (notice: Notice) => {
+  const getTargetDisplay = (notice: any) => {
     if (notice.target_info) {
       return notice.target_info.name;
     }
@@ -257,7 +257,7 @@ export default function StudentNoticeDetail() {
                   Attachments ({notice.attachments.length})
                 </h2>
                 <div className="space-y-3">
-                  {notice.attachments.map((attachment, index) => (
+                  {notice.attachments.map((attachment: any, index: number) => (
                     <div
                       key={attachment.id || index}
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"

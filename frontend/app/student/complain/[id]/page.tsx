@@ -2,22 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { complainApi, Complain } from '@/lib/api/complain.api';
+import { useAuth } from '@/lib/auth';
+import { studentApi } from '@/lib/api/student.api';
 import { ApiError } from '@/lib/api/core';
-import { Button, ConfirmModal, TableSkeleton } from '@/components/ui';
+import { Button, TableSkeleton } from '@/components/ui';
 import ChatInterface from '@/components/ui/ChatInterface';
 import { getImageUrl } from '@/lib/utils';
 
 export default function StudentComplainDetail() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
   const complainId = params.id as string;
 
-  const [complain, setComplain] = useState<Complain | null>(null);
+  const [complain, setComplain] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteModal, setDeleteModal] = useState<boolean>(false);
   const [showImageModal, setShowImageModal] = useState(false);
 
   // Fetch complain data
@@ -27,7 +27,7 @@ export default function StudentComplainDetail() {
         setIsLoading(true);
         setError(null);
         
-        const complainData = await complainApi.getComplain(complainId);
+        const complainData = await studentApi.getStudentComplaint(complainId);
         setComplain(complainData);
         
       } catch (error) {
@@ -85,30 +85,6 @@ export default function StudentComplainDetail() {
     return descriptions[status as keyof typeof descriptions] || 'Status unknown';
   };
 
-  const handleDeleteClick = () => {
-    setDeleteModal(true);
-  };
-
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true);
-      await complainApi.deleteComplain(complainId);
-      
-      // Redirect to complains list after successful deletion
-      router.push('/student/complain');
-    } catch (error) {
-      console.error('Error deleting complain:', error);
-      if (error instanceof ApiError) {
-        alert(`Failed to delete complain: ${error.message}`);
-      } else {
-        alert('Failed to delete complain. Please try again.');
-      }
-    } finally {
-      setIsDeleting(false);
-      setDeleteModal(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="p-6">
@@ -131,20 +107,13 @@ export default function StudentComplainDetail() {
             </svg>
             <p className="text-red-800">{error}</p>
           </div>
-          <div className="mt-3 space-x-2">
+          <div className="mt-3">
             <Button
               onClick={() => window.location.reload()}
               variant="secondary"
               size="sm"
             >
               Retry
-            </Button>
-            <Button
-              onClick={() => router.push('/student/complain')}
-              variant="secondary"
-              size="sm"
-            >
-              Back to My Complains
             </Button>
           </div>
         </div>
@@ -164,83 +133,34 @@ export default function StudentComplainDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        show={deleteModal}
-        title="Delete Complain"
-        message="Are you sure you want to delete this complain? This action cannot be undone and will also delete all chat messages."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteModal(false)}
-        isLoading={isDeleting}
-        variant="danger"
-      />
-
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{complain.title}</h1>
-                <div className="flex items-center gap-4 mt-2">
-                  {getStatusBadge(complain.status)}
-                  <span className="text-sm text-gray-500">•</span>
-                  <span className="text-sm text-gray-600">{formatDate(complain.created_at)}</span>
-                </div>
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">{complain.title}</h1>
+              <div className="flex items-center gap-4 mt-2">
+                {getStatusBadge(complain.status)}
+                <span className="text-sm text-gray-500">•</span>
+                <span className="text-sm text-gray-600">{formatDate(complain.created_at)}</span>
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Button
-                onClick={() => router.push('/student/complain')}
-                variant="secondary"
-                size="sm"
-              >
-                Back to My Complains
-              </Button>
-              <Button
-                onClick={() => router.push(`/student/complain/${complain.id}/edit`)}
-                variant="secondary"
-                size="sm"
-                disabled={complain.status === 'resolved'}
-              >
-                Edit
-              </Button>
-              <Button
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                variant="danger"
-                size="sm"
-                loading={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </Button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="w-full px-6 py-4">
+      <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           {/* Left Sidebar - Complain Details */}
           <div className="xl:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              {/* Status Info Section */}
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Current Status</h3>
-                    <p className="text-xs text-gray-600 mt-1">{getStatusDescription(complain.status)}</p>
-                  </div>
-                  {getStatusBadge(complain.status)}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200" style={{height: '550px'}}>
+              {/* Info Section */}
+              <div className="p-5 h-full overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Complain Details</h3>
                 </div>
-              </div>
-
-              {/* Details Section */}
-              <div className="p-5">
+                
                 <div className="space-y-6">
                   <div>
                     <label className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 block flex items-center">
@@ -313,35 +233,24 @@ export default function StudentComplainDetail() {
                   )}
 
                   {/* Metadata */}
-                  <div className="pt-6 border-t border-gray-200">
-                    <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center">
-                      <svg className="w-4 h-4 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-xs font-bold text-gray-700 mb-3 flex items-center">
+                      <svg className="w-3 h-3 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       Information
                     </h4>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <span className="text-gray-700 font-medium">Submitted</span>
-                        <span className="text-gray-900 font-semibold">{formatDate(complain.created_at)}</span>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="p-2 bg-gray-50 rounded-lg">
+                        <span className="text-gray-700 font-medium block text-xs mb-1">Created</span>
+                        <span className="text-gray-900 font-semibold text-xs">{formatDate(complain.created_at)}</span>
                       </div>
                       {complain.updated_at && (
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-700 font-medium">Last Updated</span>
-                          <span className="text-gray-900 font-semibold">{formatDate(complain.updated_at)}</span>
+                        <div className="p-2 bg-gray-50 rounded-lg">
+                          <span className="text-gray-700 font-medium block text-xs mb-1">Updated</span>
+                          <span className="text-gray-900 font-semibold text-xs">{formatDate(complain.updated_at)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <span className="text-gray-700 font-medium">Messages</span>
-                        <span className="text-gray-900 font-semibold">
-                          {complain.total_messages || 0} total
-                          {(complain.unread_student_messages ?? 0) > 0 && (
-                            <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
-                              {complain.unread_student_messages ?? 0} unread
-                            </span>
-                          )}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -351,12 +260,12 @@ export default function StudentComplainDetail() {
 
           {/* Right Main Area - Chat Interface */}
           <div className="xl:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden" style={{height: '550px'}}>
+              <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Chat with Admin</h3>
-                    <p className="text-sm text-gray-600 mt-1">Get updates and discuss your complain</p>
+                    <h3 className="text-base font-semibold text-gray-900">Chat Messages</h3>
+                    <p className="text-xs text-gray-600 mt-1">Communicate directly with the administration about this complaint</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -364,12 +273,12 @@ export default function StudentComplainDetail() {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 min-h-0" style={{height: 'calc(100vh - 340px)'}}>
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <ChatInterface
                   complainId={parseInt(complainId)}
-                  currentUserId={1} // This would come from auth context - should be student ID
+                  currentUserId={user?.id || 0}
                   currentUserType="student"
-                  currentUserName="Student" // This would come from auth context
+                  currentUserName={user?.name || 'Student'}
                   className="h-full"
                 />
               </div>

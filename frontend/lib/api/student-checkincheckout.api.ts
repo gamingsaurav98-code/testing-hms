@@ -98,15 +98,13 @@ export interface StudentCheckInCheckOutFormData {
 }
 
 export interface CheckInFormData {
-  student_id: string;
-  block_id: string;
+  student_id?: string; // Optional since backend gets it from auth
+  block_id?: string;
   checkin_time?: string;
   remarks?: string;
 }
 
 export interface CheckOutFormData {
-  student_id: string;
-  checkout_time?: string;
   estimated_checkin_date?: string;
   remarks?: string;
 }
@@ -160,102 +158,110 @@ export interface StudentStatistics {
 
 // API functions for Student Check-in/Check-out
 export const studentCheckInCheckOutApi = {
-  // Get all check-in/check-out records
+  // Get all check-in/check-out records (student-specific)
   async getCheckInCheckOuts(
     page: number = 1, 
     filters: CheckInCheckOutFilters = {}
   ): Promise<PaginatedResponse<StudentCheckInCheckOut>> {
-    const queryParams = new URLSearchParams({
-      page: page.toString(),
-      ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
-      )
-    });
-
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts?${queryParams}`, {
+    // Students use their own endpoint that returns only their records
+    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
       headers: getAuthHeaders(),
     });
-    return handleResponse<PaginatedResponse<StudentCheckInCheckOut>>(response);
+    
+    const result = await handleResponse<{ data: StudentCheckInCheckOut[]; total: number }>(response);
+    
+    // Transform to match pagination format expected by UI
+    return {
+      data: result.data,
+      current_page: 1,
+      per_page: result.data.length,
+      total: result.total || result.data.length,
+      last_page: 1
+    };
   },
 
-  // Get specific check-in/check-out record
+  // Get specific check-in/check-out record (student-specific)
   async getCheckInCheckOut(id: string): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}`);
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
-  },
-
-  // Create new check-in/check-out record
-  async createCheckInCheckOut(data: StudentCheckInCheckOutFormData): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+    // Since there's no individual endpoint, we get all records and find the specific one
+    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
+      headers: getAuthHeaders(),
     });
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+    
+    const result = await handleResponse<{ data: StudentCheckInCheckOut[]; total: number }>(response);
+    const record = result.data.find(item => item.id === id);
+    
+    if (!record) {
+      throw new Error('Record not found');
+    }
+    
+    return { data: record };
   },
 
-  // Update check-in/check-out record
-  async updateCheckInCheckOut(id: string, data: Partial<StudentCheckInCheckOutFormData>): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
-      method: 'PUT',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
-  },
+  // NOTE: Admin-only methods (createCheckInCheckOut, updateCheckInCheckOut, deleteCheckInCheckOut) 
+  // are not available for students. Students use checkIn/checkOut methods instead.
 
-  // Delete check-in/check-out record
-  async deleteCheckInCheckOut(id: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
-      method: 'DELETE',
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
-    return handleResponse<{ message: string }>(response);
-  },
-
-  // Quick check-in
+  // Quick check-in (Student function)
   async checkIn(data: CheckInFormData): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/checkin`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+    console.log('Student checkin request:', data);
+    console.log('API URL:', `${API_BASE_URL}/student/checkin`);
+    console.log('Headers:', getAuthHeaders());
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/student/checkin`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      
+      console.log('Checkin response status:', response.status);
+      console.log('Checkin response headers:', Object.fromEntries(response.headers.entries()));
+      
+      return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+    } catch (error) {
+      console.error('Checkin API error:', error);
+      throw new Error('Failed to check in. Please try again.');
+    }
   },
 
-  // Quick check-out
+  // Quick check-out (Student function)
   async checkOut(data: CheckOutFormData): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/checkout`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+    console.log('Student checkout request:', data);
+    console.log('API URL:', `${API_BASE_URL}/student/checkout`);
+    console.log('Headers:', getAuthHeaders());
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/student/checkout`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      
+      console.log('Checkout response status:', response.status);
+      console.log('Checkout response headers:', Object.fromEntries(response.headers.entries()));
+      
+      return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+    } catch (error) {
+      console.error('Checkout API error:', error);
+      throw new Error('Failed to submit checkout request. Please try again.');
+    }
   },
 
-  // Get today's attendance
-  async getTodayAttendance(blockId?: string): Promise<{ data: StudentCheckInCheckOut[]; date: string }> {
-    const queryParams = blockId ? `?block_id=${blockId}` : '';
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/today/attendance${queryParams}`, {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
-    return handleResponse<{ data: StudentCheckInCheckOut[]; date: string }>(response);
+  // Get today's attendance (Student function)
+  async getTodayAttendance(): Promise<{ data: StudentCheckInCheckOut[]; date: string }> {
+    console.log('Getting student today attendance');
+    console.log('API URL:', `${API_BASE_URL}/student/today-attendance`);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/student/today-attendance`, {
+        headers: getAuthHeaders(),
+      });
+      
+      console.log('Today attendance response status:', response.status);
+      return handleResponse<{ data: StudentCheckInCheckOut[]; date: string }>(response);
+    } catch (error) {
+      console.error('Today attendance API error:', error);
+      throw new Error('Failed to get today\'s attendance. Please try again.');
+    }
   },
 
   // Approve checkout request
@@ -320,32 +326,6 @@ export const studentCheckInCheckOutApi = {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StudentCheckInCheckOut[]; total: number }>(response);
-  },
-
-  // Quick check-in (student-specific endpoint)
-  async studentCheckIn(data: CheckInFormData): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student/checkin`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
-  },
-
-  // Quick check-out (student-specific endpoint)
-  async studentCheckOut(data: CheckOutFormData): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student/checkout`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
   },
 };
 

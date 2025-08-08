@@ -365,6 +365,16 @@ export default function CreateStudent() {
     const filteredAmenities = amenities.filter(item => item.name.trim() !== '');
     
     try {
+      // Check authentication before making API call
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setErrors({
+          submit: 'Authentication token not found. Please log in again.'
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Step 1: Create the student first (without financial data)
       const studentFormData = {
         ...formData,
@@ -404,7 +414,16 @@ export default function CreateStudent() {
       console.error('Error creating student:', error);
       
       if (error instanceof ApiError) {
-        if (error.validation && Object.keys(error.validation).length > 0) {
+        // Handle specific authentication errors
+        if (error.status === 401) {
+          setErrors({
+            submit: 'Authentication failed. Please log out and log back in, then try again.'
+          });
+        } else if (error.status === 403) {
+          setErrors({
+            submit: 'You do not have permission to create students. Please contact an administrator.'
+          });
+        } else if (error.validation && Object.keys(error.validation).length > 0) {
           // Convert validation errors to our format
           const formattedErrors: Record<string, string> = {};
           

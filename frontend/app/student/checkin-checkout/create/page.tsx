@@ -2,238 +2,197 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { studentCheckInCheckOutApi, StudentCheckInCheckOutFormData } from '@/lib/api/student-checkincheckout.api';
-import { blockApi, Block } from '@/lib/api';
-import { Button } from '@/components/ui';
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { studentCheckInCheckOutApi } from '@/lib/api/student-checkincheckout.api';
+import { 
+  SubmitButton, 
+  CancelButton 
+} from '@/components/ui';
+import { Calendar, Clock, AlertCircle } from 'lucide-react';
 
-// You would get this from authentication context in a real app
-const CURRENT_STUDENT_ID = "1"; // This should come from auth context
-
-export default function CreateCheckinCheckoutPage() {
+export default function CreateStudentCheckout() {
   const router = useRouter();
+  
   const [loading, setLoading] = useState(false);
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<StudentCheckInCheckOutFormData>({
-    student_id: CURRENT_STUDENT_ID,
-    block_id: '',
-    date: new Date().toISOString().split('T')[0], // Today's date
-    checkin_time: '',
-    checkout_time: '',
-    remarks: ''
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Get current date for default values
+  const currentDate = new Date().toISOString().split('T')[0];
+  
+  const [formData, setFormData] = useState({
+    estimated_checkin_date: '',
+    remarks: '',
   });
 
   useEffect(() => {
-    fetchBlocks();
+    setLoading(false);
   }, []);
 
-  const fetchBlocks = async () => {
-    try {
-      // Get all blocks (first page with high limit)
-      const response = await blockApi.getBlocks(1);
-      const blocksData = response.data || [];
-      
-      setBlocks(blocksData);
-      
-      // Auto-select first block if available
-      if (blocksData.length > 0 && !formData.block_id) {
-        setFormData(prev => ({ ...prev, block_id: blocksData[0].id }));
-      }
-    } catch (err) {
-      console.error('Failed to fetch blocks:', err);
-      setError('Failed to load blocks');
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setErrors({});
+
+    // Client-side validation
+    const newErrors: Record<string, string> = {};
     
-    if (!formData.block_id) {
-      setError('Please select a block');
-      return;
+    if (!formData.estimated_checkin_date) {
+      newErrors.estimated_checkin_date = 'Estimated return date is required';
+    } else if (formData.estimated_checkin_date < currentDate) {
+      newErrors.estimated_checkin_date = 'Return date cannot be in the past';
     }
 
-    if (!formData.date) {
-      setError('Please select a date');
+    if (!formData.remarks.trim()) {
+      newErrors.remarks = 'Reason for checkout is required';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
-
-      await studentCheckInCheckOutApi.createCheckInCheckOut(formData);
-      
+      await studentCheckInCheckOutApi.checkOut({
+        estimated_checkin_date: formData.estimated_checkin_date,
+        remarks: formData.remarks.trim()
+      });
       router.push('/student/checkin-checkout');
-    } catch (err: any) {
-      console.error('Failed to create record:', err);
-      setError(err.message || 'Failed to create check-in/checkout record');
+    } catch (error: any) {
+      console.error('Error creating checkout request:', error);
+      if (error.validation) {
+        setErrors(error.validation);
+      } else {
+        setErrors({ general: error.message || 'Failed to create checkout request' });
+      }
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-6">
+        <div className="w-full flex justify-center items-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="w-full">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50 px-2 py-4">
+      <div className="max-w-5xl mx-auto">
+        {/* Clean Header */}
         <div className="mb-6">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Check-in/Checkout
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">Create Check-in/Checkout Record</h1>
-          <p className="text-gray-600 mt-1">Add a manual check-in/checkout record</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Request Checkout</h1>
+          <p className="text-gray-600 mt-1">Submit a checkout request with your expected return date</p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-              <span className="text-red-800">{error}</span>
-            </div>
-          </div>
-        )}
+        {/* Modern Form Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <form onSubmit={handleSubmit} className="p-4">
+            {/* General Error */}
+            {errors.general && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">{errors.general}</p>
+              </div>
+            )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="space-y-6">
-            {/* Block Selection */}
-            <div>
-              <label htmlFor="block_id" className="block text-sm font-medium text-gray-700 mb-2">
-                Block *
-              </label>
-              <select
-                id="block_id"
-                name="block_id"
-                value={formData.block_id}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select a block</option>
-                {blocks.map((block) => (
-                  <option key={block.id} value={block.id}>
-                    {block.block_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="space-y-4">
+              {/* Form Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Expected Return Date */}
+                <div>
+                  <label htmlFor="estimated_checkin_date" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    Expected Return Date *
+                  </label>
+                  <input
+                    type="date"
+                    id="estimated_checkin_date"
+                    name="estimated_checkin_date"
+                    value={formData.estimated_checkin_date}
+                    onChange={handleChange}
+                    min={currentDate}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                  {errors.estimated_checkin_date && (
+                    <p className="text-red-600 text-sm mt-1">{errors.estimated_checkin_date}</p>
+                  )}
+                </div>
 
-            {/* Date */}
-            <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
-                Date *
-              </label>
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+                {/* Empty column for spacing consistency */}
+                <div></div>
+              </div>
 
-            {/* Check-in Time */}
-            <div>
-              <label htmlFor="checkin_time" className="block text-sm font-medium text-gray-700 mb-2">
-                Check-in Time
-              </label>
-              <input
-                type="datetime-local"
-                id="checkin_time"
-                name="checkin_time"
-                value={formData.checkin_time}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">Leave empty if you haven't checked in yet</p>
-            </div>
+              {/* Reason - Full Width */}
+              <div>
+                <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Reason for Checkout *
+                </label>
+                <textarea
+                  id="remarks"
+                  name="remarks"
+                  value={formData.remarks}
+                  onChange={handleChange}
+                  rows={6}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Please provide detailed information about why you need to checkout, including purpose, destination, and any relevant context..."
+                />
+                {errors.remarks && (
+                  <p className="text-red-600 text-sm mt-1">{errors.remarks}</p>
+                )}
+              </div>
 
-            {/* Checkout Time */}
-            <div>
-              <label htmlFor="checkout_time" className="block text-sm font-medium text-gray-700 mb-2">
-                Checkout Time
-              </label>
-              <input
-                type="datetime-local"
-                id="checkout_time"
-                name="checkout_time"
-                value={formData.checkout_time}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">Leave empty if you haven't checked out yet</p>
-            </div>
-
-            {/* Remarks */}
-            <div>
-              <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-2">
-                Remarks
-              </label>
-              <textarea
-                id="remarks"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Optional notes about this record..."
-              />
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <AlertCircle className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-medium mb-1">Important Notes:</p>
-                  <ul className="list-disc list-inside space-y-1 text-blue-700">
-                    <li>If you set both check-in and checkout times, the record will be marked as pending approval</li>
-                    <li>If you only set check-in time, you'll be marked as checked in</li>
-                    <li>You can create records for past dates if needed</li>
-                  </ul>
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900">Important Information</h4>
+                    <ul className="text-sm text-blue-700 mt-2 space-y-1">
+                      <li>• Your checkout request will be reviewed by the administration</li>
+                      <li>• You will be notified once your request is approved or declined</li>
+                      <li>• Please ensure your return date is realistic and accurate</li>
+                      <li>• Late returns may affect your future checkout requests</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Form Actions */}
-          <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => router.back()}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              icon={loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-            >
-              {loading ? 'Creating...' : 'Create Record'}
-            </Button>
-          </div>
-        </form>
+            {/* Form Actions */}
+            <div className="flex justify-between items-center pt-4 mt-4 border-t border-gray-200">
+              <CancelButton onClick={() => router.push('/student/checkin-checkout')} />
+              <SubmitButton 
+                loading={isSubmitting} 
+                loadingText="Submitting..."
+              >
+                Submit Checkout Request
+              </SubmitButton>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

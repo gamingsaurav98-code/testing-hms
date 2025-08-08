@@ -3,31 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { studentApi } from '@/lib/api/student.api';
-import { complainApi, Complain } from '@/lib/api/complain.api';
 import { ApiError } from '@/lib/api/core';
 import { 
   Button, 
   SearchBar, 
-  ConfirmModal, 
   SuccessToast, 
   TableSkeleton,
-  ActionButtons 
+  ActionButtons
 } from '@/components/ui';
 
 export default function StudentComplainList() {
   const router = useRouter();
-  const [complains, setComplains] = useState<Complain[]>([]);
-  const [filteredComplains, setFilteredComplains] = useState<Complain[]>([]);
+  const [complains, setComplains] = useState<any[]>([]);
+  const [filteredComplains, setFilteredComplains] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{show: boolean, complainId: string | null}>({
-    show: false,
-    complainId: null
-  });
   const [alert, setAlert] = useState<{show: boolean, message: string, type: 'success' | 'error'}>({
     show: false,
     message: '',
@@ -100,59 +93,6 @@ export default function StudentComplainList() {
     );
   };
 
-  const handleDeleteComplain = async (complainId: string) => {
-    setDeleteModal({show: true, complainId});
-  };
-
-  const confirmDelete = async () => {
-    const complainId = deleteModal.complainId;
-    if (!complainId) return;
-
-    try {
-      setIsDeleting(complainId);
-      setDeleteModal({show: false, complainId: null});
-      setAlert({show: true, message: 'Deleting complain...', type: 'success'});
-      
-      await complainApi.deleteComplain(complainId);
-      
-      // Remove from local state
-      const updatedComplains = complains.filter(complain => complain.id !== parseInt(complainId));
-      setComplains(updatedComplains);
-      setFilteredComplains(updatedComplains.filter(complain =>
-        !searchQuery.trim() ||
-        complain.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        complain.status.toLowerCase().includes(searchQuery.toLowerCase())
-      ));
-      
-      setAlert({show: true, message: 'Complain deleted successfully!', type: 'success'});
-      
-      // Hide alert after 2 seconds - optimized
-      setTimeout(() => {
-        setAlert({show: false, message: '', type: 'success'});
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error deleting complain:', error);
-      if (error instanceof ApiError) {
-        setAlert({show: true, message: `Failed to delete complain: ${error.message}`, type: 'error'});
-      } else {
-        setAlert({show: true, message: 'Failed to delete complain. Please try again.', type: 'error'});
-      }
-      
-      // Hide error alert after 3 seconds - optimized
-      setTimeout(() => {
-        setAlert({show: false, message: '', type: 'success'});
-      }, 3000);
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  const cancelDelete = () => {
-    setDeleteModal({show: false, complainId: null});
-  };
-
   if (isLoading) {
     return (
       <div className="p-6">
@@ -188,19 +128,6 @@ export default function StudentComplainList() {
 
   return (
     <div className="p-4 w-full">
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        show={deleteModal.show}
-        title="Delete Complain"
-        message="Are you sure you want to delete this complain? This action cannot be undone and will also delete all chat messages."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        isLoading={isDeleting !== null}
-        variant="danger"
-      />
-
       {/* Alert Notification */}
       {alert.type === 'success' && alert.show && (
         <SuccessToast
@@ -288,9 +215,9 @@ export default function StudentComplainList() {
           {/* Table Header */}
           <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div className="col-span-5">Complain Title</div>
+              <div className="col-span-3">Complain Title</div>
+              <div className="col-span-4">Description</div>
               <div className="col-span-2">Status</div>
-              <div className="col-span-2">Chat Activity</div>
               <div className="col-span-2">Date</div>
               <div className="col-span-1 text-center">Actions</div>
             </div>
@@ -302,32 +229,24 @@ export default function StudentComplainList() {
               <div key={complain.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="grid grid-cols-12 gap-2 items-center">
                   {/* Complain Title */}
-                  <div className="col-span-5">
+                  <div className="col-span-3">
                     <div className="font-medium text-sm text-gray-900">
-                      {complain.title.length > 60 ? `${complain.title.substring(0, 60)}...` : complain.title}
+                      {complain.title.length > 40 ? `${complain.title.substring(0, 40)}...` : complain.title}
                     </div>
-                    <div className="text-xs text-gray-600 mt-1 line-clamp-2">
-                      {complain.description.length > 80 ? `${complain.description.substring(0, 80)}...` : complain.description}
+                  </div>
+
+                  {/* Description */}
+                  <div className="col-span-4">
+                    <div className="text-xs text-gray-600 line-clamp-2">
+                      {complain.description.length > 15 
+                        ? `${complain.description.substring(0, 80)}...` 
+                        : complain.description}
                     </div>
                   </div>
 
                   {/* Status */}
                   <div className="col-span-2">
                     {getStatusBadge(complain.status)}
-                  </div>
-
-                  {/* Chat Activity */}
-                  <div className="col-span-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="text-sm text-gray-600">
-                        {complain.total_messages || 0} messages
-                      </div>
-                      {(complain.unread_messages || complain.unread_student_messages || 0) > 0 && (
-                        <div className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
-                          {complain.unread_messages || complain.unread_student_messages || 0} unread
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Date */}
@@ -341,9 +260,8 @@ export default function StudentComplainList() {
                   <div className="col-span-1">
                     <ActionButtons 
                       viewUrl={`/student/complain/${complain.id}`}
-                      editUrl={`/student/complain/${complain.id}/edit`}
-                      onDelete={() => handleDeleteComplain(complain.id.toString())}
-                      isDeleting={isDeleting === complain.id.toString()}
+                      hideEdit={true}
+                      hideDelete={true}
                       style="compact"
                     />
                   </div>

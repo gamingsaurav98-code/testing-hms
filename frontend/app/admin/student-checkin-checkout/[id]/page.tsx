@@ -1,28 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams   const calculateDuration = (record: StudentCheckInCheckOut) => {
-    if (!record.checkout_time) return '-';
-    
-    // Use actual check-in time if available, otherwise use estimated check-in time
-    const endTime = record.checkin_time || record.estimated_checkin_date;
-    if (!endTime) return '-';
-    
-    const checkout = new Date(record.checkout_time);
-    const checkInOrEstimated = new Date(endTime);
-    const diffMs = checkInOrEstimated.getTime() - checkout.getTime();
-    
-    // Handle negative duration (if checkout is after check-in/estimated time)
-    const absDiffMs = Math.abs(diffMs);
-    const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor((absDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    if (diffDays > 0) {
-      return `${diffDays}d ${diffHours}h`;
-    } else {
-      return `${diffHours}h`;
-    }
-  };ation';
+import { useRouter, useParams } from 'next/navigation';
 import { studentCheckInCheckOutApi, StudentCheckInCheckOut } from '@/lib/api/student-checkincheckout.api';
 import { Button, ConfirmModal } from '@/components/ui';
 import { Check, X, ArrowLeft, Edit, Trash, Clock } from 'lucide-react';
@@ -84,7 +63,7 @@ export default function StudentCheckinCheckoutDetail() {
 
   const handleDelete = async () => {
     try {
-      await studentCheckInCheckOutApi.deleteCheckInCheckOut(recordId);
+      await studentCheckInCheckOutApi.getCheckInCheckOut(recordId);
       router.push('/admin/student-checkin-checkout');
     } catch (error) {
       console.error('Error deleting record:', error);

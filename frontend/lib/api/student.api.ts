@@ -366,6 +366,16 @@ export const studentApi = {
     return handleResponse<any>(response);
   },
 
+  // Get a specific student notice by ID
+  async getStudentNotice(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/student/notices/${id}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
   // Get current student's outstanding dues
   async getStudentOutstandingDues(): Promise<{
     outstanding_dues: number;
@@ -403,6 +413,73 @@ export const studentApi = {
     });
     
     return handleResponse<{ student_image: string }>(response);
+  },
+
+  // Create a new student complaint
+  async createStudentComplaint(data: {
+    title: string;
+    description: string;
+    complain_attachment?: File;
+  }): Promise<any> {
+    const formData = new FormData();
+    
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    if (data.complain_attachment) {
+      formData.append('complain_attachment', data.complain_attachment);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/student/complains`, {
+      method: 'POST',
+      headers: getAuthHeadersForFormData(),
+      body: formData,
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Get a specific student complaint
+  async getStudentComplaint(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/student/complains/${id}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Update a specific student complaint
+  async updateStudentComplaint(id: string, data: {
+    title: string;
+    description: string;
+    complain_attachment?: File;
+  }): Promise<any> {
+    const formData = new FormData();
+    
+    formData.append('_method', 'PUT');
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    if (data.complain_attachment) {
+      formData.append('complain_attachment', data.complain_attachment);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/student/complains/${id}`, {
+      method: 'POST', // Using POST with _method override for file uploads
+      headers: getAuthHeadersForFormData(),
+      body: formData,
+    });
+    
+    return handleResponse<any>(response);
+  },
+
+  // Delete a specific student complaint
+  async deleteStudentComplaint(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/student/complains/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse<void>(response);
   }
 };
 

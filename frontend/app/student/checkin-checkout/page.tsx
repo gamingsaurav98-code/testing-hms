@@ -91,10 +91,8 @@ export default function StudentCheckinCheckoutPage() {
       setCheckingIn(true);
       setError(null);
       
-      // In a real app, this would come from the student's room assignment
-      await studentCheckInCheckOutApi.studentCheckIn({
-        student_id: "", // Backend will get this from auth
-        block_id: "1", // This should come from student's room data
+      // Student check-in (backend will get student info from auth)
+      await studentCheckInCheckOutApi.checkIn({
         remarks: "Student self check-in"
       });
       

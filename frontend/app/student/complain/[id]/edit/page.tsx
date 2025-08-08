@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { complainApi, Complain, ComplainFormData } from '@/lib/api/complain.api';
+import { studentApi } from '@/lib/api/student.api';
 import { ApiError } from '@/lib/api/core';
 import { 
   Button, 
@@ -13,17 +13,21 @@ import {
 } from '@/components/ui';
 import { getImageUrl } from '@/lib/utils';
 
+interface ComplainFormData {
+  title: string;
+  description: string;
+  complain_attachment?: File;
+}
+
 export default function EditComplain() {
   const router = useRouter();
   const params = useParams();
   const complainId = params.id as string;
 
-  const [complain, setComplain] = useState<Complain | null>(null);
+  const [complain, setComplain] = useState<any | null>(null);
   const [formData, setFormData] = useState<ComplainFormData>({
     title: '',
     description: '',
-    student_id: 1,
-    status: 'pending'
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,15 +46,13 @@ export default function EditComplain() {
       try {
         setIsLoading(true);
         
-        const complainData = await complainApi.getComplain(complainId);
+        const complainData = await studentApi.getStudentComplaint(complainId);
         setComplain(complainData);
         
         // Populate form with existing data
         setFormData({
           title: complainData.title,
           description: complainData.description,
-          student_id: complainData.student_id || 1,
-          status: complainData.status
         });
         
         if (complainData.complain_attachment) {
@@ -124,7 +126,7 @@ export default function EditComplain() {
         complain_attachment: attachment || undefined
       };
 
-      await complainApi.updateComplain(complainId, submitData);
+      await studentApi.updateStudentComplaint(complainId, submitData);
       
       setAlert({
         show: true, 
