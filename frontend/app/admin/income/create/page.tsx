@@ -174,7 +174,7 @@ export default function CreateIncome() {
     }
     
     if (!formData.income_type_id) {
-      newErrors.income_type_id = 'Payment purpose is required';
+      newErrors.income_type_id = 'Income Type is required';
     }
 
     if (!formData.amount || formData.amount <= 0) {
@@ -350,7 +350,7 @@ export default function CreateIncome() {
                   onChange={handleInputChange}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-[#235999] focus:border-[#235999] outline-none transition-all duration-200"
                 >
-                  <option value="">-- Select Payment Purpose --</option>
+                  <option value="">-- Select Income Type --</option>
                   {incomeTypes.map(type => (
                     <option key={type.id} value={type.id}>{type.title}</option>
                   ))}

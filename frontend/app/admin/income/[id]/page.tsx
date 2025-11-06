@@ -140,7 +140,7 @@ export default function IncomeDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         {/* Header with Actions */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
@@ -205,7 +205,7 @@ export default function IncomeDetail() {
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Payment Date</dt>
-                    <dd className="text-sm text-gray-900">{formatDate(income.income_date, true)}</dd>
+                    <dd className="text-sm text-gray-900">{formatDate(income.income_date)}</dd>
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Payment Method</dt>
@@ -229,15 +229,15 @@ export default function IncomeDetail() {
                 <dl className="divide-y divide-gray-200">
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Total Amount</dt>
-                    <dd className="text-sm text-gray-900 font-medium">Rs. {formatCurrency(income.amount)}</dd>
+                    <dd className="text-sm text-gray-900 font-medium">Rs. {Number(income.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Received Amount</dt>
-                    <dd className="text-sm text-green-600 font-medium">Rs. {formatCurrency(income.received_amount)}</dd>
+                    <dd className="text-sm text-green-600 font-medium">Rs. {Number(income.received_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Due Amount</dt>
-                    <dd className="text-sm text-red-600 font-medium">Rs. {formatCurrency(income.due_amount)}</dd>
+                    <dd className="text-sm text-red-600 font-medium">Rs. {Number(income.due_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Created At</dt>

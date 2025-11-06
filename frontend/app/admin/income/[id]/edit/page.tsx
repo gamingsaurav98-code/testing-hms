@@ -161,7 +161,7 @@ export default function EditIncome() {
     }
     
     if (!formData.income_type_id) {
-      newErrors.income_type_id = 'Payment purpose is required';
+      newErrors.income_type_id = 'Income Type is required';
     }
 
     if (!formData.amount || formData.amount <= 0) {
@@ -356,7 +356,7 @@ export default function EditIncome() {
                   onChange={handleInputChange}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-[#235999] focus:border-[#235999] outline-none transition-all duration-200"
                 >
-                  <option value="">-- Select Payment Purpose --</option>
+                  <option value="">-- Select Income Type --</option>
                   {incomeTypes.map(type => (
                     <option key={type.id} value={type.id}>{type.title}</option>
                   ))}
@@ -366,22 +366,6 @@ export default function EditIncome() {
                     {errors.income_type_id}
                   </div>
                 )}
-              </div>
-
-              {/* Title (Optional) */}
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-900 mb-1">
-                  Payment Title (Optional)
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title || ''}
-                  onChange={handleInputChange}
-                  placeholder="Enter a title for this payment"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-[#235999] focus:border-[#235999] outline-none transition-all duration-200"
-                />
               </div>
 
               {/* Amount */}

@@ -25,6 +25,7 @@ class Income extends Model
         'payment_type_id',
         'received_amount',
         'due_amount',
+        'payment_status',
     ];
     
     /**

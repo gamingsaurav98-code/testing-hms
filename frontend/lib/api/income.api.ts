@@ -52,6 +52,10 @@ export const incomeApi = {
       formData.append('due_amount', String(data.due_amount));
     }
     
+    if (data.payment_status) {
+      formData.append('payment_status', data.payment_status);
+    }
+    
     // Append file if present
     if (data.income_attachment) {
       formData.append('income_attachment', data.income_attachment);
@@ -94,6 +98,10 @@ export const incomeApi = {
     
     if (data.due_amount !== undefined) {
       formData.append('due_amount', String(data.due_amount));
+    }
+    
+    if (data.payment_status) {
+      formData.append('payment_status', data.payment_status);
     }
     
     // Append file if present

@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::create('income_types', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->string('amount');
-            $table->foreignId('student_id');
+            $table->text('description')->nullable();
             $table->timestamps();
         });
     }

@@ -45,15 +45,22 @@ class StudentController extends Controller
             // Get all active students without pagination
             if ($request->has('all') && $request->all === 'true') {
                 $students = $query->where('is_active', true)
-                    ->with(['incomes' => function($q) {
-                        $q->where('due_amount', '>', 0);
+                    ->with(['financials' => function($q) {
+                        $q->orderBy('created_at', 'desc')->limit(1);
                     }])
                     ->get();
                 
                 // Add calculated fields efficiently
                 $students->each(function ($student) {
-                    // Calculate due amount from loaded incomes
-                    $dueAmount = $student->incomes->sum('due_amount');
+                    // Calculate due amount from financials
+                    // This is a simplified calculation - adjust based on your business logic
+                    $dueAmount = 0;
+                    if ($student->financials && $student->financials->count() > 0) {
+                        $latestFinancial = $student->financials->first();
+                        if ($latestFinancial->balance_type === 'due') {
+                            $dueAmount = floatval($latestFinancial->initial_balance_after_registration ?? 0);
+                        }
+                    }
                     $student->due_amount = $dueAmount > 0 ? $dueAmount : 0;
                 });
                 

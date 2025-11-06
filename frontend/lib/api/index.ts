@@ -83,6 +83,18 @@ export type {
   ChangePasswordData
 } from './profile.api';
 
+// Import payment type API types
+export type {
+  PaymentType as PaymentTypeModel,
+  PaymentTypeFormData
+} from './payment-type.api';
+
+// Import income type API types
+export type {
+  IncomeType as IncomeTypeModel,
+  IncomeTypeFormData
+} from './income-type.api';
+
 // Re-export APIs
 export { authApi, tokenStorage, getAuthHeaders } from './auth.api';
 export { blockApi } from './block.api';
@@ -99,4 +111,6 @@ export { expenseApi, expenseCategoryApi } from './expense.api';
 export { SalaryApi, StaffApi } from './salary.api';
 export { complainApi } from './complain.api';
 export { profileApi } from './profile.api';
+export { paymentTypeApi } from './payment-type.api';
+export { incomeTypeApi } from './income-type.api';
 export { default as UnifiedApi } from './unified.api';

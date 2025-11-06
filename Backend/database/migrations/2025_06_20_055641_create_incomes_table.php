@@ -13,13 +13,17 @@ return new class extends Migration
     {
         Schema::create('incomes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('income_type_id');
-            $table->string('amount');
-            $table->date('income_date');
             $table->foreignId('student_id');
-            $table->string('income_attachment')->nullable(); // e.g., file path or URL
-            $table->string('title');
-            $table->string('description')->nullable();
+            $table->foreignId('income_type_id');
+            $table->foreignId('payment_type_id');
+            $table->decimal('amount', 10, 2);
+            $table->decimal('received_amount', 10, 2)->default(0);
+            $table->decimal('due_amount', 10, 2)->default(0);
+            $table->date('income_date');
+            $table->string('title')->nullable();
+            $table->text('description')->nullable();
+            $table->string('payment_status')->default('paid'); // paid, partial, unpaid
+            $table->string('income_attachment')->nullable();
             $table->timestamps();
         });
     }
