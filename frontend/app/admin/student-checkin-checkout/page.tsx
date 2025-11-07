@@ -168,12 +168,32 @@ export default function StudentCheckinCheckoutList() {
         </span>
       );
     } else if (record.status === 'pending') {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          <Clock className="w-3 h-3 mr-1" />
-          Pending
-        </span>
-      );
+      // Differentiate between pending checkout and pending check-in
+      if (record.checkout_time && record.checkin_time) {
+        // Both times exist - this is a pending check-in approval
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending In
+          </span>
+        );
+      } else if (record.checkout_time) {
+        // Only checkout time exists - this is a pending checkout approval
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending Out
+          </span>
+        );
+      } else {
+        // Generic pending
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </span>
+        );
+      }
     } else if (record.checkout_time && record.checkin_time) {
       // If both checkout and checkin exist and status is not pending/approved/declined
       return (

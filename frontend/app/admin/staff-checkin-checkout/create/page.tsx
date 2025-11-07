@@ -150,7 +150,7 @@ export default function CreateStaffCheckinCheckout() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Staff Selection */}
+              {/* Staff Member Selection */}
               <FormField
                 label="Staff Member"
                 name="staff_id"
@@ -159,13 +159,10 @@ export default function CreateStaffCheckinCheckout() {
                 onChange={handleChange}
                 required
                 error={errors.staff_id}
-                options={[
-                  { value: '', label: 'Select Staff Member' },
-                  ...staff.map(member => ({
-                    value: member.id.toString(),
-                    label: `${member.staff_name} (${member.staff_id || 'N/A'}) - ${member.department || 'N/A'}`
-                  }))
-                ]}
+                options={staff.map(member => ({
+                  value: member.id.toString(),
+                  label: `${member.staff_name} (${member.staff_id || 'N/A'}) - ${member.department || 'N/A'}`
+                }))}
               />
 
               {/* Block Selection */}
@@ -177,13 +174,10 @@ export default function CreateStaffCheckinCheckout() {
                 onChange={handleChange}
                 required
                 error={errors.block_id}
-                options={[
-                  { value: '', label: 'Select Block' },
-                  ...blocks.map(block => ({
-                    value: block.id,
-                    label: block.block_name
-                  }))
-                ]}
+                options={blocks.map(block => ({
+                  value: block.id,
+                  label: block.block_name
+                }))}
               />
 
               {/* Date */}

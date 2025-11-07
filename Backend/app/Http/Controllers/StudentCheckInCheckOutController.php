@@ -127,8 +127,9 @@ class StudentCheckInCheckOutController extends Controller
             ]);
 
             // Determine status based on times
+            // When admin creates record with checkout, auto-approve it
             if ($data['checkin_time'] && $data['checkout_time']) {
-                $data['status'] = 'pending'; // Checkout needs approval
+                $data['status'] = 'approved'; // Auto-approved by admin
             } elseif ($data['checkin_time']) {
                 $data['status'] = 'checked_in';
             } else {
@@ -321,18 +322,19 @@ class StudentCheckInCheckOutController extends Controller
 
             if ($approvedCheckout) {
                 // Update the existing approved checkout record with checkin time
+                // Set status to 'pending' so admin can approve the check-in
                 $approvedCheckout->update([
                     'checkin_time' => $request->checkin_time ?? Carbon::now(),
                     'block_id' => $request->block_id, // Update block if different
                     'remarks' => $request->remarks ? $approvedCheckout->remarks . '. Check-in: ' . $request->remarks : $approvedCheckout->remarks,
-                    'status' => 'checked_in'
+                    'status' => 'pending' // Requires admin approval for check-in
                 ]);
 
                 $approvedCheckout->load(['student.room.block', 'block']);
 
                 return response()->json([
                     'status' => 'success',
-                    'message' => 'Student checked in successfully',
+                    'message' => 'Check-in request submitted. Waiting for admin approval.',
                     'data' => $approvedCheckout
                 ], 201);
             }

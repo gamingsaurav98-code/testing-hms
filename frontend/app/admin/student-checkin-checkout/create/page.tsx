@@ -159,13 +159,10 @@ export default function CreateStudentCheckinCheckout() {
                 onChange={handleChange}
                 required
                 error={errors.student_id}
-                options={[
-                  { value: '', label: 'Select Student' },
-                  ...students.map(student => ({
-                    value: student.id,
-                    label: `${student.student_name} (${student.student_id})`
-                  }))
-                ]}
+                options={students.map(student => ({
+                  value: student.id,
+                  label: `${student.student_name} (${student.student_id})`
+                }))}
               />
 
               {/* Block Selection */}
@@ -177,13 +174,10 @@ export default function CreateStudentCheckinCheckout() {
                 onChange={handleChange}
                 required
                 error={errors.block_id}
-                options={[
-                  { value: '', label: 'Select Block' },
-                  ...blocks.map(block => ({
-                    value: block.id,
-                    label: block.block_name
-                  }))
-                ]}
+                options={blocks.map(block => ({
+                  value: block.id,
+                  label: block.block_name
+                }))}
               />
 
               {/* Date */}

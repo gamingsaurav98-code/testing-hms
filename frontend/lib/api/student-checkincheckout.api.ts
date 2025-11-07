@@ -192,6 +192,28 @@ export const studentCheckInCheckOutApi = {
   // NOTE: Admin-only methods (createCheckInCheckOut, updateCheckInCheckOut, deleteCheckInCheckOut) 
   // are not available for students. Students use checkIn/checkOut methods instead.
 
+  // Admin: Create check-in/check-out record
+  async createCheckInCheckOut(data: StudentCheckInCheckOutFormData): Promise<{ data: StudentCheckInCheckOut }> {
+    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+  },
+
+  // Admin: Update check-in/check-out record
+  async updateCheckInCheckOut(id: string, data: Partial<StudentCheckInCheckOutFormData>): Promise<{ data: StudentCheckInCheckOut }> {
+    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return handleResponse<{ data: StudentCheckInCheckOut }>(response);
+  },
+
   // Quick check-in (Student function)
   async checkIn(data: CheckInFormData): Promise<{ data: StudentCheckInCheckOut }> {
     console.log('Student checkin request:', data);

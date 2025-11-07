@@ -391,7 +391,8 @@ export default function StudentCheckinCheckoutPage() {
                             hideDelete={true}
                           />
                           
-                          {record.status === 'approved' && (
+                          {/* Show Check In button only for approved records that have checkout but no checkin yet */}
+                          {record.status === 'approved' && record.checkout_time && !record.checkin_time && (
                             <Button
                               onClick={handleQuickCheckin}
                               disabled={checkingIn}

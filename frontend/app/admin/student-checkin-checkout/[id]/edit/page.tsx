@@ -33,8 +33,8 @@ export default function EditStudentCheckinCheckout() {
       try {
         setLoading(true);
         
-        // Fetch record details only
-        const recordResponse = await studentCheckInCheckOutApi.getCheckInCheckOut(recordId);
+        // Fetch record details - use admin endpoint
+        const recordResponse = await studentCheckInCheckOutApi.getStudentCheckInCheckOutRecord(recordId);
         const recordData = recordResponse.data;
         setRecord(recordData);
         
@@ -101,6 +101,26 @@ export default function EditStudentCheckinCheckout() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper function to get original remarks without check-in appended text
+  const getOriginalRemarks = (remarks: string | null | undefined) => {
+    if (!remarks) return 'No remarks';
+    
+    // Remove check-in appended text patterns
+    const checkInPatterns = [
+      /\.\s*Check-in:\s*Student self check-in$/i,
+      /Check-in:\s*Student self check-in$/i,
+      /\.\s*Check-in:.*$/i,
+      /Check-in:.*$/i
+    ];
+    
+    let cleanedRemarks = remarks;
+    for (const pattern of checkInPatterns) {
+      cleanedRemarks = cleanedRemarks.replace(pattern, '').trim();
+    }
+    
+    return cleanedRemarks || 'No remarks';
   };
 
   if (loading) {
@@ -190,7 +210,7 @@ export default function EditStudentCheckinCheckout() {
                 {/* Remarks */}
                 <div>
                   <label className="text-sm font-medium text-gray-500">Remarks</label>
-                  <p className="mt-1 text-sm text-gray-900">{record?.remarks || 'No remarks'}</p>
+                  <p className="mt-1 text-sm text-gray-900">{getOriginalRemarks(record?.remarks)}</p>
                 </div>
               </div>
             </div>

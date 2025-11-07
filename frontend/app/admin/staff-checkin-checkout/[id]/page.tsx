@@ -179,9 +179,13 @@ export default function StaffCheckinCheckoutDetail() {
   };
 
   const needsApproval = () => {
-    // Show approval actions if checkout exists and status is pending
-    return record?.checkout_time && 
-           record?.status === 'pending';
+    // Show approval actions if status is pending
+    return record?.status === 'pending';
+  };
+
+  const isCheckInApproval = () => {
+    // If both checkout_time and checkin_time exist, it's a check-in approval
+    return record?.checkout_time && record?.checkin_time;
   };
 
   if (loading) {
@@ -321,7 +325,11 @@ export default function StaffCheckinCheckoutDetail() {
                   className="w-full bg-green-600 text-white hover:bg-green-700 border-0"
                   icon={<Check className="w-4 h-4" />}
                 >
-                  {actionLoading === 'approve' ? 'Approving...' : 'Approve Checkout'}
+                  {actionLoading === 'approve' 
+                    ? 'Approving...' 
+                    : isCheckInApproval() 
+                      ? 'Approve Check-in' 
+                      : 'Approve Checkout'}
                 </Button>
                 <Button
                   variant="danger"
@@ -331,7 +339,11 @@ export default function StaffCheckinCheckoutDetail() {
                   className="w-full"
                   icon={<X className="w-4 h-4" />}
                 >
-                  {actionLoading === 'decline' ? 'Declining...' : 'Decline Checkout'}
+                  {actionLoading === 'decline' 
+                    ? 'Declining...' 
+                    : isCheckInApproval() 
+                      ? 'Decline Check-in' 
+                      : 'Decline Checkout'}
                 </Button>
               </div>
             </div>

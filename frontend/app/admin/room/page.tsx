@@ -138,13 +138,16 @@ export default function RoomList() {
     if (vacantBeds !== undefined && capacity !== undefined) {
       // Display occupancy ratio along with status
       if (vacantBeds <= 0) {
+        // Fully occupied - Red
         return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Occupied ({capacity}/{capacity})</span>;
       } else if (vacantBeds === capacity) {
+        // Fully vacant - Green
         return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Vacant (0/{capacity})</span>;
       } else {
+        // Partially vacant - Yellow
         const occupiedBeds = capacity - vacantBeds;
         return (
-          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
             Occupied ({occupiedBeds}/{capacity})
           </span>
         );
