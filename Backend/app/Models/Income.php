@@ -29,6 +29,13 @@ class Income extends Model
     ];
     
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['payment_status'];
+    
+    /**
      * The directory where income attachments are stored
      *
      * @var string

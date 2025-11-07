@@ -96,8 +96,8 @@ export default function IncomeList() {
       results = results.filter(income => 
         income.student?.student_name.toLowerCase().includes(query) ||
         income.student?.email.toLowerCase().includes(query) ||
-        income.paymentType?.name.toLowerCase().includes(query) ||
-        income.incomeType?.title.toLowerCase().includes(query)
+        income.payment_type?.name.toLowerCase().includes(query) ||
+        income.income_type?.title.toLowerCase().includes(query)
       );
     }
     
@@ -317,10 +317,10 @@ export default function IncomeList() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {income.paymentType?.name || 'N/A'}
+                        {income.payment_type?.name || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {income.incomeType?.title || 'N/A'}
+                        {income.income_type?.title || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPaymentStatusClass(income.payment_status)}`}>

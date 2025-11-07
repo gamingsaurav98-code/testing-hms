@@ -143,6 +143,9 @@ export interface Income {
   student?: Student;
   incomeType?: IncomeType;
   paymentType?: PaymentType;
+  // Backend returns snake_case for relationships
+  income_type?: IncomeType;
+  payment_type?: PaymentType;
   payment_status?: 'paid' | 'partial';
 }
 

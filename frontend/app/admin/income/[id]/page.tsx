@@ -209,11 +209,11 @@ export default function IncomeDetail() {
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Payment Method</dt>
-                    <dd className="text-sm text-gray-900">{income.paymentType?.name || 'N/A'}</dd>
+                    <dd className="text-sm text-gray-900">{income.payment_type?.name || 'N/A'}</dd>
                   </div>
                   <div className="py-3 flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Payment For</dt>
-                    <dd className="text-sm text-gray-900">{income.incomeType?.title || 'N/A'}</dd>
+                    <dd className="text-sm text-gray-900">{income.income_type?.title || 'N/A'}</dd>
                   </div>
                   {income.title && (
                     <div className="py-3 flex justify-between">
