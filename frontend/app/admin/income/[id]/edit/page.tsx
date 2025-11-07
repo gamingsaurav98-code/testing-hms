@@ -7,6 +7,7 @@ import { incomeApi } from '@/lib/api/income.api';
 import { IncomeFormData, Income, Student, IncomeType, PaymentType } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/core';
 import { TableSkeleton, ActionButtons, SingleImageUploadEdit, ImageModal } from '@/components/ui';
+import { getImageUrl } from '@/lib/utils';
 
 export default function EditIncome() {
   const router = useRouter();
@@ -493,8 +494,8 @@ export default function EditIncome() {
               <div className="col-span-1 md:col-span-2">
                 <SingleImageUploadEdit
                   imagePreview={attachmentPreview}
-                  existingImageUrl={currentIncome.income_attachment ? 
-                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/storage/${currentIncome.income_attachment}` : null
+                  existingImageUrl={currentIncome?.income_attachment ? 
+                    getImageUrl(currentIncome.income_attachment) : null
                   }
                   onFileSelect={(file) => {
                     // Create a preview URL
