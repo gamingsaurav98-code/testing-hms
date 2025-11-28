@@ -26,6 +26,7 @@ use App\Http\Controllers\StaffCheckInCheckOutController;
 use App\Http\Controllers\StudentCheckInCheckOutController;
 use App\Http\Controllers\StudentCheckoutRuleController;
 use App\Http\Controllers\StaffCheckoutRuleController;
+use App\Http\Controllers\AdminDashboardController;
 
 // =============================================================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -200,6 +201,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('student-checkout-rules/preview/{student_id}', [StudentCheckoutRuleController::class, 'getRulePreview']);
         
         Route::apiResource('staff-checkout-rules', StaffCheckoutRuleController::class);
+        // Admin dashboard summary
+        Route::get('admin/dashboard/stats', [AdminDashboardController::class, 'stats'])->name('dashboard.admin.stats');
         Route::get('staff-checkout-rules/staff/{staff_id}', [StaffCheckoutRuleController::class, 'getStaffRules']);
         Route::post('staff-checkout-rules/{id}/toggle-status', [StaffCheckoutRuleController::class, 'toggleStatus']);
         Route::get('staff-checkout-rules/preview/{staff_id}', [StaffCheckoutRuleController::class, 'getRulePreview']);

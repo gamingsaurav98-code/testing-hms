@@ -13,6 +13,7 @@ import { complainApi } from '@/lib/api/complain.api';
 import { SalaryApi } from '@/lib/api/salary.api';
 import { API_BASE_URL, handleResponse } from '@/lib/api/core';
 import { getAuthHeaders } from '@/lib/api/auth.api';
+import useAdminDashboard from '@/hooks/useAdminDashboard';
 
 interface DashboardStats {
   totalStudentCapacity: number;
@@ -79,15 +80,45 @@ export default function AdminDashboardPage() {
     recentActivities: [],
   });
   const [loading, setLoading] = useState(true);
+  const { data: adminData, loading: adminLoading } = useAdminDashboard();
 
   useEffect(() => {
     // Only fetch data when user is authenticated and not loading auth
     if (isAuthenticated && !authLoading) {
-      fetchDashboardData();
+      // Prefer consolidated server-side dashboard when available
+      if (adminData) {
+        // Map server shape to local stats
+        const s = adminData as any;
+        setStats(prev => ({
+          ...prev,
+          totalStudentCapacity: s.rooms?.total_capacity ?? prev.totalStudentCapacity,
+          totalCurrentStudents: s.students?.total ?? prev.totalCurrentStudents,
+          totalRooms: s.rooms?.total_rooms ?? prev.totalRooms,
+          outOfHostelStudents: s.students?.out_of_hostel ?? prev.outOfHostelStudents,
+          studentsInHostelToday: s.students?.in_hostel ?? prev.studentsInHostelToday,
+          currentlyPresent: s.students?.in_hostel ?? prev.currentlyPresent,
+          thisMonthIncome: s.finance?.monthly_incomes ?? prev.thisMonthIncome,
+          thisMonthExpense: s.finance?.monthly_expenses ?? prev.thisMonthExpense,
+          outstandingDues: s.finance?.outstanding_total ?? prev.outstandingDues,
+          totalBeds: s.rooms?.total_capacity ?? prev.totalBeds,
+          occupiedBeds: s.rooms?.occupied_beds ?? prev.occupiedBeds,
+          availableBeds: s.rooms?.available_beds ?? prev.availableBeds,
+          recentActivities: (s.recent_activity || []).map((a: any) => ({
+            type: a.type === 'income' ? 'payment' : a.type,
+            message: a.title || a.type || '',
+            time: a.date || a.occurred_at || a.created_at || '',
+            student: a.student_id ? String(a.student_id) : undefined,
+            staff: a.staff_id ? String(a.staff_id) : undefined,
+          })),
+        }));
+        setLoading(false);
+      } else {
+        fetchDashboardData();
+      }
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, adminData, adminLoading, fetchDashboardData]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = React.useCallback(async () => {
     try {
       setLoading(true);
       
@@ -312,7 +343,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Helper function to format time ago
   const formatTimeAgo = (date: Date): string => {
