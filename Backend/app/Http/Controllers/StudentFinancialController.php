@@ -194,7 +194,9 @@ class StudentFinancialController extends Controller
     public function getMyFinancials()
     {
         try {
-            $user = auth()->user();
+            // use request()->user() here so static analysis recognizes the return type
+            /** @var \App\Models\User|null $user */
+            $user = request()->user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -226,7 +228,8 @@ class StudentFinancialController extends Controller
     public function getMyPaymentHistory()
     {
         try {
-            $user = auth()->user();
+            /** @var \App\Models\User|null $user */
+            $user = request()->user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -272,7 +275,8 @@ class StudentFinancialController extends Controller
     public function getMyOutstandingDues()
     {
         try {
-            $user = auth()->user();
+            /** @var \App\Models\User|null $user */
+            $user = request()->user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }

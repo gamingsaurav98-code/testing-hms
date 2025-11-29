@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import adminApi from '@/lib/api/admin.api';
 import { fetchWithTimeout } from '@/lib/api/core';
 
-export default function useAdminDashboard(opts: { timeout?: number } = { timeout: 8000 }) {
+export default function useAdminDashboard(opts: { timeout?: number } = { timeout: 25000 }) {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +13,7 @@ export default function useAdminDashboard(opts: { timeout?: number } = { timeout
 
     try {
       // Best-effort fetch with a simple timeout wrapper
-      const timeoutMs = opts.timeout ?? 8000;
+      const timeoutMs = opts.timeout ?? 25000;
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), timeoutMs));
       const res = await Promise.race([adminApi.getDashboardStats(), timeoutPromise]) as any;
 

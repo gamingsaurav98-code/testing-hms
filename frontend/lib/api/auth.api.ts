@@ -257,10 +257,15 @@ export const authApi = {
   // Get current user
   async me(): Promise<UserMeResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const url = `${API_BASE_URL}/auth/me`;
+      console.debug('authApi.me - fetching', url, 'headers:', getAuthHeaders());
+      const start = Date.now();
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
+
+      console.debug(`authApi.me - response status: ${response.status} (took ${Date.now() - start}ms)`);
 
       return handleResponse<UserMeResponse>(response);
     } catch (error) {

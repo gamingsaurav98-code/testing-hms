@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, tokenStorage } from '@/lib/api';
+import { ApiError } from '@/lib/api/core';
 import { User } from '@/lib/api/auth.api';
 
 interface AuthContextType {
@@ -59,16 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(response.data.user);
         localStorage.setItem('hms_user', JSON.stringify(response.data.user));
       } else {
-        // Invalid token
+        // Server explicitly returned a non-success payload
         tokenStorage.remove();
         localStorage.removeItem('hms_user');
         setUser(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Background auth check failed:', error);
-      tokenStorage.remove();
-      localStorage.removeItem('hms_user');
-      setUser(null);
+      // Only remove token for known auth errors (401/403). For network or transient errors keep the token so
+      // in-flight requests won't be affected by premature deletion by this background check.
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        tokenStorage.remove();
+        localStorage.removeItem('hms_user');
+        setUser(null);
+      }
+      // Otherwise leave the token intact and allow other requests to proceed — we'll try again later
     }
   };
 
@@ -83,10 +89,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tokenStorage.remove();
         localStorage.removeItem('hms_user');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Quick auth check failed:', error);
-      tokenStorage.remove();
-      localStorage.removeItem('hms_user');
+      // Only remove token for authentication errors; network errors shouldn't wipe the token
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        tokenStorage.remove();
+        localStorage.removeItem('hms_user');
+      }
     } finally {
       setIsLoading(false);
     }

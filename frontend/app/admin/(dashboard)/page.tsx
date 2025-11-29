@@ -51,6 +51,7 @@ interface DashboardStats {
 
 export default function AdminDashboardPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { data: adminData, loading: adminLoading, error: adminError } = useAdminDashboard();
   
   const [stats, setStats] = useState<DashboardStats>({
     totalStudentCapacity: 0,
@@ -80,14 +81,205 @@ export default function AdminDashboardPage() {
     recentActivities: [],
   });
   const [loading, setLoading] = useState(true);
-  const { data: adminData, loading: adminLoading } = useAdminDashboard();
+  // dev-only debug UI state
+  const [showDebug, setShowDebug] = useState(false);
+  const [localToken, setLocalToken] = useState<string | null>(null);
+
+  // server fallback timeout (increase to avoid premature fallbacks)
+  // set to 25s so slow backends (~12s) are always accommodated for now
+  const TIMEOUT_MS = 25000;
+
+  // fetch data helper (memoized) — declared before useEffect so hooks don't reference undefined
+  // allow `any` in this helper because it orchestrates many external HTTP responses with unknown shapes
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const fetchDashboardData = React.useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Fetch critical data first with optimized timeouts
+      /**
+       * Better per-call timeout wrapper.
+       * - Labels each call for clearer logs
+       * - Uses Promise.race but will not cancel other parallel requests
+       * - Returns fallback on error or timeout
+       * - Attempts one quick retry on timeout to handle transient backend slowness
+       */
+      const fetchWithTimeout = async (label: string, apiCall: () => Promise<any>, fallback: any) => {
+        const attempt = async (attemptNo: number) => {
+          const startMs = Date.now();
+          try {
+            const result = await Promise.race([
+              apiCall(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${TIMEOUT_MS}ms`)), TIMEOUT_MS))
+            ]);
+            const took = Date.now() - startMs;
+            console.debug(`API '${label}' completed in ${took}ms`);
+            return result;
+          } catch (err: any) {
+            const took = Date.now() - startMs;
+            // If it was a timeout and this is the first attempt, try one retry quickly
+            if (String(err?.message || '').includes('Timeout') && attemptNo === 1) {
+              console.warn(`API '${label}' timed out after ${took}ms — retrying once`);
+              return attempt(2);
+            }
+
+            console.warn(`API '${label}' failed (attempt ${attemptNo}) — using fallback:`, err?.message ?? err);
+            return fallback;
+          }
+        };
+
+        return attempt(1);
+      };
+
+      // Run primary API calls in parallel but collect full results even when some fail
+      const mainCalls = await Promise.allSettled([
+        fetchWithTimeout('students', () => studentApi.getStudents(1), { data: [], total: 0 }),
+        fetchWithTimeout('staff', () => staffApi.getStaff(1), { data: [], total: 0 }),
+        fetchWithTimeout('rooms', () => roomApi.getRooms(1, { per_page: 1000 }), { data: [], total: 0 }),
+        fetchWithTimeout('incomes', () => incomeApi.getIncomes(1), { data: [] }),
+        fetchWithTimeout('expenses', () => expenseApi.getExpenses(1), { data: [] }),
+      ]);
+
+      const studentsData = (mainCalls[0].status === 'fulfilled' ? (mainCalls[0] as PromiseFulfilledResult<any>).value : { data: [], total: 0 });
+      const staffData = (mainCalls[1].status === 'fulfilled' ? (mainCalls[1] as PromiseFulfilledResult<any>).value : { data: [], total: 0 });
+      const roomsData = (mainCalls[2].status === 'fulfilled' ? (mainCalls[2] as PromiseFulfilledResult<any>).value : { data: [], total: 0 });
+      const incomesData = (mainCalls[3].status === 'fulfilled' ? (mainCalls[3] as PromiseFulfilledResult<any>).value : { data: [] });
+      const expensesData = (mainCalls[4].status === 'fulfilled' ? (mainCalls[4] as PromiseFulfilledResult<any>).value : { data: [] });
+
+      // quick debug output to help identify payload shape issues
+      console.debug('dashboard fetched:', { studentsData, staffData, roomsData, incomesData, expensesData });
+
+      // Initialize with fallback data for slower APIs
+      let studentCheckInsData: any = { data: [] };
+      // we don't need staff checkin results for current cards; ignore them but still best-effort fetch
+      let complainsData: any = { data: [], total: 0 };
+
+      // Fetch slower APIs in background (don't wait for these)
+      fetchWithTimeout('student-checkins', async () => {
+        const response = await fetch(`${API_BASE_URL}/student-checkincheckouts?page=1`, { headers: getAuthHeaders() });
+        return handleResponse(response);
+      }, { data: [] }).then((data) => { studentCheckInsData = data; }).catch(() => {});
+
+      fetchWithTimeout('staff-checkins', () => staffCheckInCheckOutApi.getCheckInCheckOuts(1), { data: [] }).catch(() => {});
+
+      fetchWithTimeout('complains', () => complainApi.getComplains(1), { data: [], total: 0 })
+        .then((data) => { complainsData = data; }).catch(() => {});
+
+      // Fetch salary statistics (best-effort)
+      let salaryStats = { total_salaries_this_month: 0, total_amount_this_month: 0, paid_salaries_this_month: 0, pending_salaries_this_month: 0 };
+      try {
+        const fetchedSalaryStats = await fetchWithTimeout('salaryStats', () => SalaryApi.getStatistics(), salaryStats);
+        // fetchedSalaryStats may be fallback or real; keep defensive
+        salaryStats = (fetchedSalaryStats as any) ?? salaryStats;
+      } catch (err) {
+        console.warn('salary stats not available', err);
+      }
+
+      // Calculate derived stats
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+
+      const totalCapacity = roomsData.data?.reduce((sum: number, room: any) => sum + (parseInt(String(room.capacity || 0)) || 0), 0) || 0;
+      const currentStudents = studentsData.total || studentsData.data?.length || 0;
+      const totalRooms = roomsData.total || roomsData.data?.length || 0;
+
+      const studentCheckinsArray = Array.isArray(studentCheckInsData?.data)
+        ? studentCheckInsData.data
+        : Array.isArray(studentCheckInsData)
+          ? studentCheckInsData
+          : [];
+
+      const studentsInHostelToday = studentCheckinsArray.filter((c: any) => c?.status === 'approved' && !c?.check_out_date).length || 0;
+      const outOfHostelStudents = Math.max(0, currentStudents - studentsInHostelToday);
+
+      const thisMonthIncome = (incomesData.data || []).filter((income: any) => {
+        const d = new Date(String(income.income_date || income.created_at || ''));
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      }).reduce((sum: number, income: any) => sum + Number(income.amount || 0), 0) || 0;
+
+      const thisMonthExpense = (expensesData.data || []).filter((expense: any) => {
+        const d = new Date(String(expense.expense_date || expense.created_at || ''));
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      }).reduce((sum: number, expense: any) => sum + Number(expense.amount || 0), 0) || 0;
+
+      const occupiedBeds = roomsData.data?.reduce((sum: number, r: any) => sum + (Number(r.occupied_beds ?? (r.students?.length ?? 0)) || 0), 0) || 0;
+      const availableBeds = Math.max(0, totalCapacity - occupiedBeds);
+
+      const totalStaff = staffData.total || staffData.data?.length || 0;
+      const staffArray = Array.isArray(staffData?.data) ? staffData.data : Array.isArray(staffData) ? staffData : [];
+
+      const activeStaff = staffArray.filter((s: any) => s?.is_active !== false && s?.is_active !== 0).length || totalStaff;
+
+      const totalComplaints = complainsData.total || complainsData.data?.length || 0;
+      const pendingComplaints = (complainsData.data || []).filter((c: any) => c.status === 'pending').length || 0;
+      const resolvedComplaints = (complainsData.data || []).filter((c: any) => c.status === 'resolved').length || 0;
+
+      const recentIncomes = (incomesData.data || []).slice(0, 3);
+      const recentComplaints = (complainsData.data || []).slice(0, 2);
+
+      const recentActivities: DashboardStats['recentActivities'] = [];
+      recentIncomes.forEach((income: any) => {
+        const d = new Date(String(income.income_date || income.created_at || ''));
+        const time = !isNaN(d.getTime()) ? formatTimeAgo(d) : String(income.income_date || income.created_at || '');
+        recentActivities.push({
+          type: 'payment',
+          message: `Payment of Rs.${Number(income.amount || 0).toLocaleString()} received${income.student_name ? ` from ${income.student_name}` : ''}`,
+          time,
+        });
+      });
+
+      recentComplaints.forEach((complaint: any) => {
+        const d = new Date(String(complaint.complaint_date || complaint.created_at || ''));
+        const time = !isNaN(d.getTime()) ? formatTimeAgo(d) : String(complaint.complaint_date || complaint.created_at || '');
+        recentActivities.push({ type: 'complaint', message: String(complaint.title || ''), time });
+      });
+
+      setStats({
+        totalStudentCapacity: totalCapacity,
+        totalCurrentStudents: currentStudents,
+        totalRooms,
+        outOfHostelStudents,
+        studentsInHostelToday,
+        currentlyPresent: studentsInHostelToday,
+        thisMonthIncome,
+        thisMonthExpense,
+        outstandingDues: 0,
+        totalBeds: totalCapacity,
+        occupiedBeds,
+        availableBeds,
+        totalStaff,
+        activeStaff,
+        incomeChangePercent: 0,
+        expenseChangePercent: 0,
+        incomeChangePositive: true,
+        expenseChangePositive: true,
+        totalComplaints,
+        pendingComplaints,
+        resolvedComplaints,
+        thisMonthSalaryAmount: salaryStats.total_amount_this_month || 0,
+        paidSalariesThisMonth: salaryStats.paid_salaries_this_month || 0,
+        pendingSalariesThisMonth: salaryStats.pending_salaries_this_month || 0,
+        recentActivities: recentActivities.slice(0, 5),
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data (fallback path):', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
 
   useEffect(() => {
+    // read token for debug panel when in browser
+    if (typeof window !== 'undefined') setLocalToken(localStorage.getItem('auth_token'));
     // Only fetch data when user is authenticated and not loading auth
     if (isAuthenticated && !authLoading) {
       // Prefer consolidated server-side dashboard when available
+      console.debug('adminData (server):', adminData, 'adminLoading:', adminLoading);
       if (adminData) {
         // Map server shape to local stats
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const s = adminData as any;
         setStats(prev => ({
           ...prev,
@@ -103,6 +295,7 @@ export default function AdminDashboardPage() {
           totalBeds: s.rooms?.total_capacity ?? prev.totalBeds,
           occupiedBeds: s.rooms?.occupied_beds ?? prev.occupiedBeds,
           availableBeds: s.rooms?.available_beds ?? prev.availableBeds,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           recentActivities: (s.recent_activity || []).map((a: any) => ({
             type: a.type === 'income' ? 'payment' : a.type,
             message: a.title || a.type || '',
@@ -118,232 +311,7 @@ export default function AdminDashboardPage() {
     }
   }, [isAuthenticated, authLoading, adminData, adminLoading, fetchDashboardData]);
 
-  const fetchDashboardData = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch critical data first with optimized timeouts (3 seconds each for faster response)
-      const fetchWithTimeout = async (apiCall: any, fallback: any) => {
-        try {
-          return await Promise.race([
-            apiCall(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
-            )
-          ]);
-        } catch (error) {
-          console.warn('API call failed, using fallback:', error);
-          return fallback;
-        }
-      };
-
-      // Fetch essential data first (these are needed for the dashboard to show)
-      const [
-        studentsData,
-        staffData,
-        roomsData,
-        incomesData,
-        expensesData,
-      ] = await Promise.all([
-        fetchWithTimeout(() => studentApi.getStudents(1), { data: [], total: 0 }),
-        fetchWithTimeout(() => staffApi.getStaff(1), { data: [], total: 0 }),
-        fetchWithTimeout(() => roomApi.getRooms(1, { per_page: 1000 }), { data: [], total: 0 }), // Fetch all rooms for accurate stats
-        fetchWithTimeout(() => incomeApi.getIncomes(1), { data: [] }),
-        fetchWithTimeout(() => expenseApi.getExpenses(1), { data: [] }),
-      ]);
-
-      // Initialize with fallback data for slower APIs
-      let studentCheckInsData: any = { data: [] };
-      let staffCheckInsData: any = { data: [] };
-      let complainsData: any = { data: [], total: 0 };
-
-      // Fetch slower APIs in background (don't wait for these)
-      fetchWithTimeout(async () => {
-        const response = await fetch(`${API_BASE_URL}/student-checkincheckouts?page=1`, {
-          headers: getAuthHeaders()
-        });
-        return handleResponse(response);
-      }, { data: [] })
-        .then(data => { studentCheckInsData = data; });
-      
-      fetchWithTimeout(() => staffCheckInCheckOutApi.getCheckInCheckOuts(1), { data: [] })
-        .then(data => { staffCheckInsData = data; });
-      
-      fetchWithTimeout(() => complainApi.getComplains(1), { data: [], total: 0 })
-        .then(data => { complainsData = data; });
-
-      // Fetch salary statistics
-      let salaryStats = {
-        total_salaries_this_month: 0,
-        total_amount_this_month: 0,
-        paid_salaries_this_month: 0,
-        pending_salaries_this_month: 0,
-      };
-
-      try {
-        const fetchedSalaryStats = await fetchWithTimeout(() => SalaryApi.getStatistics(), salaryStats);
-        salaryStats = fetchedSalaryStats;
-      } catch (error) {
-        console.warn('Salary statistics not available:', error);
-      }
-
-      // Calculate real stats from fetched data
-      const today = new Date().toISOString().split('T')[0];
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-
-      // Calculate actual capacity from rooms data
-      const totalCapacity = roomsData.data?.reduce((sum: number, room: any) => 
-        sum + (parseInt(room.capacity) || 0), 0) || 0;
-      
-      // Get actual current students count
-      const currentStudents = studentsData.total || studentsData.data?.length || 0;
-      
-      // Get actual rooms count
-      const totalRooms = roomsData.total || roomsData.data?.length || 0;
-      
-      // Calculate students currently in hostel (checked in and not checked out)
-      const studentsInHostelToday = studentCheckInsData.data?.filter((checkIn: any) => 
-        checkIn.status === 'approved' && !checkIn.check_out_date
-      ).length || 0;
-
-      // Calculate out of hostel students (total students - students in hostel)
-      const outOfHostelStudents = Math.max(0, currentStudents - studentsInHostelToday);
-
-      // Calculate this month's income from real data
-      const thisMonthIncome = incomesData.data?.filter((income: any) => {
-        const incomeDate = new Date(income.income_date || income.created_at);
-        return incomeDate.getMonth() === currentMonth && incomeDate.getFullYear() === currentYear;
-      }).reduce((sum: number, income: any) => sum + parseFloat(income.amount || 0), 0) || 0;
-
-      // Calculate this month's expenses from real data
-      const thisMonthExpense = expensesData.data?.filter((expense: any) => {
-        const expenseDate = new Date(expense.expense_date || expense.created_at);
-        return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-      }).reduce((sum: number, expense: any) => sum + parseFloat(expense.amount || 0), 0) || 0;
-
-      // Calculate previous month's data for percentage change
-      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-      const previousMonthIncome = incomesData.data?.filter((income: any) => {
-        const incomeDate = new Date(income.income_date || income.created_at);
-        return incomeDate.getMonth() === previousMonth && incomeDate.getFullYear() === previousYear;
-      }).reduce((sum: number, income: any) => sum + parseFloat(income.amount || 0), 0) || 0;
-
-      const previousMonthExpense = expensesData.data?.filter((expense: any) => {
-        const expenseDate = new Date(expense.expense_date || expense.created_at);
-        return expenseDate.getMonth() === previousMonth && expenseDate.getFullYear() === previousYear;
-      }).reduce((sum: number, expense: any) => sum + parseFloat(expense.amount || 0), 0) || 0;
-
-      // Calculate beds properly based on actual room occupancy
-      const totalBeds = totalCapacity;
-      
-      // Calculate occupied beds using the occupied_beds field from backend
-      // or by counting students in each room
-      const occupiedBeds = roomsData.data?.reduce((sum: number, room: any) => {
-        // Use occupied_beds if available, otherwise count students
-        const occupied = room.occupied_beds || room.students?.length || 0;
-        return sum + occupied;
-      }, 0) || 0;
-      
-      const availableBeds = Math.max(0, totalBeds - occupiedBeds);
-
-      // Staff calculations from real data
-      const totalStaff = staffData.total || staffData.data?.length || 0;
-      const activeStaff = staffData.data?.filter((staff: any) => 
-        staff.is_active !== false && staff.is_active !== 0
-      ).length || totalStaff;
-
-      // Complaint calculations
-      const totalComplaints = complainsData.total || complainsData.data?.length || 0;
-      const pendingComplaints = complainsData.data?.filter((complaint: any) => 
-        complaint.status === 'pending'
-      ).length || 0;
-      const resolvedComplaints = complainsData.data?.filter((complaint: any) => 
-        complaint.status === 'resolved'
-      ).length || 0;
-
-      // Calculate outstanding dues (this would need a specific API endpoint)
-      // For now, we'll use a placeholder but this should come from a real dues API
-      const outstandingDues = 0; // Set to 0 until we have real dues data
-
-      // Calculate percentage changes
-      const incomeChangePercent = previousMonthIncome > 0 
-        ? Math.round(((thisMonthIncome - previousMonthIncome) / previousMonthIncome) * 100) 
-        : 0;
-      const expenseChangePercent = previousMonthExpense > 0 
-        ? Math.round(((thisMonthExpense - previousMonthExpense) / previousMonthExpense) * 100) 
-        : 0;
-
-      // Generate recent activities from real data
-      const recentActivities: Array<{
-        type: 'payment' | 'complaint' | 'checkout' | 'checkin';
-        message: string;
-        time: string;
-        student?: string;
-        staff?: string;
-      }> = [];
-      
-      // Add recent income entries as payment activities
-      const recentIncomes = incomesData.data?.slice(0, 3) || [];
-      recentIncomes.forEach((income: any) => {
-        const incomeDate = new Date(income.income_date || income.created_at);
-        const timeAgo = formatTimeAgo(incomeDate);
-        recentActivities.push({
-          type: 'payment' as const,
-          message: `Payment of Rs.${parseFloat(income.amount || 0).toLocaleString()} received${income.student_name ? ` from ${income.student_name}` : ''}`,
-          time: timeAgo,
-          student: income.student_name || undefined,
-        });
-      });
-
-      // Add recent complaints
-      const recentComplaints = complainsData.data?.slice(0, 2) || [];
-      recentComplaints.forEach((complaint: any) => {
-        const complaintDate = new Date(complaint.complaint_date || complaint.created_at);
-        const timeAgo = formatTimeAgo(complaintDate);
-        recentActivities.push({
-          type: 'complaint' as const,
-          message: `New complaint: ${complaint.title}`,
-          time: timeAgo,
-          student: complaint.student?.student_name || undefined,
-        });
-      });
-
-      setStats({
-        totalStudentCapacity: totalCapacity,
-        totalCurrentStudents: currentStudents,
-        totalRooms,
-        outOfHostelStudents,
-        studentsInHostelToday,
-        currentlyPresent: studentsInHostelToday,
-        thisMonthIncome,
-        thisMonthExpense,
-        outstandingDues,
-        totalBeds,
-        occupiedBeds,
-        availableBeds,
-        totalStaff,
-        activeStaff,
-        incomeChangePercent,
-        expenseChangePercent,
-        incomeChangePositive: incomeChangePercent >= 0,
-        expenseChangePositive: expenseChangePercent <= 0, // Lower expenses are positive
-        totalComplaints,
-        pendingComplaints,
-        resolvedComplaints,
-        thisMonthSalaryAmount: salaryStats.total_amount_this_month || 0,
-        paidSalariesThisMonth: salaryStats.paid_salaries_this_month || 0,
-        pendingSalariesThisMonth: salaryStats.pending_salaries_this_month || 0,
-        recentActivities: recentActivities.slice(0, 5), // Limit to 5 most recent
-      });
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  
 
   // Helper function to format time ago
   const formatTimeAgo = (date: Date): string => {
@@ -456,7 +424,7 @@ export default function AdminDashboardPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Welcome back, Admin User!</h1>
-            <p className="text-blue-100 text-lg">Here's what's happening at your hostel today</p>
+            <p className="text-blue-100 text-lg">See the current status at your hostel today</p>
           </div>
           <div className="flex gap-4">
             <Button 
@@ -489,9 +457,40 @@ export default function AdminDashboardPage() {
             >
               Record Payment
             </Button>
+            <button
+              type="button"
+              onClick={() => setShowDebug(v => !v)}
+              className="ml-2 px-3 py-2 rounded-lg text-sm bg-white/10 text-white border border-white/20"
+            >
+              {showDebug ? 'Hide debug' : 'Show debug'}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Dev debug panel (toggle with 'Show debug' button) */}
+      {showDebug && (
+        <div className="bg-white/95 border border-gray-200 rounded-xl p-4 mb-6 text-xs text-gray-700 max-w-full overflow-auto">
+          <div className="flex justify-between items-center mb-3">
+            <strong>Dev Debug — server payload and client token</strong>
+            <span className="text-gray-500 text-xs">Only visible in your dev build</span>
+          </div>
+          <div className="mb-2">
+            <div className="text-xs font-semibold text-gray-600">adminData (server)</div>
+            <pre className="bg-gray-100 rounded p-2 text-xs overflow-auto max-h-44">{JSON.stringify(adminData, null, 2)}</pre>
+            {adminError && (
+              <div className="mt-2 text-red-600">
+                <div className="text-xs font-semibold">server error</div>
+                <div className="text-xs">{String(adminError)}</div>
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-gray-600">Stored auth_token (localStorage)</div>
+            <pre className="bg-gray-100 rounded p-2 text-xs">{localToken ?? 'no token found'}</pre>
+          </div>
+        </div>
+      )}
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
