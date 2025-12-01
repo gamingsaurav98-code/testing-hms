@@ -7,6 +7,9 @@ use App\Models\Student;
 use App\Models\Block;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class StudentCheckInCheckOutController extends Controller
@@ -17,7 +20,14 @@ class StudentCheckInCheckOutController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = StudentCheckInCheckOut::with(['student.room.block', 'block', 'checkoutRule']);
+            $query = StudentCheckInCheckOut::select(['id','student_id','block_id','date','checkin_time','checkout_time','status','created_at'])
+                ->with([
+                    'student:id,student_name,room_id',
+                    'student.room:id,room_name,block_id',
+                    'student.room.block:id,block_name',
+                    'block:id,block_name',
+                    'checkoutRule:id,name'
+                ]);
 
             // Filter by student
             if ($request->has('student_id')) {
@@ -48,7 +58,7 @@ class StudentCheckInCheckOutController extends Controller
             $query->orderByRaw('checkout_time IS NULL, checkout_time DESC, created_at DESC');
 
             // Get all records without pagination if requested
-            if ($request->has('all') && $request->all === 'true') {
+            if ($request->has('all') && $request->input('all') === 'true') {
                 $records = $query->get();
                 return response()->json([
                     'status' => 'success',
@@ -283,7 +293,7 @@ class StudentCheckInCheckOutController extends Controller
     public function checkIn(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -400,7 +410,7 @@ class StudentCheckInCheckOutController extends Controller
         }
 
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -482,6 +492,78 @@ class StudentCheckInCheckOutController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to fetch today\'s attendance: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Return quick attendance statistics for today.
+     * Supports optional block scoping via block_id and 'all' flag.
+     */
+    public function attendanceStatistics(Request $request)
+    {
+        try {
+            $today = Carbon::today()->toDateString();
+            $block = $request->has('block_id') ? $request->block_id : 'all';
+            $force = $request->query('force_refresh') ? true : false;
+
+            $cacheKey = "attendance_stats_v1:{$today}:{$block}";
+            $ttlSeconds = 10; // keep very short for attendance
+
+            if (! $force) {
+                $cached = Cache::get($cacheKey);
+                if ($cached && is_array($cached)) {
+                    return response()->json($cached, 200);
+                }
+            }
+
+            // Prevent stampede
+            $lockKey = $cacheKey . ':lock';
+            $lock = null;
+            $lockAcquired = false;
+            try {
+                try { $lock = Cache::lock($lockKey, 10); $lockAcquired = $lock->get(); } catch (\Throwable $_) { $lockAcquired = false; }
+                if (! $lockAcquired) {
+                    $waited = 0;
+                    while ($waited < 2000) {
+                        $candidate = Cache::get($cacheKey);
+                        if ($candidate && is_array($candidate)) {
+                            return response()->json($candidate, 200);
+                        }
+                        usleep(100 * 1000);
+                        $waited += 100;
+                    }
+                }
+            } catch (\Throwable $_) {}
+
+            $baseQuery = StudentCheckInCheckOut::whereDate('date', $today);
+
+            if ($request->has('block_id')) {
+                $baseQuery->where('block_id', $request->block_id);
+            }
+
+            // Students currently present (checked in but not checked out)
+            $checkedInCount = (clone $baseQuery)->whereNotNull('checkin_time')->whereNull('checkout_time')->count();
+
+            // Students who have checked out today
+            $checkedOutCount = (clone $baseQuery)->whereNotNull('checkout_time')->count();
+
+            $payload = [
+                'status' => 'success',
+                'date' => $today,
+                'checked_in_count' => (int)$checkedInCount,
+                'checked_out_count' => (int)$checkedOutCount,
+            ];
+
+            try { Cache::put($cacheKey, $payload, $ttlSeconds); } catch (\Throwable $_) {}
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
+
+            return response()->json($payload, 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to compute attendance statistics: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -582,7 +664,7 @@ class StudentCheckInCheckOutController extends Controller
     public function getMyRecords()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -614,7 +696,7 @@ class StudentCheckInCheckOutController extends Controller
     public function getMyTodayAttendance()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -649,7 +731,7 @@ class StudentCheckInCheckOutController extends Controller
     public function getMyRecord($id)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -681,7 +763,7 @@ class StudentCheckInCheckOutController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('getMyRecord error: ' . $e->getMessage());
+            Log::error('getMyRecord error: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to fetch check-in/check-out record'

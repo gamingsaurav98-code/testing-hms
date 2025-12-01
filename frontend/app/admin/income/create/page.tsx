@@ -291,7 +291,7 @@ export default function CreateIncome() {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-[#235999] focus:border-[#235999] outline-none transition-all duration-200"
                 >
                   <option value="">-- Select a Student --</option>
-                  {students.map(student => {
+                  {(Array.isArray(students) ? students : []).map(student => {
                     // We can't style part of an option element directly with CSS
                     // But we can indicate due amounts clearly in the text
                     const displayText = student.due_amount && student.due_amount > 0
@@ -326,7 +326,7 @@ export default function CreateIncome() {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-[#235999] focus:border-[#235999] outline-none transition-all duration-200"
                 >
                   <option value="">Select Payment Method</option>
-                  {paymentTypes.map(type => (
+                  {(Array.isArray(paymentTypes) ? paymentTypes : []).map(type => (
                     <option key={type.id} value={type.id}>{type.name}</option>
                   ))}
                 </select>
@@ -351,7 +351,7 @@ export default function CreateIncome() {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-[#235999] focus:border-[#235999] outline-none transition-all duration-200"
                 >
                   <option value="">-- Select Income Type --</option>
-                  {incomeTypes.map(type => (
+                  {(Array.isArray(incomeTypes) ? incomeTypes : []).map(type => (
                     <option key={type.id} value={type.id}>{type.title}</option>
                   ))}
                 </select>

@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { PaginatedResponse } from './core';
 
@@ -41,7 +41,7 @@ export interface Notice extends Omit<NoticeFormData, 'notice_attachments'> {
     rooms_count?: number;
   } | null;
   // Additional profile data added by backend
-  profile_data?: any;
+  profile_data?: unknown;
 }
 
 // Notice API functions
@@ -93,7 +93,7 @@ export interface BlockForNotice {
 export const noticeApi = {
   // Get all notices with pagination
   async getNotices(page: number = 1): Promise<PaginatedResponse<Notice>> {
-    const response = await fetch(`${API_BASE_URL}/notices?page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices?page=${page}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -107,7 +107,7 @@ export const noticeApi = {
     if (search) params.append('search', search);
     if (page) params.append('page', page.toString());
     
-    const response = await fetch(`${API_BASE_URL}/notices-create/students?${params.toString()}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices-create/students?${params.toString()}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -121,7 +121,7 @@ export const noticeApi = {
     if (search) params.append('search', search);
     if (page) params.append('page', page.toString());
     
-    const response = await fetch(`${API_BASE_URL}/notices-create/staff?${params.toString()}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices-create/staff?${params.toString()}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -135,7 +135,7 @@ export const noticeApi = {
     if (search) params.append('search', search);
     if (page) params.append('page', page.toString());
     
-    const response = await fetch(`${API_BASE_URL}/notices-create/blocks?${params.toString()}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices-create/blocks?${params.toString()}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -145,7 +145,7 @@ export const noticeApi = {
 
   // Get a single notice by ID
   async getNotice(id: string): Promise<Notice> {
-    const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -183,7 +183,7 @@ export const noticeApi = {
         }
       });
 
-      const response = await fetch(`${API_BASE_URL}/notices`, {
+      const response = await safeFetch(`${API_BASE_URL}/notices`, {
         method: 'POST',
         headers: getAuthHeadersForFormData(), // Use FormData-specific headers without Content-Type
         body: formData,
@@ -192,7 +192,7 @@ export const noticeApi = {
       return handleResponse<Notice>(response);
     } else {
       // Use JSON for simple form submission without files
-      const cleanData = Object.entries(noticeData).reduce((acc: any, [key, value]) => {
+      const cleanData = Object.entries(noticeData).reduce((acc: Record<string, unknown>, [key, value]) => {
         // Exclude file-related fields from JSON
         if (key === 'notice_attachments') {
           return acc; // Skip file attachments in JSON mode
@@ -210,7 +210,7 @@ export const noticeApi = {
         return acc;
       }, {});
 
-      const response = await fetch(`${API_BASE_URL}/notices`, {
+      const response = await safeFetch(`${API_BASE_URL}/notices`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(cleanData),
@@ -242,7 +242,7 @@ export const noticeApi = {
         }
       });
 
-      const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
+      const response = await safeFetch(`${API_BASE_URL}/notices/${id}`, {
         method: 'POST', // Use POST for multipart form data with _method=PUT
         headers: {
           ...getAuthHeaders()
@@ -254,7 +254,7 @@ export const noticeApi = {
       return handleResponse<Notice>(response);
     } else {
       // Use regular PUT request for JSON data
-      const cleanData = Object.entries(noticeData).reduce((acc: any, [key, value]) => {
+      const cleanData = Object.entries(noticeData).reduce((acc: Record<string, unknown>, [key, value]) => {
         // Always include required fields
         if (key === 'title' || key === 'description' || key === 'target_type') {
           acc[key] = value || '';
@@ -268,7 +268,7 @@ export const noticeApi = {
         return acc;
       }, {});
 
-      const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
+      const response = await safeFetch(`${API_BASE_URL}/notices/${id}`, {
         method: 'PUT', // Use PUT for JSON updates
         headers: getAuthHeaders(),
         body: JSON.stringify(cleanData),
@@ -280,7 +280,7 @@ export const noticeApi = {
 
   // Delete a notice
   async deleteNotice(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/notices/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -290,7 +290,7 @@ export const noticeApi = {
   
   // Delete an attachment from a notice
   async deleteAttachment(noticeId: string, attachmentId: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/notices/${noticeId}/attachments/${attachmentId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/notices/${noticeId}/attachments/${attachmentId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

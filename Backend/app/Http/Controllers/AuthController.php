@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -67,6 +68,18 @@ class AuthController extends Controller
                 'errors' => $errors
             ], 401);
         } catch (\Exception $e) {
+            // Log details (non-sensitive) so we can inspect server-side cause of 500
+            try {
+                $userId = $request->input('user_id') ?? 'unknown';
+                Log::error('AuthController::login exception', [
+                    'user_id' => substr((string)$userId, 0, 64),
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            } catch (\Throwable $_) {
+                // ignore any logging errors
+            }
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Login failed. Please try again.',

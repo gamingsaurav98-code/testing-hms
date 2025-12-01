@@ -55,7 +55,20 @@ class AuthService
         
         // Generate token with specific abilities based on role
         $abilities = $this->getTokenAbilities($user->role);
-        $token = $user->createToken('auth_token', $abilities)->plainTextToken;
+        try {
+            $token = $user->createToken('auth_token', $abilities)->plainTextToken;
+        } catch (\Throwable $t) {
+            // Log token creation failure and rethrow so controller returns 500 with debug info
+            try { 
+                \Illuminate\Support\Facades\Log::error('AuthService::authenticate token creation failed', [
+                    'user_id' => $user->id ?? null,
+                    'email' => $user->email ?? null,
+                    'role' => $user->role ?? null,
+                    'error' => $t->getMessage()
+                ]);
+            } catch (\Throwable $_) {}
+            throw $t;
+        }
         
         return [
             'user' => $this->formatUserData($user, true), // Include profile data on login
@@ -67,7 +80,7 @@ class AuthService
     /**
      * Get token abilities based on user role
      */
-    private function getTokenAbilities(string $role): array
+    public function getTokenAbilities(string $role): array
     {
         return match($role) {
             'admin' => [
@@ -164,7 +177,10 @@ class AuthService
     {
         try {
             // Revoke current token
-            $user->currentAccessToken()->delete();
+            $token = $user->currentAccessToken();
+            if ($token instanceof \Laravel\Sanctum\PersonalAccessToken) {
+                $token->delete();
+            }
             return true;
         } catch (\Exception $e) {
             return false;

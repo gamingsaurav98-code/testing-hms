@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 import { Inquiry, InquiryFormData } from './types/inquiry.types';
 
@@ -6,7 +6,7 @@ import { Inquiry, InquiryFormData } from './types/inquiry.types';
 export const staffInquiryApi = {
   // Get all inquiries (staff view)
   async getInquiries(): Promise<{ status: string; data: Inquiry[] }> {
-    const response = await fetch(`${API_BASE_URL}/my-staff/inquiries`, {
+    const response = await safeFetch(`${API_BASE_URL}/my-staff/inquiries`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -20,7 +20,7 @@ export const staffInquiryApi = {
 
   // Get a single inquiry by ID (staff view)
   async getInquiry(id: string): Promise<Inquiry> {
-    const response = await fetch(`${API_BASE_URL}/my-staff/inquiries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/my-staff/inquiries/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -45,7 +45,7 @@ export const staffInquiryApi = {
     console.log('Request data:', data);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/my-staff/inquiries`, {
+      const response = await safeFetch(`${API_BASE_URL}/my-staff/inquiries`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
@@ -72,7 +72,7 @@ export const staffInquiryApi = {
 
   // Update an existing inquiry (staff updates)
   async updateInquiry(id: string, data: InquiryFormData): Promise<Inquiry> {
-    const response = await fetch(`${API_BASE_URL}/my-staff/inquiries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/my-staff/inquiries/${id}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),

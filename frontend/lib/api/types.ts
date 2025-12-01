@@ -1,5 +1,22 @@
 // Shared interfaces for API models
 
+// Base interfaces
+export interface BaseEntity {
+  id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from?: number;
+  to?: number;
+}
+
 export interface Block {
   id: string;
   block_name: string;
@@ -46,7 +63,229 @@ export interface RoomFormData {
   room_attachment?: File | null;
 }
 
-// Hostel interfaces removed as part of single-tenant conversion
+// Student related interfaces
+export interface Student extends BaseEntity {
+  id: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  email: string;
+  contact_number: string;
+  date_of_birth: string;
+  gender: 'male' | 'female' | 'other';
+  blood_group?: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  zip_code: string;
+  parent_name: string;
+  parent_contact: string;
+  parent_email?: string;
+  parent_occupation?: string;
+  parent_address?: string;
+  room_id?: string;
+  is_active: boolean;
+  admission_date: string;
+  student_image?: string;
+  student_id?: string;
+  documents?: StudentDocument[];
+  room?: Room;
+  check_ins?: CheckInOut[];
+  payments?: Payment[];
+  complaints?: Complaint[];
+}
+
+export interface StudentDocument extends BaseEntity {
+  student_id: string;
+  document_type: string;
+  document_number: string;
+  issue_date: string;
+  expiry_date: string;
+  document_file?: string;
+  is_verified: boolean;
+}
+
+// Staff related interfaces
+export interface Staff extends BaseEntity {
+  id: string;
+  staff_name: string;
+  email: string;
+  contact_number: string;
+  date_of_birth?: string;
+  gender: 'male' | 'female' | 'other';
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  zip_code: string;
+  position: string;
+  department: string;
+  joining_date: string;
+  salary: number;
+  is_active: boolean;
+  staff_image?: string;
+  documents?: StaffDocument[];
+  check_ins?: StaffCheckIn[];
+  salaries?: StaffSalary[];
+  leaves?: StaffLeave[];
+}
+
+export interface StaffDocument extends BaseEntity {
+  staff_id: string;
+  document_type: string;
+  document_number: string;
+  issue_date: string;
+  expiry_date: string;
+  document_file?: string;
+  is_verified: boolean;
+}
+
+export interface StaffCheckIn extends BaseEntity {
+  staff_id: string;
+  check_in: string;
+  check_out?: string;
+  status: 'checked_in' | 'checked_out';
+  notes?: string;
+  staff?: Staff;
+}
+
+export interface StaffSalary extends BaseEntity {
+  staff_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  transaction_id?: string;
+  notes?: string;
+  staff?: Staff;
+}
+
+export interface StaffLeave extends BaseEntity {
+  staff_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
+  staff?: Staff;
+}
+
+// Common interfaces
+export interface CheckInOut extends BaseEntity {
+  student_id: string;
+  check_in: string;
+  check_out?: string;
+  status: 'checked_in' | 'checked_out';
+  notes?: string;
+  student?: Student;
+}
+
+export interface Payment extends BaseEntity {
+  student_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  transaction_id?: string;
+  payment_type: 'rent' | 'security' | 'other';
+  description?: string;
+  receipt_number: string;
+  received_by: string;
+  student?: Student;
+}
+
+export interface Complaint extends BaseEntity {
+  student_id: string;
+  title: string;
+  description: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'rejected';
+  priority: 'low' | 'medium' | 'high';
+  assigned_to?: string;
+  resolved_at?: string;
+  resolution_notes?: string;
+  student?: Student;
+  assigned_staff?: Staff;
+}
+
+// Amenity interfaces
+export interface Amenity extends BaseEntity {
+  name: string;
+  description?: string;
+  price: number;
+  is_active: boolean;
+}
+
+export interface StudentAmenity extends BaseEntity {
+  student_id: string;
+  amenity_id: string;
+  start_date: string;
+  end_date: string;
+  status: 'active' | 'inactive' | 'cancelled';
+  student?: Student;
+  amenity?: Amenity;
+}
+
+export interface StaffAmenity extends BaseEntity {
+  staff_id: string;
+  amenity_id: string;
+  start_date: string;
+  end_date: string;
+  status: 'active' | 'inactive' | 'cancelled';
+  staff?: Staff;
+  amenity?: Amenity;
+}
+
+// Financial interfaces
+export interface Expense extends BaseEntity {
+  category_id: string;
+  amount: number;
+  expense_date: string;
+  description?: string;
+  payment_method: string;
+  reference_number?: string;
+  attachment_url?: string;
+  category?: ExpenseCategory;
+}
+
+export interface ExpenseCategory extends BaseEntity {
+  name: string;
+  description?: string;
+  is_active: boolean;
+}
+
+// Notification interfaces
+export interface Notification extends BaseEntity {
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  is_read: boolean;
+  read_at?: string;
+  action_url?: string;
+}
+
+// Settings interfaces
+export interface Setting extends BaseEntity {
+  key: string;
+  value: string;
+  description?: string;
+  is_public: boolean;
+}
+
+// Audit log interface
+export interface AuditLog extends BaseEntity {
+  user_id?: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  old_values?: any;
+  new_values?: any;
+  ip_address?: string;
+  user_agent?: string;
+  user?: Staff | Student;
+}
 
 export interface Student {
   id: string;
@@ -185,10 +424,10 @@ export interface Supplier {
   opening_balance?: number;
   balance_type?: 'due' | 'advance';
   attachments?: Attachment[];
-  financials?: any[];
-  supplierPayments?: any[];
-  transactions?: any[];
-  expenses?: any[];
+  financials?: unknown[];
+  supplierPayments?: unknown[];
+  transactions?: unknown[];
+  expenses?: unknown[];
 }
 
 export interface SupplierFormData {

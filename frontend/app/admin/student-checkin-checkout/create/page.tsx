@@ -159,7 +159,7 @@ export default function CreateStudentCheckinCheckout() {
                 onChange={handleChange}
                 required
                 error={errors.student_id}
-                options={students.map(student => ({
+                options={(Array.isArray(students) ? students : []).map(student => ({
                   value: student.id,
                   label: `${student.student_name} (${student.student_id})`
                 }))}

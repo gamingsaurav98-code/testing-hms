@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inquiry;
+use App\Models\Attachment;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -43,7 +46,7 @@ class InquiryController extends Controller
     public function store(Request $request)
     {
         // Log the incoming request
-        \Log::info('Creating inquiry with data:', $request->all());
+        Log::info('Creating inquiry with data:', $request->all());
         
         // Validate incoming request
         $validator = Validator::make($request->all(), [
@@ -54,7 +57,7 @@ class InquiryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Validation failed:', $validator->errors()->toArray());
+            Log::error('Validation failed:', $validator->errors()->toArray());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Validation failed: ' . implode(', ', $validator->errors()->all()),
@@ -77,7 +80,7 @@ class InquiryController extends Controller
                 $data['staff_id'] = $user->staffProfile->id;
             }
             
-            \Log::info('Filtered inquiry data:', $data);
+            Log::info('Filtered inquiry data:', $data);
             
             // Create the inquiry
             $inquiry = Inquiry::create($data);
@@ -87,7 +90,7 @@ class InquiryController extends Controller
                 $inquiry->load('staff:id,staff_name,email');
             }
             
-            \Log::info('Inquiry created successfully:', $inquiry->toArray());
+            Log::info('Inquiry created successfully:', $inquiry->toArray());
             
             return response()->json([
                 'status' => 'success',
@@ -96,7 +99,7 @@ class InquiryController extends Controller
             ], 201);
             
         } catch (\Exception $e) {
-            \Log::error('Failed to create inquiry:', [
+            Log::error('Failed to create inquiry:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -130,14 +133,14 @@ class InquiryController extends Controller
             }
             
             // Log the inquiry data being sent
-            \Log::info('Showing inquiry:', $inquiry->toArray());
+            Log::info('Showing inquiry:', $inquiry->toArray());
             
             return response()->json([
                 'status' => 'success',
                 'data' => $inquiry
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error showing inquiry:', [
+            Log::error('Error showing inquiry:', [
                 'id' => $id,
                 'error' => $e->getMessage()
             ]);
@@ -250,8 +253,8 @@ class InquiryController extends Controller
                 ->firstOrFail();
                 
             // Delete the file from storage
-            if (\Storage::disk('public')->exists($attachment->file_path)) {
-                \Storage::disk('public')->delete($attachment->file_path);
+            if (Storage::disk('public')->exists($attachment->file_path)) {
+                Storage::disk('public')->delete($attachment->file_path);
             }
             
             // Delete the attachment record

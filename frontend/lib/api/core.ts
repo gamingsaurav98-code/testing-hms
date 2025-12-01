@@ -22,7 +22,7 @@ const getApiBaseUrl = (): string => {
 export const API_BASE_URL = getApiBaseUrl();
 
 // Increased timeout for better reliability in Docker environment
-export const DEFAULT_API_TIMEOUT = 10000; // 10 seconds
+export const DEFAULT_API_TIMEOUT = 60000; // 60 seconds
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -50,7 +50,7 @@ export async function handleResponse<T>(response: Response): Promise<T> {
   }
 
   const contentType = response.headers.get('content-type');
-  let responseData: any;
+  let responseData: unknown;
 
   try {
     // Always try to get JSON first if content type is application/json
@@ -65,7 +65,7 @@ export async function handleResponse<T>(response: Response): Promise<T> {
         responseData = text;
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error reading response:', error);
     throw new ApiError(response.status, 'Failed to read server response');
   }
@@ -98,24 +98,50 @@ export async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 // Helper function to create fetch with timeout
-export async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = DEFAULT_API_TIMEOUT): Promise<Response> {
+// safeFetch wraps native fetch and converts network failures into ApiError
+export async function safeFetch(url: string, options: RequestInit = {}): Promise<Response> {
   try {
-    // Use Promise.race with graceful timeout handling
-    const fetchPromise = fetch(url, options);
-    
-    const timeoutPromise = new Promise<Response>((resolve) => {
-      setTimeout(() => {
-        // Return a mock 408 response instead of throwing
-        resolve(new Response(JSON.stringify({ error: 'Request timeout' }), {
-          status: 408,
-          statusText: 'Request Timeout',
-          headers: { 'Content-Type': 'application/json' }
-        }));
-      }, timeout);
-    });
-    
-    return await Promise.race([fetchPromise, timeoutPromise]);
-  } catch (error) {
-    throw error;
+    // Let AbortError bubble up so callers can detect abort vs network failure
+    return await fetch(url, options);
+  } catch (err: unknown) {
+    // Detect aborts in a type-safe way
+    if (typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError') throw err;
+    // Convert all other failures into ApiError with status 0
+    throw new ApiError(0, 'Network request failed. Please check your connection.');
+  }
+}
+
+// Abort-aware fetch with a timeout. If the timeout elapses the request is aborted
+// so the server can stop any work for cancelled requests.
+export async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = DEFAULT_API_TIMEOUT): Promise<Response> {
+  // If the caller provided their own signal we must respect it and not replace it
+  const callerSignal = (options as RequestInit).signal as AbortSignal | undefined;
+
+  // We use an internal controller only when the caller didn't pass one
+  const internalController = !callerSignal ? new AbortController() : undefined;
+  const signal = callerSignal ?? internalController!.signal;
+
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    // Abort without a reason — some runtimes don't accept non-DOM types as
+    // a reason. Fetch will reject with an AbortError which we map to a timeout
+    // in the caller.
+    if (internalController) internalController.abort();
+  }, timeout);
+
+  try {
+    const response = await safeFetch(url, { ...options, signal });
+    return response;
+  } catch (err: unknown) {
+    // If our timeout fired then map abort to a 408 so consumer code can detect timeout
+    if (timedOut) {
+      throw new ApiError(408, 'Request Timeout');
+    }
+
+    // Rethrow AbortError or ApiError as-is for callers to handle
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

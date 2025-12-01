@@ -10,6 +10,7 @@ use App\Models\Block;
 use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
 class NoticeController extends Controller
@@ -448,8 +449,9 @@ class NoticeController extends Controller
                 // Also include block notices if student is assigned to a room in a block
                 if ($student->room_id) {
                     $room = Room::find($student->room_id);
-                    if ($room && $room->block_id) {
-                        $subq->orWhere(function($blockq) use ($room) {
+                        if ($room && $room->block_id) {
+                            // Add block-targeted notices via the outer query builder ($q)
+                            $q->orWhere(function($blockq) use ($room) {
                             $blockq->where('target_type', 'block')
                                   ->where('block_id', $room->block_id);
                         });
@@ -737,7 +739,7 @@ class NoticeController extends Controller
     public function getMyNotices()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -810,7 +812,7 @@ class NoticeController extends Controller
     public function getNotice(string $id)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }

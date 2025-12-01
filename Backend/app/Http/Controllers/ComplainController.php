@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use App\Services\ImageService;
 use App\Services\DateService;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class ComplainController extends Controller
@@ -24,24 +26,35 @@ class ComplainController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $query = Complain::with(['student', 'staff'])
+            $query = Complain::select(['id','student_id','staff_id','title','status','created_at'])
+                ->with([
+                    'student:id,student_name',
+                    'staff:id,staff_name'
+                ])
                 ->withCount(['chats', 'unreadChats']);
             
             // Handle staff filtering for staff users
-            if (request('staff_filter') && auth()->user()->role === 'staff') {
-                $staff = \App\Models\Staff::where('user_id', auth()->user()->id)->first();
+            if (request('staff_filter') && Auth::user()?->role === 'staff') {
+                $staff = \App\Models\Staff::where('user_id', Auth::user()?->id)->first();
                 if ($staff) {
                     $query->where('staff_id', $staff->id);
                 }
             }
             
+            // Support ?all=true and ?paginate=false (frontend) to return full list (useful for small datasets or admin panels)
+            if (($request->has('all') && $request->input('all') === 'true') || ($request->has('paginate') && $request->input('paginate') === 'false')) {
+                $complains = $query->get();
+                return response()->json($complains);
+            }
+
             $complains = $query->paginate(10);
             return response()->json($complains);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to fetch complains: ' . $e->getMessage()], 500);
+            Log::error('ComplainController::index failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => config('app.debug') ? 'Failed to fetch complains: ' . $e->getMessage() : 'Failed to fetch complains'], 500);
         }
     }
 
@@ -175,7 +188,7 @@ class ComplainController extends Controller
     public function getMyComplaints()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -217,7 +230,7 @@ class ComplainController extends Controller
         ]);
 
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -265,7 +278,7 @@ class ComplainController extends Controller
     public function getMyComplaint(string $id)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -304,7 +317,7 @@ class ComplainController extends Controller
         ]);
 
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -365,7 +378,7 @@ class ComplainController extends Controller
     public function getMyStaffComplaints()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'staff') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -407,7 +420,7 @@ class ComplainController extends Controller
         ]);
 
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'staff') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -455,7 +468,7 @@ class ComplainController extends Controller
     public function getMyStaffComplaint(string $id)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'staff') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -494,7 +507,7 @@ class ComplainController extends Controller
         ]);
 
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user || $user->role !== 'staff') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }

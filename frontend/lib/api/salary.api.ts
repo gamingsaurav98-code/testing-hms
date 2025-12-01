@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 
 export interface Salary {
@@ -72,21 +72,21 @@ export class SalaryApi {
     if (filters.per_page) params.append('per_page', filters.per_page.toString());
 
     const url = `${API_BASE_URL}/salaries${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       headers: getAuthHeaders(),
     });
     return handleResponse<PaginatedResponse<Salary> | Salary[]>(response);
   }
 
   static async getById(id: number): Promise<Salary> {
-    const response = await fetch(`${API_BASE_URL}/salaries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/salaries/${id}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<Salary>(response);
   }
 
   static async create(data: CreateSalaryRequest): Promise<Salary> {
-    const response = await fetch(`${API_BASE_URL}/salaries`, {
+    const response = await safeFetch(`${API_BASE_URL}/salaries`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ export class SalaryApi {
   }
 
   static async update(id: number, data: UpdateSalaryRequest): Promise<Salary> {
-    const response = await fetch(`${API_BASE_URL}/salaries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/salaries/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ export class SalaryApi {
   }
 
   static async delete(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/salaries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/salaries/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -118,7 +118,7 @@ export class SalaryApi {
   }
 
   static async getStaffSalaries(staffId: number): Promise<Salary[]> {
-    const response = await fetch(`${API_BASE_URL}/staff/${staffId}/salaries`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff/${staffId}/salaries`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<Salary[]>(response);
@@ -127,7 +127,7 @@ export class SalaryApi {
   // Staff-specific method to get current user's salary history
   static async getMySalaryHistory(): Promise<Salary[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/my-staff/salary-history`, {
+      const response = await safeFetch(`${API_BASE_URL}/my-staff/salary-history`, {
         headers: getAuthHeaders(),
       });
       
@@ -156,9 +156,10 @@ export class SalaryApi {
     }
   }
 
-  static async getStatistics(): Promise<SalaryStatistics> {
-    const response = await fetch(`${API_BASE_URL}/salaries/statistics`, {
+  static async getStatistics(signal?: AbortSignal): Promise<SalaryStatistics> {
+    const response = await safeFetch(`${API_BASE_URL}/salaries/statistics`, {
       headers: getAuthHeaders(),
+      signal,
     });
     return handleResponse<SalaryStatistics>(response);
   }
@@ -167,14 +168,14 @@ export class SalaryApi {
 export class StaffApi {
   static async getAll(includeAll = false): Promise<Staff[]> {
     const url = `${API_BASE_URL}/staff${includeAll ? '?all=true' : ''}`;
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       headers: getAuthHeaders(),
     });
     return handleResponse<Staff[]>(response);
   }
 
   static async getById(id: number): Promise<Staff> {
-    const response = await fetch(`${API_BASE_URL}/staff/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff/${id}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<Staff>(response);

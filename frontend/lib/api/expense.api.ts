@@ -1,14 +1,66 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { Expense, ExpenseFormData, ExpenseCategory, ExpenseCategoryFormData } from './types/expense.types';
 
+// Define interfaces for statistics cache
+interface StatisticsCache {
+  data: unknown;
+  fetchedAt: number;
+}
+
 // Expense API functions
 export const expenseApi = {
+  // In-memory cache + inflight promise for expenses/statistics
+  _statisticsCache: null as StatisticsCache | null,
+  _statisticsPromise: null as Promise<unknown> | null,
+
+  async getStatistics({ timeoutMs = DEFAULT_API_TIMEOUT, retries = 2, forceRefresh = false }:{ timeoutMs?: number, retries?: number, forceRefresh?: boolean } = {}) {
+    const url = `${API_BASE_URL}/expenses/statistics` + (forceRefresh ? '?force_refresh=1' : '');
+    const TTL = 4000;
+    const now = Date.now();
+
+    if (!forceRefresh && expenseApi._statisticsCache && (now - expenseApi._statisticsCache.fetchedAt) < TTL) {
+      return Promise.resolve(expenseApi._statisticsCache.data);
+    }
+
+    if (!forceRefresh && expenseApi._statisticsPromise) return expenseApi._statisticsPromise;
+
+    const inflight = (async () => {
+      const start = Date.now();
+      let attempt = 0;
+      while (true) {
+        attempt++;
+        try {
+          const resp = await fetchWithTimeout(url, {
+            method: 'GET',
+            headers: { ...getAuthHeaders(), 'Accept': 'application/json' }
+          }, timeoutMs);
+
+          const took = Date.now() - start;
+          console.debug(`expenseApi.getStatistics - status ${resp.status} (took ${took}ms, attempt ${attempt})`);
+
+          const data = await handleResponse<unknown>(resp);
+          expenseApi._statisticsCache = { data, fetchedAt: Date.now() };
+          return data;
+        } catch (err) {
+          console.warn(`expenseApi.getStatistics attempt ${attempt} failed:`, err);
+          if (attempt > retries) throw err;
+          const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+          const jitter = Math.floor(Math.random() * 200);
+          await new Promise(r => setTimeout(r, backoff + jitter));
+        }
+      }
+    })();
+
+    if (!forceRefresh) expenseApi._statisticsPromise = inflight;
+    try { return await inflight; } finally { expenseApi._statisticsPromise = null; }
+  },
   // Get all expenses with pagination
-  async getExpenses(page: number = 1): Promise<PaginatedResponse<Expense>> {
-    const response = await fetch(`${API_BASE_URL}/expenses?page=${page}`, {
+  async getExpenses(page: number = 1, signal?: AbortSignal): Promise<PaginatedResponse<Expense>> {
+    const response = await safeFetch(`${API_BASE_URL}/expenses?page=${page}`, {
       method: 'GET',
       headers: getAuthHeaders(),
+      signal,
     });
     
     return handleResponse<PaginatedResponse<Expense>>(response);
@@ -16,7 +68,7 @@ export const expenseApi = {
 
   // Get expenses by category
   async getExpensesByCategory(categoryId: string, page: number = 1): Promise<PaginatedResponse<Expense>> {
-    const response = await fetch(`${API_BASE_URL}/expenses/category/${categoryId}?page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expenses/category/${categoryId}?page=${page}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -30,7 +82,7 @@ export const expenseApi = {
 
   // Get expenses by date range
   async getExpensesByDateRange(startDate: string, endDate: string, page: number = 1): Promise<PaginatedResponse<Expense>> {
-    const response = await fetch(`${API_BASE_URL}/expenses/date-range?start_date=${startDate}&end_date=${endDate}&page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expenses/date-range?start_date=${startDate}&end_date=${endDate}&page=${page}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -44,7 +96,7 @@ export const expenseApi = {
 
   // Get a single expense by ID
   async getExpense(id: string): Promise<Expense> {
-    const response = await fetch(`${API_BASE_URL}/expenses/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expenses/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -109,7 +161,7 @@ export const expenseApi = {
       formData.append('purchases', JSON.stringify(data.purchases));
     }
 
-    const response = await fetch(`${API_BASE_URL}/expenses`, {
+    const response = await safeFetch(`${API_BASE_URL}/expenses`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -200,7 +252,7 @@ export const expenseApi = {
     console.log('Sending update request to:', `${API_BASE_URL}/expenses/${id}`);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/expenses/${id}`, {
+      const response = await safeFetch(`${API_BASE_URL}/expenses/${id}`, {
         method: 'POST', // Using POST with _method override for file uploads
         headers: getAuthHeadersForFormData(),
         body: formData,
@@ -215,7 +267,7 @@ export const expenseApi = {
 
   // Delete an expense
   async deleteExpense(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/expenses/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expenses/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),
@@ -232,7 +284,7 @@ export const expenseApi = {
 export const expenseCategoryApi = {
   // Get all expense categories
   async getExpenseCategories(): Promise<ExpenseCategory[]> {
-    const response = await fetch(`${API_BASE_URL}/expense-categories`, {
+    const response = await safeFetch(`${API_BASE_URL}/expense-categories`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -246,7 +298,7 @@ export const expenseCategoryApi = {
 
   // Get a single expense category by ID
   async getExpenseCategory(id: string): Promise<ExpenseCategory> {
-    const response = await fetch(`${API_BASE_URL}/expense-categories/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expense-categories/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -260,7 +312,7 @@ export const expenseCategoryApi = {
 
   // Create a new expense category
   async createExpenseCategory(data: ExpenseCategoryFormData): Promise<ExpenseCategory> {
-    const response = await fetch(`${API_BASE_URL}/expense-categories`, {
+    const response = await safeFetch(`${API_BASE_URL}/expense-categories`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -275,7 +327,7 @@ export const expenseCategoryApi = {
 
   // Update an existing expense category
   async updateExpenseCategory(id: string, data: ExpenseCategoryFormData): Promise<ExpenseCategory> {
-    const response = await fetch(`${API_BASE_URL}/expense-categories/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expense-categories/${id}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),
@@ -290,7 +342,7 @@ export const expenseCategoryApi = {
 
   // Delete an expense category
   async deleteExpenseCategory(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/expense-categories/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/expense-categories/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),

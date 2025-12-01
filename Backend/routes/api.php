@@ -157,6 +157,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('staff-financials', StaffFinancialController::class);
         Route::get('staff-financials/fields/metadata', [StaffFinancialController::class, 'getFields']);
         Route::get('staff/{id}/financials', [StaffFinancialController::class, 'getStaffFinancials']);
+        // Aggregate statistics endpoints for dashboard cards
+        Route::get('incomes/statistics', [IncomeController::class, 'statistics']);
         Route::apiResource('incomes', IncomeController::class);
         Route::apiResource('income-types', IncomeTypeController::class);
         Route::apiResource('payment-types', PaymentTypeController::class);
@@ -171,6 +173,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('suppliers/{id}/attachment/{attachmentId}', [SupplierController::class, 'deleteAttachment']);
         
         // Expense Management
+        Route::get('expenses/statistics', [ExpenseController::class, 'statistics']);
         Route::apiResource('expenses', ExpenseController::class);
         Route::apiResource('expense-categories', ExpenseCategoryController::class);
         Route::get('expenses/category/{categoryId}', [ExpenseController::class, 'getExpensesByCategory']);
@@ -187,6 +190,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('student-checkincheckouts', StudentCheckInCheckOutController::class);
         Route::post('student-checkincheckouts/{id}/approve-checkout', [StudentCheckInCheckOutController::class, 'approveCheckout']);
         Route::post('student-checkincheckouts/{id}/decline-checkout', [StudentCheckInCheckOutController::class, 'declineCheckout']);
+        Route::get('student-checkincheckouts/attendance/statistics', [StudentCheckInCheckOutController::class, 'attendanceStatistics']);
         Route::get('student-checkincheckouts/today/attendance', [StudentCheckInCheckOutController::class, 'getTodayAttendance']);
         
         Route::apiResource('staff-checkincheckouts', StaffCheckInCheckOutController::class);
@@ -201,8 +205,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('student-checkout-rules/preview/{student_id}', [StudentCheckoutRuleController::class, 'getRulePreview']);
         
         Route::apiResource('staff-checkout-rules', StaffCheckoutRuleController::class);
-        // Admin dashboard summary
-        Route::get('admin/dashboard/stats', [AdminDashboardController::class, 'stats'])->name('dashboard.admin.stats');
+        // Admin dashboard summary route moved to shared authenticated routes below
         Route::get('staff-checkout-rules/staff/{staff_id}', [StaffCheckoutRuleController::class, 'getStaffRules']);
         Route::post('staff-checkout-rules/{id}/toggle-status', [StaffCheckoutRuleController::class, 'toggleStatus']);
         Route::get('staff-checkout-rules/preview/{staff_id}', [StaffCheckoutRuleController::class, 'getRulePreview']);
@@ -237,6 +240,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // Dashboard statistics (accessible to all authenticated users)
     Route::get('dashboard/stats', [StaffController::class, 'getDashboardStats']);
+    // Admin consolidated dashboard stats (accessible to all authenticated users)
+    Route::get('admin/dashboard/stats', [AdminDashboardController::class, 'stats'])->name('dashboard.admin.stats');
+    // Attendance statistics available to any authenticated user (used by cards)
+    Route::get('student-checkincheckouts/attendance/statistics', [App\Http\Controllers\StudentCheckInCheckOutController::class, 'attendanceStatistics']);
     
     // Chat routes for complaint communication (accessible to all authenticated users)
     Route::prefix('chats')->group(function () {
@@ -254,4 +261,3 @@ Route::middleware(['auth:sanctum'])->group(function () {
 });
 
 // API Routes organized and cleaned - All duplicates removed
-

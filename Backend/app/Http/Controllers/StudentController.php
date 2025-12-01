@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class StudentController extends Controller
@@ -17,14 +18,57 @@ class StudentController extends Controller
      */
     public function index(Request $request)
     {
+        $cacheKeyBase = 'students_index_v1';
+        $force = $request->query('force_refresh') ? true : false;
+        // Construct a normalized cache key from query params that affect results
+        $keyParts = [$cacheKeyBase];
+        foreach (['all','paginate','per_page','page','active','room_id','block_id'] as $p) {
+            if ($request->has($p)) $keyParts[] = "$p=" . (string)$request->input($p);
+        }
+        $cacheKey = implode(':', $keyParts);
+        $ttlSeconds = 10; // short-lived cache for list endpoints
+
+        if (! $force) {
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) {
+                return response()->json($cached);
+            }
+        }
+
+        // Attempt to obtain lock to avoid stampede
+        $lockKey = $cacheKey . ':lock';
+        $lock = null;
+        $lockAcquired = false;
+        try {
+            try { $lock = Cache::lock($lockKey, 10); $lockAcquired = $lock->get(); } catch (\Throwable $_) { $lockAcquired = false; }
+            if (! $lockAcquired) {
+                $waited = 0;
+                while ($waited < 2000) {
+                    $candidate = Cache::get($cacheKey);
+                    if ($candidate !== null) return response()->json($candidate);
+                    usleep(100 * 1000);
+                    $waited += 100;
+                }
+            }
+        } catch (\Throwable $_) {
+            // ignore lock errors
+        }
         try {
             // Apply filters if provided
-            $query = Student::query();
-            
-            // Include room and block data
-            $query->with(['room.block', 'financials' => function($query) {
-                $query->latest('created_at');
-            }]);
+            $query = Student::select([
+                'id',
+                'student_name',
+                'email',
+                'contact_number',
+                'created_at',
+                'is_active',
+                'room_id',
+                'student_image',
+                'student_id'
+            ])->with([
+                'room:id,room_name,block_id,capacity',
+                'room.block:id,block_name'
+            ]);
             
             // Filter by active status
             if ($request->has('active')) {
@@ -44,13 +88,9 @@ class StudentController extends Controller
                 });
             }
             
-            // Get all active students without pagination
-            if ($request->has('all') && $request->all === 'true') {
-                $students = $query->where('is_active', true)
-                    ->with(['financials' => function($q) {
-                        $q->orderBy('created_at', 'desc')->limit(1);
-                    }])
-                    ->get();
+            // Support both ?all=true and ?paginate=false (used by frontend) to return full list without pagination
+            if (($request->has('all') && $request->input('all') === 'true') || ($request->has('paginate') && $request->input('paginate') === 'false')) {
+                $students = $query->where('is_active', true)->get();
                 
                 // Add calculated fields efficiently
                 $students->each(function ($student) {
@@ -85,13 +125,17 @@ class StudentController extends Controller
                     });
                 }
 
+                try { Cache::put($cacheKey, $students, $ttlSeconds); } catch (\Throwable $_) {}
+                try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
                 return response()->json($students);
             }
             
             // Regular paginated list
-            $perPage = $request->has('per_page') ? (int)$request->per_page : 15;
+            $perPage = $request->has('per_page') ? (int)$request->input('per_page') : 15;
             $students = $query->paginate($perPage);
             
+            try { Cache::put($cacheKey, $students, $ttlSeconds); } catch (\Throwable $_) {}
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
             return response()->json($students);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to fetch students: ' . $e->getMessage()], 500);
@@ -443,7 +487,7 @@ class StudentController extends Controller
                 $student->room_id = null;
                 
                 // Log the room change for reference
-                \Log::info("Student {$student->id} deactivated - Room {$oldRoomId} assignment removed");
+                Log::info("Student {$student->id} deactivated - Room {$oldRoomId} assignment removed");
             }
             
             $student->save();
@@ -586,7 +630,7 @@ class StudentController extends Controller
     public function getMyProfile()
     {
         try {
-            $user = auth()->user();
+            $user = \Illuminate\Support\Facades\Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -614,7 +658,7 @@ class StudentController extends Controller
     public function updateMyProfile(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = \Illuminate\Support\Facades\Auth::user();
             if (!$user || $user->role !== 'student') {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
@@ -662,6 +706,7 @@ class StudentController extends Controller
             // If email is being updated, also update it in the users table
             if (isset($updateData['email'])) {
                 $user->email = $updateData['email'];
+                /** @var \App\Models\User $user */
                 $user->save();
             }
 

@@ -7,6 +7,7 @@ use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class StaffFinancialController extends Controller
 {
@@ -121,7 +122,7 @@ class StaffFinancialController extends Controller
     public function getMyFinancials(): JsonResponse
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -154,7 +155,7 @@ class StaffFinancialController extends Controller
     public function getMySalaryHistory(): JsonResponse
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);

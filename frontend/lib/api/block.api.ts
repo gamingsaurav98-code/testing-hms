@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { Block, BlockFormData } from './types';
 import { PaginatedResponse } from './core';
@@ -7,7 +7,7 @@ import { PaginatedResponse } from './core';
 export const blockApi = {
   // Get all blocks with pagination
   async getBlocks(page: number = 1): Promise<PaginatedResponse<Block>> {
-    const response = await fetch(`${API_BASE_URL}/blocks?page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/blocks?page=${page}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -17,7 +17,7 @@ export const blockApi = {
 
   // Get a single block by ID
   async getBlock(id: string): Promise<Block> {
-    const response = await fetch(`${API_BASE_URL}/blocks/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/blocks/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -41,7 +41,7 @@ export const blockApi = {
       formData.append('block_attachment', data.block_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/blocks`, {
+    const response = await safeFetch(`${API_BASE_URL}/blocks`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -69,7 +69,7 @@ export const blockApi = {
       formData.append('block_attachment', data.block_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/blocks/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/blocks/${id}`, {
       method: 'POST', // Using POST with _method override for file uploads
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -80,7 +80,7 @@ export const blockApi = {
 
   // Delete a block
   async deleteBlock(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/blocks/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/blocks/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

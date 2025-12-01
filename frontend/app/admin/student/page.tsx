@@ -190,7 +190,7 @@ export default function Page() {
       const response = await studentApi.toggleStudentStatus(studentId);
       
       // Update local state with new status and room information
-      const updatedStudents = students.map(student => 
+      const updatedStudents = (Array.isArray(students) ? students : []).map(student => 
         student.id === studentId 
           ? { 
               ...student, 
@@ -406,7 +406,7 @@ export default function Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStudents.map(student => (
+                  {(Array.isArray(filteredStudents) ? filteredStudents : []).map(student => (
                     <tr 
                       key={student.id}
                       className="border-b hover:bg-gray-50"

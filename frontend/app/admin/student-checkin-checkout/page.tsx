@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StudentCheckInCheckOut } from '@/lib/api/student-checkincheckout.api';
-import { PaginatedResponse, API_BASE_URL, handleResponse } from '@/lib/api/core';
+import { PaginatedResponse, API_BASE_URL, handleResponse, safeFetch } from '@/lib/api/core';
 import { getAuthHeaders } from '@/lib/api/auth.api';
 import { Button, ConfirmModal, ActionButtons } from '@/components/ui';
 import { 
@@ -42,7 +42,7 @@ export default function StudentCheckinCheckoutList() {
     try {
       setLoading(true);
       // Use admin endpoint to fetch student checkin-checkout records
-      const response = await fetch(`${API_BASE_URL}/student-checkincheckouts?page=${page}`, {
+      const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts?page=${page}`, {
         headers: getAuthHeaders()
       });
       const result: any = await handleResponse(response);
@@ -95,7 +95,7 @@ export default function StudentCheckinCheckoutList() {
 
     try {
       // Use admin endpoint to delete student checkin-checkout record
-      const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${deleteModal.recordId}`, {
+      const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/${deleteModal.recordId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });

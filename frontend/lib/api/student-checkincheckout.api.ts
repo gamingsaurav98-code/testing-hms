@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders } from './auth.api';
 
 // Student Check-in/Check-out interfaces
@@ -164,7 +164,7 @@ export const studentCheckInCheckOutApi = {
     filters: CheckInCheckOutFilters = {}
   ): Promise<PaginatedResponse<StudentCheckInCheckOut>> {
     // Students use their own endpoint that returns only their records
-    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts`, {
       headers: getAuthHeaders(),
     });
     
@@ -182,7 +182,7 @@ export const studentCheckInCheckOutApi = {
 
   // Get specific check-in/check-out record (student-specific)
   async getCheckInCheckOut(id: string): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts/${id}`, {
       headers: getAuthHeaders(),
     });
     
@@ -194,7 +194,7 @@ export const studentCheckInCheckOutApi = {
 
   // Admin: Create check-in/check-out record
   async createCheckInCheckOut(data: StudentCheckInCheckOutFormData): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -205,7 +205,7 @@ export const studentCheckInCheckOutApi = {
 
   // Admin: Update check-in/check-out record
   async updateCheckInCheckOut(id: string, data: Partial<StudentCheckInCheckOutFormData>): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -221,7 +221,7 @@ export const studentCheckInCheckOutApi = {
     console.log('Headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(`${API_BASE_URL}/student/checkin`, {
+      const response = await safeFetch(`${API_BASE_URL}/student/checkin`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -244,7 +244,7 @@ export const studentCheckInCheckOutApi = {
     console.log('Headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(`${API_BASE_URL}/student/checkout`, {
+      const response = await safeFetch(`${API_BASE_URL}/student/checkout`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -266,7 +266,7 @@ export const studentCheckInCheckOutApi = {
     console.log('API URL:', `${API_BASE_URL}/student/today-attendance`);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/student/today-attendance`, {
+      const response = await safeFetch(`${API_BASE_URL}/student/today-attendance`, {
         headers: getAuthHeaders(),
       });
       
@@ -280,7 +280,7 @@ export const studentCheckInCheckOutApi = {
 
   // Approve checkout request
   async approveCheckout(id: string): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}/approve-checkout`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/${id}/approve-checkout`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -292,7 +292,7 @@ export const studentCheckInCheckOutApi = {
 
   // Decline checkout request
   async declineCheckout(id: string, remarks?: string): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}/decline-checkout`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/${id}/decline-checkout`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -307,7 +307,7 @@ export const studentCheckInCheckOutApi = {
 
   // Admin: Get specific student check-in/checkout record
   async getStudentCheckInCheckOutRecord(id: string): Promise<{ data: StudentCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/${id}`, {
       headers: getAuthHeaders(),
     });
     
@@ -324,28 +324,60 @@ export const studentCheckInCheckOutApi = {
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/statistics/${studentId}?${queryParams}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/statistics/${studentId}?${queryParams}`);
     return handleResponse<{ data: StudentStatistics }>(response);
   },
 
   // Get attendance statistics
-  async getAttendanceStatistics(
-    startDate?: string, 
-    endDate?: string, 
-    blockId?: string
-  ): Promise<{ data: AttendanceStatistics }> {
+  // In-memory cache/inflight for attendance statistics
+  _attendanceCache: null as { data: unknown; fetchedAt: number } | null,
+  _attendancePromise: null as Promise<unknown> | null,
+
+  async getAttendanceStatistics({ startDate, endDate, blockId, timeoutMs = DEFAULT_API_TIMEOUT, retries = 2, forceRefresh = false }:{ startDate?: string; endDate?: string; blockId?: string; timeoutMs?: number; retries?: number; forceRefresh?: boolean } = {}): Promise<{ data: AttendanceStatistics }> {
     const queryParams = new URLSearchParams();
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     if (blockId) queryParams.append('block_id', blockId);
-    
-    const response = await fetch(`${API_BASE_URL}/student-checkincheckouts/attendance/statistics?${queryParams}`);
-    return handleResponse<{ data: AttendanceStatistics }>(response);
+
+    const url = `${API_BASE_URL}/student-checkincheckouts/attendance/statistics?${queryParams}` + (forceRefresh ? '&force_refresh=1' : '');
+
+    const TTL = 3000; // 3s cache
+    const now = Date.now();
+    if (!forceRefresh && studentCheckInCheckOutApi._attendanceCache && (now - studentCheckInCheckOutApi._attendanceCache.fetchedAt) < TTL) {
+      return Promise.resolve(studentCheckInCheckOutApi._attendanceCache.data as { data: AttendanceStatistics });
+    }
+
+    if (!forceRefresh && studentCheckInCheckOutApi._attendancePromise) return studentCheckInCheckOutApi._attendancePromise as Promise<{ data: AttendanceStatistics }>;
+
+    const inflight = (async () => {
+      const start = Date.now();
+      let attempt = 0;
+      while (true) {
+        attempt++;
+        try {
+          const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json' } }, timeoutMs);
+          const took = Date.now() - start;
+          console.debug(`studentCheckInCheckOutApi.getAttendanceStatistics - status ${resp.status} (took ${took}ms, attempt ${attempt})`);
+          const data = await handleResponse<{ data: AttendanceStatistics }>(resp);
+          studentCheckInCheckOutApi._attendanceCache = { data, fetchedAt: Date.now() };
+          return data;
+        } catch (err) {
+          console.warn(`studentCheckInCheckOutApi.getAttendanceStatistics attempt ${attempt} failed:`, err);
+          if (attempt > retries) throw err;
+          const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+          const jitter = Math.floor(Math.random() * 200);
+          await new Promise(r => setTimeout(r, backoff + jitter));
+        }
+      }
+    })();
+
+    if (!forceRefresh) studentCheckInCheckOutApi._attendancePromise = inflight;
+    try { return await inflight; } finally { studentCheckInCheckOutApi._attendancePromise = null; }
   },
 
   // Get my records (student-specific endpoint)
   async getMyRecords(): Promise<{ data: StudentCheckInCheckOut[]; total: number }> {
-    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StudentCheckInCheckOut[]; total: number }>(response);
@@ -366,13 +398,13 @@ export const studentCheckoutRuleApi = {
       )
     });
 
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules?${queryParams}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules?${queryParams}`);
     return handleResponse<PaginatedResponse<StudentCheckoutRule>>(response);
   },
 
   // Get specific checkout rule
   async getCheckoutRule(id: string): Promise<{ data: StudentCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/${id}`, {
       headers: {
         ...getAuthHeaders(),
       },
@@ -382,7 +414,7 @@ export const studentCheckoutRuleApi = {
 
   // Create new checkout rule
   async createCheckoutRule(data: StudentCheckoutRuleFormData): Promise<{ data: StudentCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -395,7 +427,7 @@ export const studentCheckoutRuleApi = {
 
   // Update checkout rule
   async updateCheckoutRule(id: string, data: Partial<StudentCheckoutRuleFormData>): Promise<{ data: StudentCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/${id}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),
@@ -408,7 +440,7 @@ export const studentCheckoutRuleApi = {
 
   // Delete checkout rule
   async deleteCheckoutRule(id: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -416,13 +448,13 @@ export const studentCheckoutRuleApi = {
 
   // Get rules for specific student
   async getStudentRules(studentId: string): Promise<{ data: StudentCheckoutRule[] }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules/student/${studentId}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/student/${studentId}`);
     return handleResponse<{ data: StudentCheckoutRule[] }>(response);
   },
 
   // Toggle rule status
   async toggleRuleStatus(id: string): Promise<{ data: StudentCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules/${id}/toggle-status`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/${id}/toggle-status`, {
       method: 'POST',
     });
     return handleResponse<{ data: StudentCheckoutRule }>(response);
@@ -430,7 +462,7 @@ export const studentCheckoutRuleApi = {
 
   // Get rule preview
   async getRulePreview(studentId: string): Promise<{ data: any }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-rules/preview/${studentId}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/preview/${studentId}`);
     return handleResponse<{ data: any }>(response);
   },
 };
@@ -449,13 +481,13 @@ export const studentCheckoutFinancialApi = {
       )
     });
 
-    const response = await fetch(`${API_BASE_URL}/student-checkout-financials?${queryParams}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials?${queryParams}`);
     return handleResponse<PaginatedResponse<StudentCheckoutFinancial>>(response);
   },
 
   // Get specific checkout financial
   async getCheckoutFinancial(id: string): Promise<{ data: StudentCheckoutFinancial }> {
-    const response = await fetch(`${API_BASE_URL}/student-checkout-financials/${id}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/${id}`);
     return handleResponse<{ data: StudentCheckoutFinancial }>(response);
   },
 
@@ -469,7 +501,7 @@ export const studentCheckoutFinancialApi = {
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     
-    const response = await fetch(`${API_BASE_URL}/student-checkout-financials/student/${studentId}?${queryParams}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/student/${studentId}?${queryParams}`);
     return handleResponse<{ data: { financials: StudentCheckoutFinancial[]; summary: any } }>(response);
   },
 
@@ -484,7 +516,7 @@ export const studentCheckoutFinancialApi = {
     if (endDate) queryParams.append('end_date', endDate);
     if (blockId) queryParams.append('block_id', blockId);
     
-    const response = await fetch(`${API_BASE_URL}/student-checkout-financials/statistics/overview?${queryParams}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/statistics/overview?${queryParams}`);
     return handleResponse<{ data: any }>(response);
   },
 
@@ -499,7 +531,7 @@ export const studentCheckoutFinancialApi = {
     if (endDate) queryParams.append('end_date', endDate);
     if (blockId) queryParams.append('block_id', blockId);
     
-    const response = await fetch(`${API_BASE_URL}/student-checkout-financials/export/data?${queryParams}`);
+    const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/export/data?${queryParams}`);
     return handleResponse<{ data: any[]; summary: any }>(response);
   },
 };

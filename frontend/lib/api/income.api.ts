@@ -1,15 +1,100 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { Income, IncomeFormData, IncomeType, PaymentType, Student } from './types';
 import { PaginatedResponse } from './core';
 
+interface StatisticsCache<T = unknown> {
+  data: T;
+  fetchedAt: number;
+}
+
+interface StatisticsOptions {
+  timeoutMs?: number;
+  retries?: number;
+  forceRefresh?: boolean;
+  signal?: AbortSignal;
+}
+
+// Common API response type for statistics
+interface StatisticsResponse {
+  // Define the structure of your statistics response here
+  // Example:
+  // total: number;
+  // byCategory: Record<string, number>;
+  // Add other fields as needed
+  [key: string]: unknown;
+}
+
 // Income API functions
 export const incomeApi = {
+  // Small in-memory cache + inflight dedupe for statistics endpoint
+  _statisticsCache: null as StatisticsCache<StatisticsResponse> | null,
+  _statisticsPromise: null as Promise<StatisticsResponse> | null,
+
+  // Fetch incomes statistics (aggregated). Uses timeout + retries.
+  async getStatistics({ 
+    timeoutMs = DEFAULT_API_TIMEOUT, 
+    retries = 2, 
+    forceRefresh = false,
+    signal
+  }: StatisticsOptions = {}): Promise<StatisticsResponse> {
+    const url = `${API_BASE_URL}/incomes/statistics` + (forceRefresh ? '?force_refresh=1' : '');
+
+    // short in-memory cache (4s)
+    const TTL = 4000;
+    const now = Date.now();
+    if (!forceRefresh && incomeApi._statisticsCache && (now - incomeApi._statisticsCache.fetchedAt) < TTL) {
+      return incomeApi._statisticsCache.data;
+    }
+
+    if (!forceRefresh && incomeApi._statisticsPromise) return incomeApi._statisticsPromise;
+
+    const inflight = (async (): Promise<StatisticsResponse> => {
+      const start = Date.now();
+      let attempt = 0;
+      
+      while (true) {
+        attempt++;
+        try {
+          const resp = await fetchWithTimeout(url, {
+            method: 'GET',
+            headers: { ...getAuthHeaders(), 'Accept': 'application/json' },
+            signal
+          }, timeoutMs);
+
+          const took = Date.now() - start;
+          console.debug(`incomeApi.getStatistics - status ${resp.status} (took ${took}ms, attempt ${attempt})`);
+
+          const data = await handleResponse<StatisticsResponse>(resp);
+          incomeApi._statisticsCache = { data, fetchedAt: Date.now() };
+          return data;
+        } catch (err) {
+          console.warn(`incomeApi.getStatistics attempt ${attempt} failed:`, err);
+          if (attempt > retries) throw err;
+          const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+          const jitter = Math.floor(Math.random() * 200);
+          await new Promise(r => setTimeout(r, backoff + jitter));
+        }
+      }
+    })();
+
+    if (!forceRefresh) incomeApi._statisticsPromise = inflight;
+    try { return await inflight; } finally { incomeApi._statisticsPromise = null; }
+  },
   // Get all incomes with pagination
-  async getIncomes(page: number = 1): Promise<PaginatedResponse<Income>> {
-    const response = await fetch(`${API_BASE_URL}/incomes?page=${page}`, {
+  async getIncomes(page: number = 1, signal?: AbortSignal): Promise<PaginatedResponse<Income>> {
+    if (page < 1) {
+      throw new Error('Page number must be greater than 0');
+    }
+    
+    const response = await safeFetch(`${API_BASE_URL}/incomes?page=${page}`, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders(),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      signal,
     });
     
     return handleResponse<PaginatedResponse<Income>>(response);
@@ -17,12 +102,27 @@ export const incomeApi = {
 
   // Get a single income by ID
   async getIncome(id: string): Promise<Income> {
-    const response = await fetch(`${API_BASE_URL}/incomes/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/incomes/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
     return handleResponse<Income>(response);
+  },
+
+  // Get all income types for dropdown
+  async getIncomeTypes(signal?: AbortSignal): Promise<IncomeType[]> {
+    const response = await safeFetch(`${API_BASE_URL}/income-types`, {
+      method: 'GET',
+      headers: {
+        ...getAuthHeaders(),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      signal,
+    });
+    
+    return handleResponse<IncomeType[]>(response);
   },
 
   // Create a new income
@@ -61,7 +161,7 @@ export const incomeApi = {
       formData.append('income_attachment', data.income_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/incomes`, {
+    const response = await safeFetch(`${API_BASE_URL}/incomes`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -109,7 +209,7 @@ export const incomeApi = {
       formData.append('income_attachment', data.income_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/incomes/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/incomes/${id}`, {
       method: 'POST', // Using POST with _method override for file uploads
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -120,7 +220,7 @@ export const incomeApi = {
 
   // Delete an income
   async deleteIncome(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/incomes/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/incomes/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),
@@ -137,7 +237,7 @@ export const incomeApi = {
     const formData = new FormData();
     formData.append('income_attachment', file);
     
-    const response = await fetch(`${API_BASE_URL}/incomes/${id}/attachment`, {
+    const response = await safeFetch(`${API_BASE_URL}/incomes/${id}/attachment`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -146,63 +246,45 @@ export const incomeApi = {
     return handleResponse<{ income_attachment: string }>(response);
   },
 
-  // Get all income types for dropdown
-  async getIncomeTypes(): Promise<IncomeType[]> {
-    const response = await fetch(`${API_BASE_URL}/income-types?all=true`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
-    
-    const data = await handleResponse<IncomeType[] | any>(response);
-    
-    // Ensure we return an array
-    if (Array.isArray(data)) {
-      return data;
-    } else if (data && data.data && Array.isArray(data.data)) {
-      return data.data;
-    } else {
-      console.error('Unexpected response format from income types API:', data);
-      return [];
-    }
-  },
-
   // Get all payment types for dropdown
-  async getPaymentTypes(): Promise<PaymentType[]> {
-    const response = await fetch(`${API_BASE_URL}/payment-types?all=true`, {
+  async getPaymentTypes(signal?: AbortSignal): Promise<PaymentType[]> {
+    const response = await safeFetch(`${API_BASE_URL}/payment-types`, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders(),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      signal,
     });
     
-    const data = await handleResponse<PaymentType[] | any>(response);
-    
-    // Ensure we return an array
-    if (Array.isArray(data)) {
-      return data;
-    } else if (data && data.data && Array.isArray(data.data)) {
-      return data.data;
-    } else {
-      console.error('Unexpected response format from payment types API:', data);
-      return [];
-    }
+    return handleResponse<PaymentType[]>(response);
   },
 
   // Get all students for dropdown
-  async getStudents(): Promise<Student[]> {
-    const response = await fetch(`${API_BASE_URL}/students?all=true`, {
+  async getStudents(signal?: AbortSignal): Promise<Student[]> {
+    const response = await safeFetch(`${API_BASE_URL}/students`, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders(),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      signal,
     });
     
-    const data = await handleResponse<Student[] | any>(response);
-    
-    // Ensure we return an array
-    if (Array.isArray(data)) {
-      return data;
-    } else if (data && data.data && Array.isArray(data.data)) {
-      return data.data;
-    } else {
-      console.error('Unexpected response format from students API:', data);
-      return [];
+    // The backend sometimes returns a paginated shape: { data: Student[], ... }
+    // Normalize it so callers always receive Student[] to avoid runtime errors
+    const parsed = await handleResponse<unknown>(response);
+
+    if (Array.isArray(parsed)) return parsed as Student[];
+    if (parsed && typeof parsed === 'object' && parsed !== null) {
+      const obj = parsed as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return obj.data as Student[];
     }
+
+    // If response isn't an array/paginated-data, return empty array to be safe
+    console.warn('incomeApi.getStudents: unexpected response shape, returning empty array', parsed);
+    return [];
   }
 };

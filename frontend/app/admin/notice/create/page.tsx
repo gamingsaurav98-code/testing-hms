@@ -403,7 +403,7 @@ export default function CreateNotice() {
                   error={errors.student_id}
                   options={[
                     { value: '', label: isLoading.students ? 'Loading students...' : 'Choose a student' },
-                    ...students.map(student => ({ 
+                    ...(Array.isArray(students) ? students : []).map(student => ({ 
                       value: student.id.toString(), 
                       label: `${student.name}${student.student_id ? ` (${student.student_id})` : ''}${student.room && student.room.room_number ? ` - Room: ${student.room.room_number}` : ''}${student.room && student.room.block && student.room.block.name ? ` (${student.room.block.name})` : ''}`
                     }))

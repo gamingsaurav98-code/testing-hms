@@ -7,6 +7,7 @@ use App\Models\Complain;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class ChatController extends Controller
 {
@@ -88,7 +89,7 @@ class ChatController extends Controller
             }
 
             // Get current authenticated user
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user) {
                 return response()->json([
                     'status' => 'error',
@@ -160,7 +161,7 @@ class ChatController extends Controller
             }
 
             // Get current authenticated user
-            $user = auth()->user();
+            $user = Auth::user();
             if (!$user) {
                 return response()->json([
                     'status' => 'error',

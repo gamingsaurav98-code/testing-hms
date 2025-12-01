@@ -533,7 +533,7 @@ export default function EditNotice() {
                   error={errors.student_id}
                   options={[
                     { value: '', label: '-- Select a student --' },
-                    ...students.map(student => ({
+                    ...(Array.isArray(students) ? students : []).map(student => ({
                       value: student.id.toString(),
                       label: `${student.name} ${student.room && student.room.block ? `(${student.room.block.name}, Room: ${student.room.room_number})` : ''}`
                     }))

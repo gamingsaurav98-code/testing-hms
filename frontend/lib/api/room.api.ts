@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { Room, RoomFormData, Block, Student } from './types';
 import { PaginatedResponse } from './core';
@@ -6,9 +6,9 @@ import { PaginatedResponse } from './core';
 // Room API functions
 export const roomApi = {
   // Get all rooms with pagination
-  async getRooms(page: number = 1, filters: {block_id?: string, has_vacancy?: boolean, per_page?: number} = {}): Promise<PaginatedResponse<Room>> {
+  async getRooms(page: number = 1, filters: {block_id?: string, has_vacancy?: boolean, per_page?: number} = {}, signal?: AbortSignal): Promise<PaginatedResponse<Room>> {
     // Build query string from filters
-    let queryParams = new URLSearchParams();
+    const queryParams = new URLSearchParams();
     queryParams.append('page', page.toString());
     
     if (filters.block_id) {
@@ -24,9 +24,10 @@ export const roomApi = {
     }
     
     const url = `${API_BASE_URL}/rooms?${queryParams.toString()}`;
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       method: 'GET',
       headers: getAuthHeaders(),
+      signal,
     });
     
     return handleResponse<PaginatedResponse<Room>>(response);
@@ -41,7 +42,7 @@ export const roomApi = {
       url += '?include_students=true';
     }
     
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -55,7 +56,7 @@ export const roomApi = {
   
   // Get rooms by block ID
   async getRoomsByBlock(blockId: string): Promise<{data: Room[]}> {
-    const response = await fetch(`${API_BASE_URL}/rooms?block_id=${blockId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/rooms?block_id=${blockId}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -69,7 +70,7 @@ export const roomApi = {
   
   // Get all students in a room
   async getRoomStudents(roomId: string): Promise<Student[]> {
-    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/students`, {
+    const response = await safeFetch(`${API_BASE_URL}/rooms/${roomId}/students`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -102,7 +103,7 @@ export const roomApi = {
       formData.append('room_attachment', data.room_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/rooms`, {
+    const response = await safeFetch(`${API_BASE_URL}/rooms`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -135,7 +136,7 @@ export const roomApi = {
       formData.append('room_attachment', data.room_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/rooms/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/rooms/${id}`, {
       method: 'POST', // Using POST with _method override for file uploads
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -146,7 +147,7 @@ export const roomApi = {
 
   // Delete a room
   async deleteRoom(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/rooms/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/rooms/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),
@@ -160,7 +161,7 @@ export const roomApi = {
 
   // Get all blocks for dropdown selection
   async getBlocks(): Promise<Block[]> {
-    const response = await fetch(`${API_BASE_URL}/blocks?all=true`, {
+    const response = await safeFetch(`${API_BASE_URL}/blocks?all=true`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -169,14 +170,14 @@ export const roomApi = {
       },
     });
     
-    const data = await handleResponse<Block[] | any>(response);
+    const data = await handleResponse<unknown>(response);
     
     // Ensure we return an array even if the API response structure changes
     if (Array.isArray(data)) {
       return data;
-    } else if (data && data.data && Array.isArray(data.data)) {
+    } else if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as { data?: unknown }).data)) {
       // Handle case where API returns a paginated response with a data property
-      return data.data;
+      return (data as { data: Block[] }).data;
     } else {
       // Fallback to empty array if response is not what we expect
       console.error('Unexpected response format from blocks API:', data);

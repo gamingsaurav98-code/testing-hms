@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 
 export interface ChatMessage {
@@ -59,7 +59,7 @@ export const chatApi = {
    * Get all chat messages for a specific complaint
    */
   async getComplaintChats(complainId: number): Promise<ChatResponse> {
-    const response = await fetch(`${API_BASE_URL}/chats/complaint/${complainId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/complaint/${complainId}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -72,7 +72,7 @@ export const chatApi = {
    * Send a new chat message
    */
   async sendMessage(data: SendMessageRequest): Promise<ChatMessage> {
-    const response = await fetch(`${API_BASE_URL}/chats/send`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/send`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -86,7 +86,7 @@ export const chatApi = {
    * Edit a chat message
    */
   async editMessage(chatId: number, data: EditMessageRequest): Promise<ChatMessage> {
-    const response = await fetch(`${API_BASE_URL}/chats/${chatId}/edit`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/${chatId}/edit`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -100,7 +100,7 @@ export const chatApi = {
    * Delete a chat message
    */
   async deleteMessage(chatId: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/${chatId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -112,7 +112,7 @@ export const chatApi = {
    * Mark messages as read
    */
   async markAsRead(data: MarkAsReadRequest): Promise<{ marked_count: number }> {
-    const response = await fetch(`${API_BASE_URL}/chats/mark-read`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/mark-read`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -134,7 +134,7 @@ export const chatApi = {
       params.append('complain_id', data.complain_id.toString());
     }
 
-    const response = await fetch(`${API_BASE_URL}/chats/unread-count?${params.toString()}`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/unread-count?${params.toString()}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -149,7 +149,7 @@ export const chatApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/chats/upload-attachment`, {
+    const response = await safeFetch(`${API_BASE_URL}/chats/upload-attachment`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),

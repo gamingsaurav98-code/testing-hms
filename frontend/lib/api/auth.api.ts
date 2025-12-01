@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, fetchWithTimeout, ApiError, safeFetch } from './core';
 
 export interface User {
   id: number;
@@ -10,7 +10,7 @@ export interface User {
   email_verified_at?: string;
   created_at: string;
   updated_at: string;
-  profile?: any;
+  profile?: unknown;
 }
 
 export interface UserPermissions {
@@ -149,7 +149,7 @@ export function getAuthHeadersForFormData(): Record<string, string> {
 export const authApi = {
   // Login user
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await safeFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export const authApi = {
     });
 
     const contentType = response.headers.get('content-type');
-    let responseData: any;
+    let responseData: unknown;
     
     if (contentType && contentType.includes('application/json')) {
       responseData = await response.json();
@@ -170,21 +170,27 @@ export const authApi = {
     // For login errors, return the error in the response format instead of throwing
     if (!response.ok) {
       let errorMessage = 'Authentication failed';
-      if (responseData.message) {
-        errorMessage = responseData.message;
+      if (typeof responseData === 'object' && responseData !== null && 'message' in responseData) {
+        const pd = responseData as { message?: string };
+        if (pd.message) errorMessage = pd.message;
       }
       
       // Return error as a "successful" response that the UI can handle
       return {
         status: 'error' as const,
         message: errorMessage,
-        data: null as any
-      };
+        data: null
+      } as LoginResponse;
     }
 
     // Store token if login successful
-    if (responseData.status === 'success' && responseData.data.token) {
-      tokenStorage.set(responseData.data.token);
+    try {
+      const parsed = responseData as LoginResponse;
+      if (parsed?.status === 'success' && parsed.data && parsed.data.token) {
+        tokenStorage.set(parsed.data.token);
+      }
+    } catch {
+      // ignore parsing errors
     }
     
     return responseData as LoginResponse;
@@ -206,7 +212,7 @@ export const authApi = {
     console.log('Auth headers:', headers);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      const response = await safeFetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: headers,
       });
@@ -229,7 +235,7 @@ export const authApi = {
       }
       
       return data;
-    } catch (error) {
+    } catch {
       console.log('Logout failed, but removing token anyway for security');
       tokenStorage.remove();
       // Don't throw error for logout - always succeed locally
@@ -239,7 +245,7 @@ export const authApi = {
 
   // Logout from all devices
   async logoutAll(): Promise<LogoutResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/logout-all`, {
+    const response = await safeFetch(`${API_BASE_URL}/auth/logout-all`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -260,23 +266,32 @@ export const authApi = {
       const url = `${API_BASE_URL}/auth/me`;
       console.debug('authApi.me - fetching', url, 'headers:', getAuthHeaders());
       const start = Date.now();
-      const response = await fetch(url, {
+      // Keep fast failure for auth checks: use a short timeout so background
+      // token verification doesn't hang the app if the backend is unreachable
+      const response = await fetchWithTimeout(url, {
         method: 'GET',
         headers: getAuthHeaders(),
-      });
+      }, 8000);
 
       console.debug(`authApi.me - response status: ${response.status} (took ${Date.now() - start}ms)`);
 
       return handleResponse<UserMeResponse>(response);
-    } catch (error) {
-      console.error('Get user error:', error);
+    } catch (error: unknown) {
+      // Do not spam console with expected network/timeouts from background checks.
+      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
+        console.debug('authApi.me - network/timeout while fetching user:', error.message || error);
+      } else {
+        console.error('Get user error:', error);
+      }
+
+      // Still rethrow so caller can decide how to act (e.g., invalidate token on 401)
       throw error;
     }
   },
 
   // Change password
   async changePassword(data: ChangePasswordRequest): Promise<LogoutResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    const response = await safeFetch(`${API_BASE_URL}/auth/change-password`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -287,7 +302,7 @@ export const authApi = {
 
   // Register user (admin only)
   async register(data: RegisterRequest): Promise<{ status: 'success'; message: string; data: { user: User } }> {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    const response = await safeFetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -298,7 +313,7 @@ export const authApi = {
 
   // Create account for pre-registered staff/student (public)
   async createAccount(data: CreateAccountRequest): Promise<CreateAccountResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/create-account`, {
+    const response = await safeFetch(`${API_BASE_URL}/auth/create-account`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

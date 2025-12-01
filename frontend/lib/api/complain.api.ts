@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 
 export interface Complain {
@@ -30,7 +30,7 @@ export interface Complain {
   };
   chats_count?: number;
   unread_chats_count?: number;
-  chats?: any[];
+  chats?: unknown[];
 }
 
 export interface ComplainFormData {
@@ -44,10 +44,11 @@ export interface ComplainFormData {
 
 export const complainApi = {
   // Get all complains with pagination
-  async getComplains(page: number = 1): Promise<PaginatedResponse<Complain>> {
-    const response = await fetch(`${API_BASE_URL}/complains?page=${page}`, {
+  async getComplains(page: number = 1, signal?: AbortSignal): Promise<PaginatedResponse<Complain>> {
+    const response = await safeFetch(`${API_BASE_URL}/complains?page=${page}`, {
       method: 'GET',
       headers: getAuthHeaders(),
+      signal,
     });
     
     return handleResponse<PaginatedResponse<Complain>>(response);
@@ -55,7 +56,7 @@ export const complainApi = {
 
   // Get all complains without pagination
   async getAllComplains(): Promise<Complain[]> {
-    const response = await fetch(`${API_BASE_URL}/complains?all=true`, {
+    const response = await safeFetch(`${API_BASE_URL}/complains?all=true`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -69,7 +70,7 @@ export const complainApi = {
 
   // Get a single complain by ID
   async getComplain(id: string): Promise<Complain> {
-    const response = await fetch(`${API_BASE_URL}/complains/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/complains/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -93,7 +94,7 @@ export const complainApi = {
     if (data.status) formData.append('status', data.status);
     if (data.complain_attachment) formData.append('complain_attachment', data.complain_attachment);
 
-    const response = await fetch(`${API_BASE_URL}/complains`, {
+    const response = await safeFetch(`${API_BASE_URL}/complains`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -117,7 +118,7 @@ export const complainApi = {
     // Add method override for PUT
     formData.append('_method', 'PUT');
 
-    const response = await fetch(`${API_BASE_URL}/complains/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/complains/${id}`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -128,7 +129,7 @@ export const complainApi = {
 
   // Delete a complain
   async deleteComplain(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/complains/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/complains/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),

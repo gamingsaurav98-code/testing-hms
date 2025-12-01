@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 
 export interface SupplierFinancial {
@@ -30,7 +30,7 @@ export interface SupplierFinancialFormData {
 export const supplierFinancialApi = {
   // Get all financial records for a supplier
   async getFinancialsBySupplier(supplierId: string): Promise<SupplierFinancial[]> {
-    const response = await fetch(`${API_BASE_URL}/suppliers/${supplierId}/financials`, {
+    const response = await safeFetch(`${API_BASE_URL}/suppliers/${supplierId}/financials`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -45,7 +45,7 @@ export const supplierFinancialApi = {
 
   // Get a single financial record by ID
   async getFinancial(id: string): Promise<SupplierFinancial> {
-    const response = await fetch(`${API_BASE_URL}/supplier-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/supplier-financials/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -60,7 +60,7 @@ export const supplierFinancialApi = {
 
   // Create a new financial record
   async createFinancial(data: SupplierFinancialFormData): Promise<SupplierFinancial> {
-    const response = await fetch(`${API_BASE_URL}/supplier-financials`, {
+    const response = await safeFetch(`${API_BASE_URL}/supplier-financials`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -76,7 +76,7 @@ export const supplierFinancialApi = {
 
   // Update an existing financial record
   async updateFinancial(id: string, data: Partial<SupplierFinancialFormData>): Promise<SupplierFinancial> {
-    const response = await fetch(`${API_BASE_URL}/supplier-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/supplier-financials/${id}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),
@@ -92,7 +92,7 @@ export const supplierFinancialApi = {
 
   // Delete a financial record
   async deleteFinancial(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/supplier-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/supplier-financials/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),

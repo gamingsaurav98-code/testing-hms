@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders } from './auth.api';
 
 // Staff Check-in/Check-out interfaces
@@ -148,7 +148,8 @@ export const staffCheckInCheckOutApi = {
   // Get all check-in/check-out records (Admin function)
   async getCheckInCheckOuts(
     page: number = 1, 
-    filters: CheckInCheckOutFilters = {}
+    filters: CheckInCheckOutFilters = {},
+    signal?: AbortSignal
   ): Promise<PaginatedResponse<StaffCheckInCheckOut>> {
     const queryParams = new URLSearchParams({
       page: page.toString(),
@@ -157,15 +158,16 @@ export const staffCheckInCheckOutApi = {
       )
     });
 
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts?${queryParams}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts?${queryParams}`, {
       headers: getAuthHeaders(),
+      signal,
     });
     return handleResponse<PaginatedResponse<StaffCheckInCheckOut>>(response);
   },
 
   // Get specific check-in/check-out record
   async getCheckInCheckOut(id: string): Promise<{ data: StaffCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckInCheckOut }>(response);
@@ -173,7 +175,7 @@ export const staffCheckInCheckOutApi = {
 
   // Create new check-in/check-out record (Admin function)
   async createCheckInCheckOut(data: StaffCheckInCheckOutFormData): Promise<{ data: StaffCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -183,7 +185,7 @@ export const staffCheckInCheckOutApi = {
 
   // Update check-in/check-out record (Admin function)
   async updateCheckInCheckOut(id: string, data: Partial<StaffCheckInCheckOutFormData>): Promise<{ data: StaffCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -193,7 +195,7 @@ export const staffCheckInCheckOutApi = {
 
   // Delete check-in/check-out record (Admin function)
   async deleteCheckInCheckOut(id: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -207,7 +209,7 @@ export const staffCheckInCheckOutApi = {
     console.log('Headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(`${API_BASE_URL}/my-staff/checkin`, {
+      const response = await safeFetch(`${API_BASE_URL}/my-staff/checkin`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -230,7 +232,7 @@ export const staffCheckInCheckOutApi = {
     console.log('Headers:', getAuthHeaders());
     
     try {
-      const response = await fetch(`${API_BASE_URL}/my-staff/checkout`, {
+      const response = await safeFetch(`${API_BASE_URL}/my-staff/checkout`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -251,7 +253,7 @@ export const staffCheckInCheckOutApi = {
     const queryParams = new URLSearchParams();
     if (blockId) queryParams.append('block_id', blockId);
     
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/today/attendance?${queryParams}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/today/attendance?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckInCheckOut[]; date: string }>(response);
@@ -259,7 +261,7 @@ export const staffCheckInCheckOutApi = {
 
   // Approve checkout request (Admin function)
   async approveCheckout(id: string): Promise<{ data: StaffCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}/approve-checkout`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/${id}/approve-checkout`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -268,7 +270,7 @@ export const staffCheckInCheckOutApi = {
 
   // Decline checkout request (Admin function)
   async declineCheckout(id: string, remarks?: string): Promise<{ data: StaffCheckInCheckOut }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/${id}/decline-checkout`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/${id}/decline-checkout`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ remarks }),
@@ -286,29 +288,59 @@ export const staffCheckInCheckOutApi = {
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/statistics/${staffId}?${queryParams}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkincheckouts/statistics/${staffId}?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffStatistics }>(response);
   },
 
   // Get attendance statistics (Admin function)
-  async getAttendanceStatistics(
-    startDate?: string, 
-    endDate?: string, 
-    blockId?: string,
-    department?: string
-  ): Promise<{ data: AttendanceStatistics }> {
+  // In-memory cache + inflight promise for staff attendance statistics
+  _attendanceCache: null as { data: unknown; fetchedAt: number } | null,
+  _attendancePromise: null as Promise<unknown> | null,
+
+  async getAttendanceStatistics({ startDate, endDate, blockId, department, timeoutMs = DEFAULT_API_TIMEOUT, retries = 2, forceRefresh = false }:{ startDate?: string; endDate?: string; blockId?: string; department?: string; timeoutMs?: number; retries?: number; forceRefresh?: boolean } = {}): Promise<{ data: AttendanceStatistics }> {
     const queryParams = new URLSearchParams();
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     if (blockId) queryParams.append('block_id', blockId);
     if (department) queryParams.append('department', department);
-    
-    const response = await fetch(`${API_BASE_URL}/staff-checkincheckouts/attendance/statistics?${queryParams}`, {
-      headers: getAuthHeaders(),
-    });
-    return handleResponse<{ data: AttendanceStatistics }>(response);
+
+    const url = `${API_BASE_URL}/staff-checkincheckouts/attendance/statistics?${queryParams}` + (forceRefresh ? '&force_refresh=1' : '');
+
+    const TTL = 3000; // 3s
+    const now = Date.now();
+
+    if (!forceRefresh && staffCheckInCheckOutApi._attendanceCache && (now - staffCheckInCheckOutApi._attendanceCache.fetchedAt) < TTL) {
+      return Promise.resolve(staffCheckInCheckOutApi._attendanceCache.data as { data: AttendanceStatistics });
+    }
+
+    if (!forceRefresh && staffCheckInCheckOutApi._attendancePromise) return staffCheckInCheckOutApi._attendancePromise as Promise<{ data: AttendanceStatistics }>;
+
+    const inflight = (async () => {
+      const start = Date.now();
+      let attempt = 0;
+      while (true) {
+        attempt++;
+        try {
+          const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json' } }, timeoutMs);
+          const took = Date.now() - start;
+          console.debug(`staffCheckInCheckOutApi.getAttendanceStatistics - status ${resp.status} (took ${took}ms, attempt ${attempt})`);
+          const data = await handleResponse<{ data: AttendanceStatistics }>(resp);
+          staffCheckInCheckOutApi._attendanceCache = { data, fetchedAt: Date.now() };
+          return data;
+        } catch (err) {
+          console.warn(`staffCheckInCheckOutApi.getAttendanceStatistics attempt ${attempt} failed:`, err);
+          if (attempt > retries) throw err;
+          const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+          const jitter = Math.floor(Math.random() * 200);
+          await new Promise(r => setTimeout(r, backoff + jitter));
+        }
+      }
+    })();
+
+    if (!forceRefresh) staffCheckInCheckOutApi._attendancePromise = inflight;
+    try { return await inflight; } finally { staffCheckInCheckOutApi._attendancePromise = null; }
   },
 
   // Staff-specific method to get current user's check-in/checkout records
@@ -316,7 +348,7 @@ export const staffCheckInCheckOutApi = {
     const url = `${API_BASE_URL}/my-staff/my-checkincheckouts`;
     
     try {
-      const response = await fetch(url, {
+      const response = await safeFetch(url, {
         headers: getAuthHeaders(),
       });
       
@@ -333,7 +365,7 @@ export const staffCheckInCheckOutApi = {
     const url = `${API_BASE_URL}/my-staff/my-checkincheckouts/${id}`;
     
     try {
-      const response = await fetch(url, {
+      const response = await safeFetch(url, {
         headers: getAuthHeaders(),
       });
       
@@ -346,7 +378,7 @@ export const staffCheckInCheckOutApi = {
 
   // Get my today's attendance (Staff function)
   async getMyTodayAttendance(): Promise<{ data: StaffCheckInCheckOut | null }> {
-    const response = await fetch(`${API_BASE_URL}/my-staff/today-attendance`, {
+    const response = await safeFetch(`${API_BASE_URL}/my-staff/today-attendance`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckInCheckOut | null }>(response);
@@ -367,7 +399,7 @@ export const staffCheckoutRuleApi = {
       )
     });
 
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules?${queryParams}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<PaginatedResponse<StaffCheckoutRule>>(response);
@@ -375,7 +407,7 @@ export const staffCheckoutRuleApi = {
 
   // Get specific checkout rule
   async getCheckoutRule(id: string): Promise<{ data: StaffCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/${id}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckoutRule }>(response);
@@ -383,7 +415,7 @@ export const staffCheckoutRuleApi = {
 
   // Create new checkout rule
   async createCheckoutRule(data: StaffCheckoutRuleFormData): Promise<{ data: StaffCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -393,7 +425,7 @@ export const staffCheckoutRuleApi = {
 
   // Update checkout rule
   async updateCheckoutRule(id: string, data: Partial<StaffCheckoutRuleFormData>): Promise<{ data: StaffCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -403,7 +435,7 @@ export const staffCheckoutRuleApi = {
 
   // Delete checkout rule
   async deleteCheckoutRule(id: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -412,7 +444,7 @@ export const staffCheckoutRuleApi = {
 
   // Get rules for specific staff
   async getStaffRules(staffId: string): Promise<{ data: StaffCheckoutRule[] }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules/staff/${staffId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/staff/${staffId}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckoutRule[] }>(response);
@@ -420,7 +452,7 @@ export const staffCheckoutRuleApi = {
 
   // Toggle rule status
   async toggleRuleStatus(id: string): Promise<{ data: StaffCheckoutRule }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules/${id}/toggle-status`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/${id}/toggle-status`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -429,7 +461,7 @@ export const staffCheckoutRuleApi = {
 
   // Get rule preview
   async getRulePreview(staffId: string): Promise<{ data: any }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-rules/preview/${staffId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/preview/${staffId}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: any }>(response);
@@ -459,7 +491,7 @@ export const staffCheckoutFinancialApi = {
       )
     });
 
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-financials?${queryParams}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-financials?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<PaginatedResponse<StaffCheckoutFinancial>>(response);
@@ -467,7 +499,7 @@ export const staffCheckoutFinancialApi = {
 
   // Get checkout financial by ID
   async getCheckoutFinancial(id: string): Promise<{ data: StaffCheckoutFinancial }> {
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-financials/${id}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: StaffCheckoutFinancial }>(response);
@@ -486,7 +518,7 @@ export const staffCheckoutFinancialApi = {
     if (blockId) queryParams.append('block_id', blockId);
     if (department) queryParams.append('department', department);
     
-    const response = await fetch(`${API_BASE_URL}/staff-checkout-financials/statistics/overview?${queryParams}`, {
+    const response = await safeFetch(`${API_BASE_URL}/staff-checkout-financials/statistics/overview?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ data: any }>(response);

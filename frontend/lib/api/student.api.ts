@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
 import { Student } from './types';
 import { PaginatedResponse } from './core';
@@ -108,7 +108,7 @@ export interface StudentFinancialFormData {
 export const studentApi = {
   // Get available amenities for student creation/edit
   async getAvailableAmenities(): Promise<StudentAmenity[]> {
-    const response = await fetch(`${API_BASE_URL}/student-amenities`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-amenities`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -121,59 +121,129 @@ export const studentApi = {
   },
   
   // Get students by room ID
-  async getStudentsByRoom(roomId: string): Promise<StudentWithAmenities[]> {
-    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/students`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    return handleResponse<StudentWithAmenities[]>(response);
+  async getStudentsByRoom(roomId: string, signal?: AbortSignal, { timeoutMs = DEFAULT_API_TIMEOUT, retries = 2, forceRefresh = false }:{ timeoutMs?: number, retries?: number, forceRefresh?: boolean } = {}): Promise<StudentWithAmenities[]> {
+    const url = `${API_BASE_URL}/rooms/${roomId}/students`;
+    const cacheKey = `students:room:${roomId}`;
+    const TTL = 3000; // 3s
+    const now = Date.now();
+
+    // In-memory cache stored on module-level studentApi (we'll add it later if absent)
+    // Attempt to read cached value
+    // @ts-ignore
+    if (!forceRefresh && studentApi._studentsCache && studentApi._studentsCache.has(cacheKey)) {
+      // @ts-ignore
+      const cached = studentApi._studentsCache.get(cacheKey)!;
+      if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as StudentWithAmenities[]);
+    }
+
+    let attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json', 'Content-Type': 'application/json' }, signal }, timeoutMs);
+        const data = await handleResponse<StudentWithAmenities[]>(resp);
+        // @ts-ignore
+        if (studentApi._studentsCache) studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
+        return data;
+      } catch (err) {
+        if (attempt > retries) throw err;
+        const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+        const jitter = Math.floor(Math.random() * 200);
+        await new Promise(r => setTimeout(r, backoff + jitter));
+      }
+    }
   },
   
   // Get all active students (no pagination)
-  async getAllActiveStudents(): Promise<StudentWithAmenities[]> {
-    const response = await fetch(`${API_BASE_URL}/students?all=true`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    return handleResponse<StudentWithAmenities[]>(response);
+  async getAllActiveStudents(signal?: AbortSignal, { timeoutMs = DEFAULT_API_TIMEOUT, retries = 2, forceRefresh = false }:{ timeoutMs?: number, retries?: number, forceRefresh?: boolean } = {}): Promise<StudentWithAmenities[]> {
+    const url = `${API_BASE_URL}/students?all=true`;
+    const cacheKey = `students:all:true`;
+    const TTL = 3000;
+    const now = Date.now();
+
+    // @ts-ignore
+    if (!forceRefresh && studentApi._studentsCache && studentApi._studentsCache.has(cacheKey)) {
+      // @ts-ignore
+      const cached = studentApi._studentsCache.get(cacheKey)!;
+      if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as StudentWithAmenities[]);
+    }
+
+    let attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json', 'Content-Type': 'application/json' }, signal }, timeoutMs);
+        const data = await handleResponse<StudentWithAmenities[]>(resp);
+        // @ts-ignore
+        if (studentApi._studentsCache) studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
+        return data;
+      } catch (err) {
+        if (attempt > retries) throw err;
+        const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+        const jitter = Math.floor(Math.random() * 200);
+        await new Promise(r => setTimeout(r, backoff + jitter));
+      }
+    }
   },
   // Get all students with pagination
-  async getStudents(page: number = 1): Promise<PaginatedResponse<StudentWithAmenities>> {
+  async getStudents(page: number = 1, signal?: AbortSignal, { timeoutMs = DEFAULT_API_TIMEOUT, retries = 2, forceRefresh = false }:{ timeoutMs?: number, retries?: number, forceRefresh?: boolean } = {}): Promise<PaginatedResponse<StudentWithAmenities>> {
     const url = `${API_BASE_URL}/students?page=${page}`;
     console.log(`Fetching students from: ${url}`);
     
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-      
-      console.log(`Student API response status: ${response.status}`);
-      return handleResponse<PaginatedResponse<StudentWithAmenities>>(response);
+      const cacheKey = `students:page=${page}`;
+      const TTL = 3000;
+      const now = Date.now();
+
+      if (!forceRefresh && studentApi._studentsCache.has(cacheKey)) {
+        const cached = studentApi._studentsCache.get(cacheKey)!;
+        if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as PaginatedResponse<StudentWithAmenities>);
+      }
+
+      if (!forceRefresh && studentApi._studentsPromises.has(cacheKey)) {
+        return studentApi._studentsPromises.get(cacheKey) as Promise<PaginatedResponse<StudentWithAmenities>>;
+      }
+
+      const inflight = (async () => {
+        const start = Date.now();
+        let attempt = 0;
+        while (true) {
+          attempt++;
+          try {
+            const response = await fetchWithTimeout(url, { method: 'GET', headers: getAuthHeaders(), signal }, timeoutMs);
+            console.log(`Student API response status: ${response.status}`);
+            const data = await handleResponse<PaginatedResponse<StudentWithAmenities>>(response);
+            studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
+            return data;
+          } catch (err) {
+            console.debug('Student API network failure or aborted:', err?.message ?? err);
+            if (attempt > retries) throw err;
+            const backoff = Math.min(2000, 200 * Math.pow(2, attempt));
+            const jitter = Math.floor(Math.random() * 200);
+            await new Promise(r => setTimeout(r, backoff + jitter));
+          }
+        }
+      })();
+
+      if (!forceRefresh) studentApi._studentsPromises.set(cacheKey, inflight as Promise<PaginatedResponse<StudentWithAmenities>>);
+      try { return await inflight as PaginatedResponse<StudentWithAmenities>; } finally { studentApi._studentsPromises.delete(cacheKey); }
     } catch (error) {
-      console.error('Network error fetching students:', error);
+      // Convert raw failures into ApiError (safeFetch already does this),
+      // but keep a friendly console message for debugging.
+      console.debug('Student API network failure or aborted:', error?.message ?? error);
       throw error;
     }
   },
 
   // Get a single student by ID
-  async getStudent(id: string): Promise<StudentWithAmenities> {
-    const response = await fetch(`${API_BASE_URL}/students/${id}`, {
+  async getStudent(id: string, signal?: AbortSignal): Promise<StudentWithAmenities> {
+    const response = await safeFetch(`${API_BASE_URL}/students/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        signal,
       },
     });
     
@@ -218,7 +288,7 @@ export const studentApi = {
       }
     }
 
-    const response = await fetch(`${API_BASE_URL}/students`, {
+    const response = await safeFetch(`${API_BASE_URL}/students`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -292,7 +362,7 @@ export const studentApi = {
       }
     }
 
-    const response = await fetch(`${API_BASE_URL}/students/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/students/${id}`, {
       method: 'POST', // Using POST with _method override for file uploads
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -303,7 +373,7 @@ export const studentApi = {
 
   // Delete a student
   async deleteStudent(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/students/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/students/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),
@@ -317,7 +387,7 @@ export const studentApi = {
 
   // Toggle student status (activate/deactivate)
   async toggleStudentStatus(id: string): Promise<{message: string, student: StudentWithAmenities, is_active: boolean, room_removed?: boolean}> {
-    const response = await fetch(`${API_BASE_URL}/students/${id}/toggle-status`, {
+    const response = await safeFetch(`${API_BASE_URL}/students/${id}/toggle-status`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -332,7 +402,7 @@ export const studentApi = {
   // Student-specific methods
   // Get current student's profile
   async getStudentProfile(): Promise<StudentWithAmenities> {
-    const response = await fetch(`${API_BASE_URL}/student/profile`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/profile`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -342,7 +412,7 @@ export const studentApi = {
 
   // Get current student's complaints
   async getStudentComplains(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/student/complains`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/complains`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -352,7 +422,7 @@ export const studentApi = {
 
   // Get current student's payment history
   async getStudentPayments(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/student/payment-history`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/payment-history`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -362,7 +432,7 @@ export const studentApi = {
 
   // Get current student's check-in/out records
   async getStudentCheckInOuts(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/student/checkincheckouts`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -372,7 +442,7 @@ export const studentApi = {
 
   // Get current student's notices
   async getStudentNotices(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/student/notices`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/notices`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -382,7 +452,7 @@ export const studentApi = {
 
   // Get a specific student notice by ID
   async getStudentNotice(id: string): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/student/notices/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/notices/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -398,7 +468,7 @@ export const studentApi = {
     balance_due: number;
     calculation_date: string;
   }> {
-    const response = await fetch(`${API_BASE_URL}/student/outstanding-dues`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/outstanding-dues`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -417,7 +487,7 @@ export const studentApi = {
     const formData = new FormData();
     formData.append('student_image', file);
     
-    const response = await fetch(`${API_BASE_URL}/students/${id}/image`, {
+    const response = await safeFetch(`${API_BASE_URL}/students/${id}/image`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -443,7 +513,7 @@ export const studentApi = {
       formData.append('complain_attachment', data.complain_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/student/complains`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/complains`, {
       method: 'POST',
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -454,7 +524,7 @@ export const studentApi = {
 
   // Get a specific student complaint
   async getStudentComplaint(id: string): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/student/complains/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/complains/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -477,7 +547,7 @@ export const studentApi = {
       formData.append('complain_attachment', data.complain_attachment);
     }
 
-    const response = await fetch(`${API_BASE_URL}/student/complains/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/complains/${id}`, {
       method: 'POST', // Using POST with _method override for file uploads
       headers: getAuthHeadersForFormData(),
       body: formData,
@@ -488,7 +558,7 @@ export const studentApi = {
 
   // Delete a specific student complaint
   async deleteStudentComplaint(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/student/complains/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student/complains/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -527,7 +597,7 @@ export const studentFinancialApi = {
       }
     });
 
-    const response = await fetch(`${API_BASE_URL}/student-financials`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-financials`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -566,7 +636,7 @@ export const studentFinancialApi = {
       }
     });
 
-    const response = await fetch(`${API_BASE_URL}/student-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-financials/${id}`, {
       method: 'POST', // Using POST with _method override for file uploads
       headers: {
         ...getAuthHeaders(),
@@ -580,7 +650,7 @@ export const studentFinancialApi = {
 
   // Get financial records for a specific student
   async getStudentFinancials(studentId: string): Promise<StudentFinancial[]> {
-    const response = await fetch(`${API_BASE_URL}/students/${studentId}/financials`, {
+    const response = await safeFetch(`${API_BASE_URL}/students/${studentId}/financials`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -594,7 +664,7 @@ export const studentFinancialApi = {
 
   // Get a specific financial record
   async getStudentFinancial(id: string): Promise<StudentFinancial> {
-    const response = await fetch(`${API_BASE_URL}/student-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-financials/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -608,7 +678,7 @@ export const studentFinancialApi = {
 
   // Delete financial record
   async deleteStudentFinancial(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/student-financials/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/student-financials/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),

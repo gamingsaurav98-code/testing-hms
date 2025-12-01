@@ -7,6 +7,7 @@ use App\Services\DateService;
 use App\Services\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -31,7 +32,14 @@ class IncomeController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Income::with(['student', 'incomeType', 'paymentType'])
+            $query = Income::select(['id','student_id','income_type_id','payment_type_id','amount','received_amount','due_amount','income_date','title','created_at'])
+
+    
+                ->with([
+                    'student:id,student_name',
+                    'incomeType:id,name',
+                    'paymentType:id,name'
+                ])
                 ->orderBy('income_date', 'desc');
                 
             // Filter by date range if provided
@@ -56,6 +64,97 @@ class IncomeController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching incomes: ' . $e->getMessage());
             return response()->json(['message' => 'Error fetching incomes', 'error' => $e->getMessage()], 500);
+        }
+
+    }
+
+    /**
+     * Return aggregate statistics for incomes (e.g., totals this month)
+     */
+    public function statistics(Request $request)
+    {
+        $cacheKey = 'income_statistics_v1';
+        $ttlSeconds = 30;
+        $force = $request->query('force_refresh') ? true : false;
+
+        if (! $force) {
+            $cached = Cache::get($cacheKey);
+            if ($cached && is_array($cached)) {
+                return response()->json($cached, 200);
+            }
+        }
+
+        // Acquire lock to avoid cache stampede
+        $lockKey = $cacheKey . ':lock';
+        $lockAcquired = false;
+        $lock = null;
+        try {
+            try {
+                $lock = Cache::lock($lockKey, 15);
+                $lockAcquired = $lock->get();
+            } catch (\Throwable $_) {
+                $lockAcquired = false;
+            }
+
+            if (! $lockAcquired) {
+                // wait briefly for another process to populate cache
+                $waited = 0;
+                while ($waited < 3000) {
+                    $candidate = Cache::get($cacheKey);
+                    if ($candidate && is_array($candidate)) {
+                        return response()->json($candidate, 200);
+                    }
+                    usleep(100 * 1000);
+                    $waited += 100;
+                }
+            }
+        } catch (\Throwable $_) {
+            // ignore locking errors and continue computing
+        }
+        try {
+            $schema = DB::getSchemaBuilder();
+            if (! $schema->hasTable('incomes')) {
+                return response()->json([
+                    'success' => true,
+                    'total_amount_this_month' => 0.0,
+                    'received_amount_this_month' => 0.0,
+                    'due_amount_this_month' => 0.0,
+                ], 200);
+            }
+
+            $now = \Carbon\Carbon::now();
+            $start = $now->copy()->startOfMonth()->toDateString();
+            $end = $now->copy()->endOfMonth()->toDateString();
+
+            // Figure out which date column exists and use it
+            $dateCol = $schema->hasColumn('incomes', 'income_date') ? 'income_date' : ($schema->hasColumn('incomes', 'created_at') ? 'created_at' : null);
+
+            if (! $dateCol) {
+                // no usable date column - return zeros
+                $total = $received = $due = 0.0;
+            } else {
+                $total = $schema->hasColumn('incomes', 'amount') ? Income::whereBetween($dateCol, [$start, $end])->sum('amount') : 0.0;
+                $received = $schema->hasColumn('incomes', 'received_amount') ? Income::whereBetween($dateCol, [$start, $end])->sum('received_amount') : 0.0;
+                $due = $schema->hasColumn('incomes', 'due_amount') ? Income::whereBetween($dateCol, [$start, $end])->sum('due_amount') : 0.0;
+            }
+
+            $payload = [
+                'success' => true,
+                'total_amount_this_month' => (float)$total,
+                'received_amount_this_month' => (float)$received,
+                'due_amount_this_month' => (float)$due,
+            ];
+
+            try { Cache::put($cacheKey, $payload, $ttlSeconds); } catch (\Throwable $_) {}
+
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
+
+            return response()->json($payload, 200);
+        } catch (\Throwable $e) {
+            Log::error('IncomeController::statistics failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            $msg = config('app.debug') ? $e->getMessage() : 'Failed to compute income statistics';
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
+            return response()->json(['success' => false, 'message' => $msg], 500);
         }
     }
 

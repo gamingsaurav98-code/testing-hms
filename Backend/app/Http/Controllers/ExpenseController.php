@@ -9,7 +9,9 @@ use App\Models\Purchase;
 use App\Models\Attachment;
 use App\Models\SupplierPayment;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\JsonResponse;
 
@@ -58,6 +60,84 @@ class ExpenseController extends Controller
                 'error' => 'Failed to retrieve expenses',
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Return aggregate statistics for expenses (e.g., totals this month)
+     */
+    public function statistics(Request $request)
+    {
+        $cacheKey = 'expense_statistics_v1';
+        $ttlSeconds = 30;
+        $force = $request->query('force_refresh') ? true : false;
+
+        if (! $force) {
+            $cached = Cache::get($cacheKey);
+            if ($cached && is_array($cached)) {
+                return response()->json($cached, 200);
+            }
+        }
+
+        // Prevent cache stampede with a lock
+        $lockKey = $cacheKey . ':lock';
+        $lock = null;
+        $lockAcquired = false;
+        try {
+            try { $lock = Cache::lock($lockKey, 15); $lockAcquired = $lock->get(); } catch (\Throwable $_) { $lockAcquired = false; }
+            if (! $lockAcquired) {
+                $waited = 0;
+                while ($waited < 3000) {
+                    $candidate = Cache::get($cacheKey);
+                    if ($candidate && is_array($candidate)) {
+                        return response()->json($candidate, 200);
+                    }
+                    usleep(100 * 1000);
+                    $waited += 100;
+                }
+            }
+        } catch (\Throwable $_) {}
+        try {
+            $schema = DB::getSchemaBuilder();
+            if (! $schema->hasTable('expenses')) {
+                return response()->json([
+                    'success' => true,
+                    'total_amount_this_month' => 0.0,
+                    'paid_amount_this_month' => 0.0,
+                    'due_amount_this_month' => 0.0,
+                ], 200);
+            }
+
+            $now = \Carbon\Carbon::now();
+            $start = $now->copy()->startOfMonth()->toDateString();
+            $end = $now->copy()->endOfMonth()->toDateString();
+
+            $dateCol = $schema->hasColumn('expenses', 'expense_date') ? 'expense_date' : ($schema->hasColumn('expenses', 'created_at') ? 'created_at' : null);
+
+            if (! $dateCol) {
+                $total = $paid = $due = 0.0;
+            } else {
+                $total = $schema->hasColumn('expenses', 'amount') ? Expense::whereBetween($dateCol, [$start, $end])->sum('amount') : 0.0;
+                $paid = $schema->hasColumn('expenses', 'paid_amount') ? Expense::whereBetween($dateCol, [$start, $end])->sum('paid_amount') : 0.0;
+                $due = $schema->hasColumn('expenses', 'due_amount') ? Expense::whereBetween($dateCol, [$start, $end])->sum('due_amount') : 0.0;
+            }
+
+            $payload = [
+                'success' => true,
+                'total_amount_this_month' => (float)$total,
+                'paid_amount_this_month' => (float)$paid,
+                'due_amount_this_month' => (float)$due,
+            ];
+
+            try { Cache::put($cacheKey, $payload, $ttlSeconds); } catch (\Throwable $_) {}
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
+
+            return response()->json($payload, 200);
+        } catch (\Throwable $e) {
+            Log::error('ExpenseController::statistics failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            $msg = config('app.debug') ? $e->getMessage() : 'Failed to compute expense statistics';
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
+            return response()->json(['success' => false, 'message' => $msg], 500);
         }
     }
 

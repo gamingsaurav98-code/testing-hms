@@ -7,6 +7,9 @@ use App\Models\StaffAmenities;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class StaffController extends Controller
 {
@@ -15,14 +18,38 @@ class StaffController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $cacheKeyBase = 'staff_index_v1';
+        $force = $request->query('force_refresh') ? true : false;
+        $keyParts = [$cacheKeyBase];
+        foreach (['all','paginate','per_page','page','active','department','position','search'] as $p) {
+            if ($request->has($p)) $keyParts[] = "$p=" . (string)$request->input($p);
+        }
+        $cacheKey = implode(':', $keyParts);
+        $ttlSeconds = 10;
+
+        if (! $force) {
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) return response()->json($cached);
+        }
+
+        $lockKey = $cacheKey . ':lock';
+        $lock = null;
+        $lockAcquired = false;
+        try {
+            try { $lock = Cache::lock($lockKey, 10); $lockAcquired = $lock->get(); } catch (\Throwable $_) { $lockAcquired = false; }
+            if (! $lockAcquired) {
+                $waited = 0;
+                while ($waited < 2000) {
+                    $candidate = Cache::get($cacheKey);
+                    if ($candidate !== null) return response()->json($candidate);
+                    usleep(100 * 1000);
+                    $waited += 100;
+                }
+            }
+        } catch (\Throwable $_) {}
         try {
             // Apply filters if provided
-            $query = Staff::query();
-            
-            // Include financial and amenities data
-            $query->with(['salaries' => function($query) {
-                $query->latest('created_at');
-            }, 'amenities', 'attachments']);
+            $query = Staff::select(['id','staff_name','email','contact_number','staff_id','position','department','is_active','staff_image','created_at']);
             
             // Filter by active status
             if ($request->has('active')) {
@@ -40,20 +67,17 @@ class StaffController extends Controller
                 $query->where('position', $request->position);
             }
             
-            // Get all active staff without pagination with optimized loading
-            if ($request->has('all') && $request->all === 'true') {
-                $staff = $query->where('is_active', true)
-                    ->with(['salaries' => function($q) {
-                        $q->latest('created_at');
-                    }])
-                    ->get();
+            // Support both ?all=true and ?paginate=false (used by frontend) to return full list without pagination
+            if (($request->has('all') && $request->input('all') === 'true') || ($request->has('paginate') && $request->input('paginate') === 'false')) {
+                $staff = $query->where('is_active', true)->get();
                 
                 // Add latest salary efficiently
                 $staff->each(function ($staffMember) {
-                    $latestSalary = $staffMember->salaries->first(); // Already ordered by latest
-                    $staffMember->latest_salary = $latestSalary ? $latestSalary->amount : null;
+                    $staffMember->latest_salary = null;
                 });
 
+                try { Cache::put($cacheKey, $staff, $ttlSeconds); } catch (\Throwable $_) {}
+                try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
                 return response()->json($staff);
             }
             
@@ -76,20 +100,18 @@ class StaffController extends Controller
             
             // Add latest salary to each staff member
             $staff->getCollection()->transform(function ($staffMember) {
-                $latestSalary = $staffMember->salaries()
-                    ->latest('created_at')
-                    ->first();
-                
-                $staffMember->latest_salary = $latestSalary ? $latestSalary->amount : null;
-                
+                $staffMember->latest_salary = null;
                 return $staffMember;
             });
 
+            try { Cache::put($cacheKey, $staff, $ttlSeconds); } catch (\Throwable $_) {}
+            try { if (! empty($lock) && $lockAcquired) $lock->release(); } catch (\Throwable $_) {}
             return response()->json($staff);
         } catch (\Exception $e) {
+            Log::error('StaffController::index failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json([
                 'error' => 'Failed to fetch staff',
-                'message' => $e->getMessage()
+                'message' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -533,7 +555,7 @@ class StaffController extends Controller
     public function getMyProfile(): JsonResponse
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user || $user->role !== 'staff') {
                 return response()->json([
@@ -573,7 +595,7 @@ class StaffController extends Controller
     public function updateMyProfile(Request $request): JsonResponse
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user || $user->role !== 'staff') {
                 return response()->json([
@@ -624,6 +646,7 @@ class StaffController extends Controller
             // If email is being updated, also update it in the users table
             if (isset($validated['email'])) {
                 $user->email = $validated['email'];
+                /** @var \App\Models\User $user */
                 $user->save();
             }
             

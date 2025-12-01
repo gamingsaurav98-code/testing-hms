@@ -13,7 +13,9 @@ class AdminDashboardController extends Controller
     public function stats(Request $request)
     {
         try {
-            $data = AdminDashboardService::buildDashboardSummary();
+            // Allow callers to force refresh to bypass the short cache (useful in debug)
+            $force = $request->query('force_refresh') ? true : false;
+            $data = AdminDashboardService::buildDashboardSummary($force);
             return response()->json(['success' => true, 'data' => $data]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Failed to build dashboard stats'], 500);

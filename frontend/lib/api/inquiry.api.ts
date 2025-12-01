@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 import { Inquiry, InquiryFormData } from './types/inquiry.types';
 
@@ -6,7 +6,7 @@ import { Inquiry, InquiryFormData } from './types/inquiry.types';
 export const inquiryApi = {
   // Get all inquiries with pagination
   async getInquiries(page: number = 1): Promise<PaginatedResponse<Inquiry>> {
-    const response = await fetch(`${API_BASE_URL}/inquiries?page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/inquiries?page=${page}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -20,7 +20,7 @@ export const inquiryApi = {
 
   // Get inquiries by block ID
   async getInquiriesByBlock(blockId: string, page: number = 1): Promise<PaginatedResponse<Inquiry>> {
-    const response = await fetch(`${API_BASE_URL}/inquiries/block/${blockId}?page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/inquiries/block/${blockId}?page=${page}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -37,7 +37,7 @@ export const inquiryApi = {
     console.log('Getting inquiry with ID:', id);
     console.log('API URL:', `${API_BASE_URL}/inquiries/${id}`);
     
-    const response = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/inquiries/${id}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -66,7 +66,7 @@ export const inquiryApi = {
     console.log('Request data:', data);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/inquiries`, {
+      const response = await safeFetch(`${API_BASE_URL}/inquiries`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
@@ -93,7 +93,7 @@ export const inquiryApi = {
 
   // Update an existing inquiry
   async updateInquiry(id: string, data: InquiryFormData): Promise<Inquiry> {
-    const response = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/inquiries/${id}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),
@@ -108,7 +108,7 @@ export const inquiryApi = {
 
   // Delete an inquiry
   async deleteInquiry(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/inquiries/${id}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),
@@ -122,7 +122,7 @@ export const inquiryApi = {
   
   // Delete an attachment from an inquiry
   async deleteAttachment(inquiryId: string, attachmentId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/inquiries/${inquiryId}/attachments/${attachmentId}`, {
+    const response = await safeFetch(`${API_BASE_URL}/inquiries/${inquiryId}/attachments/${attachmentId}`, {
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),

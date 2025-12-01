@@ -7,6 +7,8 @@ use App\Models\Staff;
 use App\Models\Block;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class StaffCheckInCheckOutController extends Controller
@@ -283,7 +285,7 @@ class StaffCheckInCheckOutController extends Controller
     public function checkIn(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -385,7 +387,7 @@ class StaffCheckInCheckOutController extends Controller
     public function checkOut(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -579,7 +581,7 @@ class StaffCheckInCheckOutController extends Controller
     public function getMyRecords()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -602,8 +604,8 @@ class StaffCheckInCheckOutController extends Controller
                 'data' => $records
             ]);
         } catch (\Exception $e) {
-            \Log::error('getMyRecords error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('getMyRecords error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'error' => 'Failed to fetch your check-in/checkout records',
                 'message' => $e->getMessage()
@@ -617,7 +619,7 @@ class StaffCheckInCheckOutController extends Controller
     public function getMyRecord($id)
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
@@ -644,8 +646,8 @@ class StaffCheckInCheckOutController extends Controller
                 'data' => $record
             ]);
         } catch (\Exception $e) {
-            \Log::error('getMyRecord error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('getMyRecord error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'error' => 'Failed to fetch record',
                 'message' => $e->getMessage()
@@ -659,7 +661,7 @@ class StaffCheckInCheckOutController extends Controller
     public function getMyTodayAttendance()
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);

@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Services\ImageService;
 use App\Services\DateService;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class RoomController extends Controller
@@ -27,7 +28,11 @@ class RoomController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Room::with(['block', 'students']);
+            $query = Room::select(['id','room_name','capacity','block_id','room_type','status','created_at'])
+                ->with(['block:id,block_name'])
+                ->withCount(['students as occupied_beds' => function($q){
+                    $q->where('is_active', true);
+                }]);
 
             // Filter by block_id if provided
             if ($request->has('block_id')) {
@@ -43,8 +48,8 @@ class RoomController extends Controller
                 $query->where('room_type', $request->room_type);
             }
 
-            // Filter by vacancy if requested
-            if ($request->has('has_vacancy') && $request->has_vacancy) {
+            // Filter by vacancy if requested (supports boolean-like inputs)
+            if ($request->boolean('has_vacancy', false)) {
                 $query->hasVacancy();
             }
 
@@ -54,13 +59,7 @@ class RoomController extends Controller
             
             // Calculate occupancy and actual status for each room
             foreach ($rooms as $room) {
-                $room->occupied_beds = $room->students->count();
-                $room->vacant_beds = max(0, $room->capacity - $room->occupied_beds);
-                
-                // Only apply status filtering here if requested
-                if ($requestedStatus && $room->status !== $requestedStatus) {
-                    $rooms->forget($room->id);
-                }
+                $room->vacant_beds = max(0, $room->capacity - ($room->occupied_beds ?? 0));
             }
             
             return response()->json($rooms);
@@ -83,7 +82,7 @@ class RoomController extends Controller
         ]);
 
         try {
-            \Log::info('Room creation started', ['request' => $request->except('room_attachment')]);
+            Log::info('Room creation started', ['request' => $request->except('room_attachment')]);
 
             $roomData = $request->except('room_attachment');
             $roomData['created_at'] = $this->dateService->getCurrentDateTime();
@@ -91,7 +90,7 @@ class RoomController extends Controller
             // Handle file upload if present
             if ($request->hasFile('room_attachment')) {
                 try {
-                    \Log::info('Room attachment upload attempt', [
+                    Log::info('Room attachment upload attempt', [
                         'original_name' => $request->file('room_attachment')->getClientOriginalName(),
                         'mime' => $request->file('room_attachment')->getMimeType(),
                         'size' => $request->file('room_attachment')->getSize(),
@@ -101,13 +100,13 @@ class RoomController extends Controller
                     $path = $request->file('room_attachment')->store('rooms', 'public');
                     
                     if ($path) {
-                        \Log::info('Room attachment stored successfully', ['path' => $path]);
+                        Log::info('Room attachment stored successfully', ['path' => $path]);
                         $roomData['room_attachment'] = $path;
                     } else {
                         throw new \Exception("Failed to store the room image");
                     }
                 } catch (\Exception $e) {
-                    \Log::error('Room attachment upload failed', [
+                    Log::error('Room attachment upload failed', [
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString()
                     ]);
@@ -204,7 +203,7 @@ class RoomController extends Controller
             // Handle file upload if present
             if ($request->hasFile('room_attachment')) {
                 try {
-                    \Log::info('Room attachment update attempt', [
+                    Log::info('Room attachment update attempt', [
                         'original_name' => $request->file('room_attachment')->getClientOriginalName(),
                         'mime' => $request->file('room_attachment')->getMimeType(),
                         'size' => $request->file('room_attachment')->getSize(),
@@ -219,13 +218,13 @@ class RoomController extends Controller
                     $path = $request->file('room_attachment')->store('rooms', 'public');
                     
                     if ($path) {
-                        \Log::info('Room attachment updated successfully', ['path' => $path]);
+                        Log::info('Room attachment updated successfully', ['path' => $path]);
                         $roomData['room_attachment'] = $path;
                     } else {
                         throw new \Exception("Failed to store the room image");
                     }
                 } catch (\Exception $e) {
-                    \Log::error('Room attachment update failed', [
+                    Log::error('Room attachment update failed', [
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString()
                     ]);

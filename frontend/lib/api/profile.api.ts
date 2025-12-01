@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 
 export interface UserProfile {
@@ -10,7 +10,7 @@ export interface UserProfile {
   updated_at: string;
   staff_name?: string;  // For staff
   student_name?: string;  // For students
-  [key: string]: any;  // Allow other properties from staff/student profiles
+  [key: string]: unknown;  // Allow other properties from staff/student profiles
 }
 
 export interface UpdateProfileData {
@@ -28,7 +28,7 @@ export const profileApi = {
   // Get current user profile
   async getProfile(): Promise<UserProfile> {
     // First, get the current user's role from /auth/me
-    const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+    const meResponse = await safeFetch(`${API_BASE_URL}/auth/me`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -50,7 +50,7 @@ export const profileApi = {
 
     // For admin, use the /admin/profile endpoint
     if (role === 'admin') {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await safeFetch(`${API_BASE_URL}${endpoint}`, {
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
@@ -59,12 +59,16 @@ export const profileApi = {
         },
       });
       
-      const result = await handleResponse<{ status: string; data: UserProfile }>(response);
-      return result.data || result as any;
+      const result = await handleResponse<unknown>(response);
+      const maybe = result as { data?: UserProfile } | UserProfile;
+      if (maybe && typeof maybe === 'object' && 'data' in maybe && (maybe as { data?: UserProfile }).data) {
+        return (maybe as { data: UserProfile }).data!;
+      }
+      return maybe as UserProfile;
     }
     
     // For staff and student, get their profile which includes more details
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await safeFetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -73,7 +77,7 @@ export const profileApi = {
       },
     });
     
-    const profileData = await handleResponse<any>(response);
+    const profileData = await handleResponse<unknown>(response);
     
     // Merge user data with profile data
     return {
@@ -90,7 +94,7 @@ export const profileApi = {
   // Update profile (email)
   async updateProfile(data: UpdateProfileData): Promise<UserProfile> {
     // First, get the current user's role from /auth/me
-    const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+    const meResponse = await safeFetch(`${API_BASE_URL}/auth/me`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -109,7 +113,7 @@ export const profileApi = {
       endpoint = '/student/profile';
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await safeFetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),
@@ -119,13 +123,17 @@ export const profileApi = {
       body: JSON.stringify(data),
     });
     
-    const result = await handleResponse<{ status: string; data: UserProfile }>(response);
-    return result.data || result as any;
+    const result = await handleResponse<unknown>(response);
+    const maybe2 = result as { data?: UserProfile } | UserProfile;
+    if (maybe2 && typeof maybe2 === 'object' && 'data' in maybe2 && (maybe2 as { data?: UserProfile }).data) {
+      return (maybe2 as { data: UserProfile }).data!;
+    }
+    return maybe2 as UserProfile;
   },
 
   // Change password
   async changePassword(data: ChangePasswordData): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    const response = await safeFetch(`${API_BASE_URL}/auth/change-password`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),

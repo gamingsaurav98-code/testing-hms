@@ -66,7 +66,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
       }
     } catch (error: any) {
-      console.error('Background auth check failed:', error);
+      // Network / timeout errors are expected occasionally and shouldn't be noisy
+      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
+        console.debug('Background auth check failed (network/timeout):', error.message || error);
+      } else {
+        console.error('Background auth check failed:', error);
+      }
       // Only remove token for known auth errors (401/403). For network or transient errors keep the token so
       // in-flight requests won't be affected by premature deletion by this background check.
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
@@ -90,7 +95,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('hms_user');
       }
     } catch (error: any) {
-      console.error('Quick auth check failed:', error);
+      // Quietly handle network or timeout errors on quick auth check — only
+      // escalate actual authentication failures (401/403) which we handle below.
+      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
+        console.debug('Quick auth check failed (network/timeout):', error.message || error);
+      } else {
+        console.error('Quick auth check failed:', error);
+      }
       // Only remove token for authentication errors; network errors shouldn't wipe the token
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         tokenStorage.remove();

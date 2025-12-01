@@ -1,4 +1,4 @@
-import { API_BASE_URL, handleResponse, PaginatedResponse } from './core';
+import { API_BASE_URL, handleResponse, PaginatedResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 
 export interface IncomeType {
@@ -17,7 +17,7 @@ export interface IncomeTypeFormData {
 export const incomeTypeApi = {
   // Get all income types with pagination
   async getIncomeTypes(page: number = 1): Promise<PaginatedResponse<IncomeType>> {
-    const response = await fetch(`${API_BASE_URL}/income-types?page=${page}`, {
+    const response = await safeFetch(`${API_BASE_URL}/income-types?page=${page}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -26,17 +26,17 @@ export const incomeTypeApi = {
 
   // Get all income types without pagination
   async getAllIncomeTypes(): Promise<IncomeType[]> {
-    const response = await fetch(`${API_BASE_URL}/income-types?all=true`, {
+    const response = await safeFetch(`${API_BASE_URL}/income-types?all=true`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
-    const data = await handleResponse<IncomeType[] | any>(response);
+    const data = await handleResponse<unknown>(response);
     
     // Ensure we return an array
     if (Array.isArray(data)) {
       return data;
-    } else if (data && data.data && Array.isArray(data.data)) {
-      return data.data;
+    } else if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as { data?: unknown }).data)) {
+      return (data as { data: IncomeType[] }).data;
     } else {
       return [];
     }
@@ -44,7 +44,7 @@ export const incomeTypeApi = {
 
   // Get a single income type by ID
   async getIncomeType(id: string): Promise<IncomeType> {
-    const response = await fetch(`${API_BASE_URL}/income-types/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/income-types/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -53,7 +53,7 @@ export const incomeTypeApi = {
 
   // Create a new income type
   async createIncomeType(data: IncomeTypeFormData): Promise<IncomeType> {
-    const response = await fetch(`${API_BASE_URL}/income-types`, {
+    const response = await safeFetch(`${API_BASE_URL}/income-types`, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
@@ -66,7 +66,7 @@ export const incomeTypeApi = {
 
   // Update an existing income type
   async updateIncomeType(id: string, data: IncomeTypeFormData): Promise<IncomeType> {
-    const response = await fetch(`${API_BASE_URL}/income-types/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/income-types/${id}`, {
       method: 'PUT',
       headers: {
         ...getAuthHeaders(),
@@ -79,7 +79,7 @@ export const incomeTypeApi = {
 
   // Delete an income type
   async deleteIncomeType(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/income-types/${id}`, {
+    const response = await safeFetch(`${API_BASE_URL}/income-types/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

@@ -3,7 +3,7 @@
  * Ensures data consistency across Admin, Staff, and Student portals
  */
 
-import { API_BASE_URL, handleResponse } from './core';
+import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
 import { studentApi } from './student.api';
 import { staffApi } from './staff.api';
@@ -14,19 +14,19 @@ export type UserRole = 'admin' | 'staff' | 'student';
 
 export interface UnifiedStudentData {
   id: string;
-  profile: any;
-  checkInOut: any[];
-  financial: any[];
-  complaints: any[];
+  profile: unknown;
+  checkInOut: unknown[];
+  financial: unknown[];
+  complaints: unknown[];
 }
 
 export interface UnifiedStaffData {
   id: string;
-  profile: any;
-  checkInOut: any[];
-  financial: any[];
-  complaints: any[];
-  salary: any[];
+  profile: unknown;
+  checkInOut: unknown[];
+  financial: unknown[];
+  complaints: unknown[];
+  salary: unknown[];
 }
 
 export interface UnifiedComplaintData {
@@ -35,9 +35,9 @@ export interface UnifiedComplaintData {
   description: string;
   status: string;
   created_at: string;
-  student?: any;
-  staff?: any;
-  chats?: any[];
+  student?: unknown;
+  staff?: unknown;
+  chats?: unknown[];
 }
 
 export interface DashboardSyncData {
@@ -75,10 +75,10 @@ export class UnifiedApi {
       if (userRole === 'admin') {
         // Admin has full access
         const [profileRes, checkInOutRes, financialRes, complaintsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/students/${studentId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student-checkincheckouts?student_id=${studentId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student-financials?student_id=${studentId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/complains?student_id=${studentId}`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/students/${studentId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student-checkincheckouts?student_id=${studentId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student-financials?student_id=${studentId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/complains?student_id=${studentId}`, { headers: getAuthHeaders() })
         ]);
 
         profile = await handleResponse(profileRes);
@@ -88,10 +88,10 @@ export class UnifiedApi {
       } else if (userRole === 'student') {
         // Student has limited access to own data
         const [profileRes, checkInOutRes, financialRes, complaintsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/student/profile`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student/checkincheckout-history`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student/payment-history`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student/complains`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/student/profile`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student/checkincheckout-history`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student/payment-history`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student/complains`, { headers: getAuthHeaders() })
         ]);
 
         profile = await handleResponse(profileRes);
@@ -106,9 +106,9 @@ export class UnifiedApi {
       return {
         id: studentId,
         profile,
-        checkInOut: Array.isArray(checkInOut) ? checkInOut : (checkInOut as any)?.data || [],
-        financial: Array.isArray(financial) ? financial : (financial as any)?.data || [],
-        complaints: Array.isArray(complaints) ? complaints : (complaints as any)?.data || []
+        checkInOut: Array.isArray(checkInOut) ? checkInOut : (checkInOut as { data?: unknown[] })?.data || [],
+        financial: Array.isArray(financial) ? financial : (financial as { data?: unknown[] })?.data || [],
+        complaints: Array.isArray(complaints) ? complaints : (complaints as { data?: unknown[] })?.data || []
       };
     } catch (error) {
       console.error('Error fetching unified student data:', error);
@@ -126,11 +126,11 @@ export class UnifiedApi {
       if (userRole === 'admin') {
         // Admin has full access
         const [profileRes, checkInOutRes, financialRes, complaintsRes, salaryRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/staff/${staffId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff-checkincheckouts?staff_id=${staffId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff-financials?staff_id=${staffId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/complains?staff_id=${staffId}`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/${staffId}/salaries`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/staff/${staffId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff-checkincheckouts?staff_id=${staffId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff-financials?staff_id=${staffId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/complains?staff_id=${staffId}`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/${staffId}/salaries`, { headers: getAuthHeaders() })
         ]);
 
         profile = await handleResponse(profileRes);
@@ -141,11 +141,11 @@ export class UnifiedApi {
       } else if (userRole === 'staff') {
         // Staff has limited access to own data
         const [profileRes, checkInOutRes, financialRes, complaintsRes, salaryRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/staff/profile`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/checkincheckout-history`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/financials`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/complains`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/salary-history`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/staff/profile`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/checkincheckout-history`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/financials`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/complains`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/salary-history`, { headers: getAuthHeaders() })
         ]);
 
         profile = await handleResponse(profileRes);
@@ -161,10 +161,10 @@ export class UnifiedApi {
       return {
         id: staffId,
         profile,
-        checkInOut: Array.isArray(checkInOut) ? checkInOut : (checkInOut as any)?.data || [],
-        financial: Array.isArray(financial) ? financial : (financial as any)?.data || [],
-        complaints: Array.isArray(complaints) ? complaints : (complaints as any)?.data || [],
-        salary: Array.isArray(salary) ? salary : (salary as any)?.data || []
+        checkInOut: Array.isArray(checkInOut) ? checkInOut : (checkInOut as { data?: unknown[] })?.data || [],
+        financial: Array.isArray(financial) ? financial : (financial as { data?: unknown[] })?.data || [],
+        complaints: Array.isArray(complaints) ? complaints : (complaints as { data?: unknown[] })?.data || [],
+        salary: Array.isArray(salary) ? salary : (salary as { data?: unknown[] })?.data || []
       };
     } catch (error) {
       console.error('Error fetching unified staff data:', error);
@@ -189,8 +189,8 @@ export class UnifiedApi {
         throw new Error('Invalid user role');
       }
 
-      const response = await fetch(endpoint, { headers: getAuthHeaders() });
-      const complaint = await handleResponse(response) as any;
+      const response = await safeFetch(endpoint, { headers: getAuthHeaders() });
+      const complaint = await handleResponse<unknown>(response);
 
       return {
         id: complaintId,
@@ -218,21 +218,21 @@ export class UnifiedApi {
       if (userRole === 'admin') {
         // Admin gets full system statistics
         const [studentsRes, staffRes, complaintsRes, incomeRes, expenseRes, salaryStatsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/students?paginate=false`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff?paginate=false`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/complains?paginate=false`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/incomes/statistics`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/expenses/statistics`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/salaries/statistics`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/students?paginate=false`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff?paginate=false`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/complains?paginate=false`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/incomes/statistics`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/expenses/statistics`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/salaries/statistics`, { headers: getAuthHeaders() })
         ]);
 
         const [students, staff, complaints, incomeStats, expenseStats, salaryStats] = await Promise.all([
-          handleResponse(studentsRes) as any,
-          handleResponse(staffRes) as any,
-          handleResponse(complaintsRes) as any,
-          handleResponse(incomeRes) as any,
-          handleResponse(expenseRes) as any,
-          handleResponse(salaryStatsRes) as any
+          handleResponse<unknown>(studentsRes),
+          handleResponse<unknown>(staffRes),
+          handleResponse<unknown>(complaintsRes),
+          handleResponse<unknown>(incomeRes),
+          handleResponse<unknown>(expenseRes),
+          handleResponse<unknown>(salaryStatsRes)
         ]);
 
         return {
@@ -250,10 +250,10 @@ export class UnifiedApi {
           complaints: {
             total: Array.isArray(complaints) ? complaints.length : complaints?.data?.length || 0,
             pending: Array.isArray(complaints) 
-              ? complaints.filter((c: any) => c.status === 'pending').length 
+              ? complaints.filter((c: unknown) => (c as { status?: string }).status === 'pending').length 
               : 0,
             resolved: Array.isArray(complaints) 
-              ? complaints.filter((c: any) => c.status === 'resolved').length 
+              ? complaints.filter((c: unknown) => (c as { status?: string }).status === 'resolved').length 
               : 0
           },
           financial: {
@@ -265,15 +265,15 @@ export class UnifiedApi {
       } else if (userRole === 'student') {
         // Student gets limited personal data
         const [profileRes, complaintsRes, paymentsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/student/profile`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student/complains`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/student/payment-history`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/student/profile`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student/complains`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/student/payment-history`, { headers: getAuthHeaders() })
         ]);
 
         const [profile, complaints, payments] = await Promise.all([
-          handleResponse(profileRes) as any,
-          handleResponse(complaintsRes) as any,
-          handleResponse(paymentsRes) as any
+          handleResponse<unknown>(profileRes),
+          handleResponse<unknown>(complaintsRes),
+          handleResponse<unknown>(paymentsRes)
         ]);
 
         return {
@@ -287,10 +287,10 @@ export class UnifiedApi {
           complaints: {
             total: Array.isArray(complaints) ? complaints.length : complaints?.data?.length || 0,
             pending: Array.isArray(complaints) 
-              ? complaints.filter((c: any) => c.status === 'pending').length 
+              ? complaints.filter((c: unknown) => (c as { status?: string }).status === 'pending').length 
               : 0,
             resolved: Array.isArray(complaints) 
-              ? complaints.filter((c: any) => c.status === 'resolved').length 
+              ? complaints.filter((c: unknown) => (c as { status?: string }).status === 'resolved').length 
               : 0
           },
           financial: {
@@ -302,15 +302,15 @@ export class UnifiedApi {
       } else if (userRole === 'staff') {
         // Staff gets limited operational data
         const [profileRes, complaintsRes, salaryRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/staff/profile`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/complains`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE_URL}/staff/salary-history`, { headers: getAuthHeaders() })
+          safeFetch(`${API_BASE_URL}/staff/profile`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/complains`, { headers: getAuthHeaders() }),
+          safeFetch(`${API_BASE_URL}/staff/salary-history`, { headers: getAuthHeaders() })
         ]);
 
         const [profile, complaints, salary] = await Promise.all([
-          handleResponse(profileRes) as any,
-          handleResponse(complaintsRes) as any,
-          handleResponse(salaryRes) as any
+          handleResponse<unknown>(profileRes),
+          handleResponse<unknown>(complaintsRes),
+          handleResponse<unknown>(salaryRes)
         ]);
 
         return {
@@ -326,10 +326,10 @@ export class UnifiedApi {
           complaints: {
             total: Array.isArray(complaints) ? complaints.length : complaints?.data?.length || 0,
             pending: Array.isArray(complaints) 
-              ? complaints.filter((c: any) => c.status === 'pending').length 
+              ? complaints.filter((c: unknown) => (c as { status?: string }).status === 'pending').length 
               : 0,
             resolved: Array.isArray(complaints) 
-              ? complaints.filter((c: any) => c.status === 'resolved').length 
+              ? complaints.filter((c: unknown) => (c as { status?: string }).status === 'resolved').length 
               : 0
           },
           financial: {
