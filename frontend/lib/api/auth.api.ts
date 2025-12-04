@@ -38,7 +38,7 @@ export interface UserPermissions {
 }
 
 export interface LoginRequest {
-  user_id: string;
+  email: string;
   password: string;
 }
 
@@ -149,12 +149,13 @@ export function getAuthHeadersForFormData(): Record<string, string> {
 export const authApi = {
   // Login user
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await safeFetch(`${API_BASE_URL}/auth/login`, {
+    const response = await safeFetch(`/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(credentials),
     });
 
@@ -212,9 +213,11 @@ export const authApi = {
     console.log('Auth headers:', headers);
     
     try {
-      const response = await safeFetch(`${API_BASE_URL}/auth/logout`, {
+      const response = await safeFetch(`/auth/logout`, {
         method: 'POST',
         headers: headers,
+        credentials: 'include',
+
       });
 
       console.log('Logout response status:', response.status);
