@@ -15,10 +15,12 @@ export default function BedsSummaryCard({ timeoutMs }: { timeoutMs?: number }) {
     const load = async () => {
       setLoading(true);
       try {
-        // Let adminApi choose its default timeout if none provided
-        const resRaw: unknown = await adminApi.getDashboardStats(timeoutMs).catch(() => null);
+        // Let adminApi choose its default timeout if none provided.
+        // Pass the timeout as an options object (adminApi expects { timeoutMs })
+        const resRaw: unknown = await adminApi.getDashboardStats({ timeoutMs }).catch(() => null);
         if (!mounted) return;
-        const res = resRaw as { rooms?: Record<string, unknown> } | null;
+        // Be defensive about the return shape — the API may return null/array/object
+        const res = (resRaw && typeof resRaw === 'object') ? (resRaw as { rooms?: Record<string, unknown> }) : null;
         const rooms = (res?.rooms ?? {}) as Record<string, unknown>;
         const totalCapacity = Number(rooms['total_capacity'] ?? 0);
         const occupied = Number(rooms['occupied_beds'] ?? 0);

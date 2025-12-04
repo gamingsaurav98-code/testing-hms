@@ -179,21 +179,8 @@ export default function StudentStructure({ children }: { children: React.ReactNo
     },
   ];
 
-  // Group items by category
-  const groupedItems = sidebarItems.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, typeof sidebarItems>);
-
-  const categoryLabels = {
-    core: "Dashboard",
-    operations: "Activities", 
-    financial: "Financial",
-    communication: "Communication",
-  };
+  // sidebarItems is used directly for rendering in this component. Remove
+  // unused grouped helpers to avoid ESLint no-unused-vars warnings.
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">

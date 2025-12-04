@@ -1,7 +1,6 @@
 import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
-import { Block, BlockFormData } from './types';
-import { PaginatedResponse } from './core';
+import { Block, BlockFormData, PaginatedResponse } from './types';
 
 // Block API functions
 export const blockApi = {

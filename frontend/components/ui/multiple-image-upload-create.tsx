@@ -101,6 +101,7 @@ export function MultipleImageUploadCreate({
               {images.map((file, index) => (
                 <div key={`new-${index}`} className="image-preview relative group">
                   <div className="aspect-square w-full rounded-lg overflow-hidden border border-green-200 relative transition-all duration-200 hover:border-green-300">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- using object URL previews for newly-selected files; next/image isn't suitable for blob/object URLs */}
                     <img 
                       src={URL.createObjectURL(file)} 
                       alt={`Additional image ${index + 1}`}

@@ -154,7 +154,7 @@ export const staffCheckInCheckOutApi = {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
       )
     });
 
@@ -219,8 +219,8 @@ export const staffCheckInCheckOutApi = {
       console.log('Checkin response headers:', Object.fromEntries(response.headers.entries()));
       
       return handleResponse<{ data: StaffCheckInCheckOut }>(response);
-    } catch (error) {
-      console.error('Checkin API error:', error);
+    } catch (err) {
+      console.error('Checkin API error:', err);
       throw new Error('Failed to check in. Please try again.');
     }
   },
@@ -354,7 +354,7 @@ export const staffCheckInCheckOutApi = {
       
       const result = await handleResponse<{ data: StaffCheckInCheckOut[] }>(response);
       return result;
-    } catch (error) {
+    } catch {
       // Return empty data instead of throwing error to prevent crashes
       return { data: [] };
     }
@@ -395,7 +395,7 @@ export const staffCheckoutRuleApi = {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
       )
     });
 
@@ -460,11 +460,11 @@ export const staffCheckoutRuleApi = {
   },
 
   // Get rule preview
-  async getRulePreview(staffId: string): Promise<{ data: any }> {
+  async getRulePreview(staffId: string): Promise<{ data: unknown }> {
     const response = await safeFetch(`${API_BASE_URL}/staff-checkout-rules/preview/${staffId}`, {
       headers: getAuthHeaders(),
     });
-    return handleResponse<{ data: any }>(response);
+    return handleResponse<{ data: unknown }>(response);
   },
 };
 
@@ -487,7 +487,7 @@ export const staffCheckoutFinancialApi = {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
       )
     });
 
@@ -511,7 +511,7 @@ export const staffCheckoutFinancialApi = {
     endDate?: string, 
     blockId?: string,
     department?: string
-  ): Promise<{ data: any }> {
+  ): Promise<{ data: unknown }> {
     const queryParams = new URLSearchParams();
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
@@ -521,6 +521,6 @@ export const staffCheckoutFinancialApi = {
     const response = await safeFetch(`${API_BASE_URL}/staff-checkout-financials/statistics/overview?${queryParams}`, {
       headers: getAuthHeaders(),
     });
-    return handleResponse<{ data: any }>(response);
+    return handleResponse<{ data: unknown }>(response);
   }
 };

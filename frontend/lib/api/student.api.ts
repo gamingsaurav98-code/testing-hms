@@ -129,9 +129,9 @@ export const studentApi = {
 
     // In-memory cache stored on module-level studentApi (we'll add it later if absent)
     // Attempt to read cached value
-    // @ts-ignore
+    // @ts-expect-error -- module-level cache is attached dynamically at runtime; TS doesn't know about it
     if (!forceRefresh && studentApi._studentsCache && studentApi._studentsCache.has(cacheKey)) {
-      // @ts-ignore
+      // @ts-expect-error -- cached type is dynamic and initialized lazily, assert presence for runtime
       const cached = studentApi._studentsCache.get(cacheKey)!;
       if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as StudentWithAmenities[]);
     }
@@ -142,7 +142,7 @@ export const studentApi = {
       try {
         const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json', 'Content-Type': 'application/json' }, signal }, timeoutMs);
         const data = await handleResponse<StudentWithAmenities[]>(resp);
-        // @ts-ignore
+        // @ts-expect-error -- writing into a runtime-initialized cache map; TS type not declared
         if (studentApi._studentsCache) studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
         return data;
       } catch (err) {
@@ -161,9 +161,9 @@ export const studentApi = {
     const TTL = 3000;
     const now = Date.now();
 
-    // @ts-ignore
+    // @ts-expect-error -- module-level cache map is attached dynamically, not typed in this file
     if (!forceRefresh && studentApi._studentsCache && studentApi._studentsCache.has(cacheKey)) {
-      // @ts-ignore
+      // @ts-expect-error -- referencing runtime-initialized _studentsCache map, suppress static error
       const cached = studentApi._studentsCache.get(cacheKey)!;
       if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as StudentWithAmenities[]);
     }
@@ -174,7 +174,7 @@ export const studentApi = {
       try {
         const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json', 'Content-Type': 'application/json' }, signal }, timeoutMs);
         const data = await handleResponse<StudentWithAmenities[]>(resp);
-        // @ts-ignore
+        // @ts-expect-error -- _studentsCache may be undefined to TS but is lazily created at runtime
         if (studentApi._studentsCache) studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
         return data;
       } catch (err) {
@@ -211,7 +211,8 @@ export const studentApi = {
           attempt++;
           try {
             const response = await fetchWithTimeout(url, { method: 'GET', headers: getAuthHeaders(), signal }, timeoutMs);
-            console.log(`Student API response status: ${response.status}`);
+            const took = Date.now() - start;
+            console.log(`Student API response status: ${response.status} (took ${took}ms)`);
             const data = await handleResponse<PaginatedResponse<StudentWithAmenities>>(response);
             studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
             return data;
@@ -326,15 +327,17 @@ export const studentApi = {
     }
     
     // Handle removed citizenship document IDs
-    if ((data as any).removedCitizenshipDocIds && Array.isArray((data as any).removedCitizenshipDocIds)) {
-      (data as any).removedCitizenshipDocIds.forEach((id: number, index: number) => {
+    const removedCitizenshipDocIds = (data as unknown as { removedCitizenshipDocIds?: number[] }).removedCitizenshipDocIds;
+    if (removedCitizenshipDocIds && Array.isArray(removedCitizenshipDocIds)) {
+      removedCitizenshipDocIds.forEach((id: number, index: number) => {
         formData.append(`removedCitizenshipDocIds[${index}]`, String(id));
       });
     }
     
     // Handle removed registration document IDs
-    if ((data as any).removedRegistrationDocIds && Array.isArray((data as any).removedRegistrationDocIds)) {
-      (data as any).removedRegistrationDocIds.forEach((id: number, index: number) => {
+    const removedRegistrationDocIds = (data as unknown as { removedRegistrationDocIds?: number[] }).removedRegistrationDocIds;
+    if (removedRegistrationDocIds && Array.isArray(removedRegistrationDocIds)) {
+      removedRegistrationDocIds.forEach((id: number, index: number) => {
         formData.append(`removedRegistrationDocIds[${index}]`, String(id));
       });
     }
@@ -411,53 +414,53 @@ export const studentApi = {
   },
 
   // Get current student's complaints
-  async getStudentComplains(): Promise<any> {
+  async getStudentComplains(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/student/complains`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current student's payment history
-  async getStudentPayments(): Promise<any> {
+  async getStudentPayments(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/student/payment-history`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current student's check-in/out records
-  async getStudentCheckInOuts(): Promise<any> {
+  async getStudentCheckInOuts(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current student's notices
-  async getStudentNotices(): Promise<any> {
+  async getStudentNotices(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/student/notices`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get a specific student notice by ID
-  async getStudentNotice(id: string): Promise<any> {
+  async getStudentNotice(id: string): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/student/notices/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current student's outstanding dues
@@ -504,7 +507,7 @@ export const studentApi = {
     title: string;
     description: string;
     complain_attachment?: File;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const formData = new FormData();
     
     formData.append('title', data.title);
@@ -519,17 +522,17 @@ export const studentApi = {
       body: formData,
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get a specific student complaint
-  async getStudentComplaint(id: string): Promise<any> {
+  async getStudentComplaint(id: string): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/student/complains/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Update a specific student complaint
@@ -537,7 +540,7 @@ export const studentApi = {
     title: string;
     description: string;
     complain_attachment?: File;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const formData = new FormData();
     
     formData.append('_method', 'PUT');
@@ -553,7 +556,7 @@ export const studentApi = {
       body: formData,
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Delete a specific student complaint
@@ -566,6 +569,22 @@ export const studentApi = {
     return handleResponse<void>(response);
   }
 };
+
+// Initialize runtime caches on the exported object so callers can safely use
+// studentApi._studentsCache and studentApi._studentsPromises without null checks.
+// These are populated lazily but must exist to avoid runtime TypeErrors like
+// "Cannot read properties of undefined (reading 'has')" when code calls .has/.get.
+type _StudentCacheEntry = { data: unknown; fetchedAt: number };
+
+// Concrete runtime shape for the small pieces of state we attach to studentApi
+type StudentApiRuntime = {
+  _studentsCache?: Map<string, _StudentCacheEntry>;
+  _studentsPromises?: Map<string, Promise<unknown>>;
+};
+
+const runtime = studentApi as unknown as StudentApiRuntime;
+runtime._studentsCache = runtime._studentsCache ?? new Map<string, _StudentCacheEntry>();
+runtime._studentsPromises = runtime._studentsPromises ?? new Map<string, Promise<unknown>>();
 
 // Student Financial API functions
 export const studentFinancialApi = {

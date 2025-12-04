@@ -1,20 +1,20 @@
 import { API_BASE_URL, handleResponse, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders } from './auth.api';
 
-// Simple short-lived cache and inflight-promise holder so multiple
+// Simple short-lived cache and inflight- promise holder so multiple
 // concurrent callers (several cards rendering on the same page)
 // do not issue duplicated heavy requests to the same aggregated
 // dashboard endpoint.
 let _dashboardCache: { data: unknown; fetchedAt: number } | null = null;
 let _dashboardPromise: Promise<unknown> | null = null;
-const DASHBOARD_CACHE_TTL_MS = 4000; // 4s
+const DASHBOARD_CACHE_TTL_MS = 30000; // 30s
 
 export const adminApi = {
   // Small in-memory dedupe/cache so multiple concurrent cards don't
   // all hit the backend with identical heavy requests. Cache is short
   // lived so we avoid staleness while preventing duplicate inflight
   // requests during a page render.
-  async getDashboardStats({ timeoutMs = DEFAULT_API_TIMEOUT, forceRefresh = false, retries = 2 }:{ timeoutMs?: number, forceRefresh?: boolean, retries?: number } = {}): Promise<unknown> {
+  async getDashboardStats({ timeoutMs = DEFAULT_API_TIMEOUT, forceRefresh = false, retries = 1 }:{ timeoutMs?: number, forceRefresh?: boolean, retries?: number } = {}): Promise<unknown> {
     // Module-level in-memory cache / promise holder (initialized below)
     // will be used to dedupe multiple simultaneous calls.
     const url = `${API_BASE_URL}/admin/dashboard/stats`;

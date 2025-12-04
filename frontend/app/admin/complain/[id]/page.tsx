@@ -492,6 +492,7 @@ export default function ComplainDetail() {
             <div className="max-h-[70vh] overflow-auto">
               {complain.complain_attachment.match(/\.(jpg|jpeg|png|gif)$/i) ? (
                 <div className="p-6 flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- complaint attachment preview uses native <img> for onClick zoom and onError behavior */}
                   <img
                     src={getImageUrl(complain.complain_attachment)}
                     alt="Complaint Attachment"

@@ -121,8 +121,16 @@ export const incomeApi = {
       },
       signal,
     });
-    
-    return handleResponse<IncomeType[]>(response);
+    // Normalise responses: backend may return either an array or a paginated { data: [] } shape
+    const parsed = await handleResponse<unknown>(response);
+    if (Array.isArray(parsed)) return parsed as IncomeType[];
+    if (parsed && typeof parsed === 'object') {
+      const obj = parsed as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return obj.data as IncomeType[];
+    }
+
+    console.warn('incomeApi.getIncomeTypes: unexpected response shape, returning empty array', parsed);
+    return [];
   },
 
   // Create a new income
@@ -257,8 +265,16 @@ export const incomeApi = {
       },
       signal,
     });
-    
-    return handleResponse<PaymentType[]>(response);
+    // Normalize possible paginated shape
+    const parsed = await handleResponse<unknown>(response);
+    if (Array.isArray(parsed)) return parsed as PaymentType[];
+    if (parsed && typeof parsed === 'object') {
+      const obj = parsed as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return obj.data as PaymentType[];
+    }
+
+    console.warn('incomeApi.getPaymentTypes: unexpected response shape, returning empty array', parsed);
+    return [];
   },
 
   // Get all students for dropdown

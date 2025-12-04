@@ -1,5 +1,7 @@
 "use client"
 
+/* eslint-disable @next/next/no-img-element -- This file intentionally uses native <img> for previews and object URLs; next/image interferes with onError and blob/object URL workflows */
+
 import React from "react"
 import { X, Download, File, ExternalLink } from "lucide-react"
 
@@ -52,7 +54,7 @@ export function ImageModal({ show, imageUrl, alt, onClose }: ImageModalProps) {
         </a>
         
         {isImage ? (
-          // For images
+          
           <img
             src={fullImageUrl}
             alt={alt}

@@ -39,6 +39,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
+      - DOCKER=true
+      - NEXT_PUBLIC_API_URL=http://hms_backend:8000
     networks:
       - hms_network
 

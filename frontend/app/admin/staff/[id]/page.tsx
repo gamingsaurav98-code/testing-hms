@@ -155,6 +155,7 @@ export default function StaffDetail() {
             <div className="flex flex-col md:flex-row items-center md:items-start mb-6 pb-6 border-b border-gray-200">
               <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-4xl font-medium overflow-hidden mb-4 md:mb-0 md:mr-6">
                 {staff.staff_image ? (
+                  /* eslint-disable-next-line @next/next/no-img-element -- server-hosted profile images are safe to render with native <img> here; next/image can be adopted later */
                   <img 
                     src={getImageUrl(staff.staff_image)} 
                     alt={staff.staff_name}
@@ -673,6 +674,7 @@ export default function StaffDetail() {
                 {staff.staff_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted images shown as gallery/preview; keep native <img> to avoid layout shifts and support simple click handlers */}
                       <img 
                         src={getImageUrl(staff.staff_image)} 
                         alt="Staff Photo" 
@@ -690,6 +692,7 @@ export default function StaffDetail() {
                 {staff.staff_citizenship_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted document previews; keep native <img> for direct preview and click-to-open behavior */}
                       <img 
                         src={getImageUrl(staff.staff_citizenship_image)} 
                         alt="Citizenship Document" 
@@ -707,6 +710,7 @@ export default function StaffDetail() {
                 {staff.staff_contract_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted document previews; native <img> provides predictable behavior for click previews */}
                       <img 
                         src={getImageUrl(staff.staff_contract_image)} 
                         alt="Employment Contract" 

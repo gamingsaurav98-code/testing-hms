@@ -28,7 +28,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|string',
+            'email' => 'required|string',
             'password' => 'required',
         ]);
 
@@ -41,7 +41,7 @@ class AuthController extends Controller
         }
 
         try {
-            $credentials = $request->only('user_id', 'password');
+            $credentials = $request->only('email', 'password');
             $authData = $this->authService->authenticate($credentials);
 
             return response()->json([

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import StatCard from './StatCard';
 import adminApi from '@/lib/api/admin.api';
 
 export default function OutstandingDuesCard({ timeoutMs }: { timeoutMs?: number }) {
@@ -16,10 +15,11 @@ export default function OutstandingDuesCard({ timeoutMs }: { timeoutMs?: number 
       setLoading(true);
       try {
         // use adminApi default timeout when timeoutMs is not provided
-        const resRaw: unknown = await adminApi.getDashboardStats(timeoutMs).catch(() => null);
+        // pass the timeout as an options object (adminApi expects { timeoutMs })
+        const resRaw: unknown = await adminApi.getDashboardStats({ timeoutMs }).catch(() => null);
         if (!mounted) return;
-        const res = resRaw as { finance?: Record<string, unknown> } | null;
-        const finance = res?.finance ?? null as Record<string, unknown> | null;
+        const res = (resRaw && typeof resRaw === 'object') ? (resRaw as { finance?: Record<string, unknown> }) : null;
+        const finance = (res?.finance ?? null) as Record<string, unknown> | null;
         setTotal((finance?.['outstanding_total'] as number | string) ?? 0);
         setCount((finance?.['outstanding_count'] as number | string) ?? 0);
       } catch (err) {

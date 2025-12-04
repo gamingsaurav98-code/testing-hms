@@ -5,7 +5,7 @@ import StatCard from './StatCard';
 import { API_BASE_URL, handleResponse, fetchWithTimeout } from '@/lib/api/core';
 import { getAuthHeaders } from '@/lib/api/auth.api';
 
-export default function CurrentStudentsCard({ timeoutMs }: { timeoutMs?: number }) {
+export default function CurrentStudentsCard({ timeoutMs = 30000 }: { timeoutMs?: number }) {
   const [loading, setLoading] = useState(true);
   const [totalStudents, setTotalStudents] = useState<number | string>('—');
 
@@ -38,3 +38,4 @@ export default function CurrentStudentsCard({ timeoutMs }: { timeoutMs?: number 
     <StatCard title="Total Current Students" value={loading ? '—' : totalStudents} subtitle="Currently enrolled" icon="users" color="green" />
   );
 }
+ 

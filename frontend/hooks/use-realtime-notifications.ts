@@ -23,7 +23,7 @@ export interface NotificationUpdate {
   entityType: 'student' | 'staff' | 'complaint' | 'financial' | 'checkin' | 'checkout';
   entityId?: string;
   action: 'created' | 'updated' | 'deleted' | 'status_changed';
-  data: any;
+  data: unknown;
   timestamp: string;
   userRole: 'admin' | 'staff' | 'student';
   triggeredBy: string;
@@ -107,7 +107,7 @@ export const useRealtimeNotifications = (userRole: 'admin' | 'staff' | 'student'
             entityId: update.entityId,
             actionUrl: `/admin/complain/${update.entityId}`
           };
-        } else if (userRole === 'student' && update.data?.student_id) {
+        } else if (userRole === 'student' && (update.data as { student_id?: string })?.student_id) {
           notification = {
             type: update.action === 'status_changed' ? 'success' : 'info',
             title: 'Complaint Update',
@@ -116,7 +116,7 @@ export const useRealtimeNotifications = (userRole: 'admin' | 'staff' | 'student'
             entityId: update.entityId,
             actionUrl: `/student/complain/${update.entityId}`
           };
-        } else if (userRole === 'staff' && update.data?.staff_id) {
+        } else if (userRole === 'staff' && (update.data as { staff_id?: string })?.staff_id) {
           notification = {
             type: update.action === 'status_changed' ? 'success' : 'info',
             title: 'Complaint Update',

@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+// useRouter not required for this component: registration flow uses onSuccess callback
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
-import { authApi, tokenStorage } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
+import { authApi } from '@/lib/api';
 
 interface RegisterFormData {
   name: string;
@@ -29,24 +28,7 @@ export default function RegisterForm({ onSuccess, onBackToLogin }: RegisterFormP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const router = useRouter();
-  const { login } = useAuth();
-
-  const redirectToDashboard = (role: string) => {
-    switch (role) {
-      case 'admin':
-        router.push('/admin');
-        break;
-      case 'student':
-        router.push('/student');
-        break;
-      case 'staff':
-        router.push('/staff');
-        break;
-      default:
-        router.push('/admin'); // Default fallback
-    }
-  };
+  // login is intentionally not used during register flow; users sign up then manually login
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -112,17 +94,26 @@ export default function RegisterForm({ onSuccess, onBackToLogin }: RegisterFormP
           onSuccess();
         }, 3000);
       }
-    } catch (error: any) {
-      // Handle ApiError from our core.ts first, then fallback to other formats
-      if (error.message) {
-        setError(error.message);
-      } else if (error.response?.data?.message) {
-        setError(error.response.data.message);
-      } else if (error.response?.data?.errors) {
-        // Handle validation errors
-        const errors = error.response.data.errors;
-        const errorMessages = Object.values(errors).flat();
-        setError(errorMessages.join(', '));
+    } catch (error: unknown) {
+      // Be defensive when inspecting unknown error shapes without using `any`
+      if (typeof error === 'object' && error !== null) {
+        const e = error as {
+          message?: string;
+          response?: { data?: { message?: string; errors?: Record<string, string[]> } };
+        };
+
+        if (e.message) {
+          setError(e.message);
+        } else if (e.response?.data?.message) {
+          setError(e.response.data.message);
+        } else if (e.response?.data?.errors) {
+          // Handle validation errors
+          const errors = e.response.data.errors as Record<string, string[]>;
+          const errorMessages = Object.values(errors).flat();
+          setError(errorMessages.join(', '));
+        } else {
+          setError('Account creation failed. Please try again.');
+        }
       } else {
         setError('Account creation failed. Please try again.');
       }

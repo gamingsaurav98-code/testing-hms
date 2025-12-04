@@ -6,7 +6,7 @@ import { Search, X, Check, AlertCircle } from "lucide-react"
 interface Option {
   id: number | string
   label: string
-  value: any
+  value: unknown
 }
 
 interface MultiSelectSearchDropdownProps {

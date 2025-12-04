@@ -326,6 +326,8 @@ export const staffApi = {
         attempt++;
         try {
           const response = await fetchWithTimeout(url, { method: 'GET', headers: getAuthHeaders(), signal }, timeoutMs);
+          const took = Date.now() - start;
+          console.log(`Staff API response status: ${response.status} (took ${took}ms)`);
           const data = await handleResponse<PaginatedResponse<StaffWithAmenities>>(response);
           staffApi._staffCache.set(cacheKey, { data, fetchedAt: Date.now() });
           return data;
@@ -433,15 +435,17 @@ export const staffApi = {
     }
     
     // Handle removed citizenship document IDs
-    if ((data as any).removedCitizenshipDocIds && Array.isArray((data as any).removedCitizenshipDocIds)) {
-      (data as any).removedCitizenshipDocIds.forEach((id: number, index: number) => {
+    const removedCitizenshipDocIds = (data as unknown as { removedCitizenshipDocIds?: number[] }).removedCitizenshipDocIds;
+    if (removedCitizenshipDocIds && Array.isArray(removedCitizenshipDocIds)) {
+      removedCitizenshipDocIds.forEach((id: number, index: number) => {
         formData.append(`removedCitizenshipDocIds[${index}]`, String(id));
       });
     }
     
     // Handle removed contract document IDs
-    if ((data as any).removedContractDocIds && Array.isArray((data as any).removedContractDocIds)) {
-      (data as any).removedContractDocIds.forEach((id: number, index: number) => {
+    const removedContractDocIds = (data as unknown as { removedContractDocIds?: number[] }).removedContractDocIds;
+    if (removedContractDocIds && Array.isArray(removedContractDocIds)) {
+      removedContractDocIds.forEach((id: number, index: number) => {
         formData.append(`removedContractDocIds[${index}]`, String(id));
       });
     }
@@ -510,7 +514,7 @@ export const staffApi = {
   },
   
   // Get staff fields metadata
-  async getStaffFields(): Promise<any> {
+  async getStaffFields(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/staff/fields`, {
       method: 'GET',
       headers: {
@@ -520,17 +524,17 @@ export const staffApi = {
       },
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get staff payments (staff-specific endpoint)
-  async getStaffPayments(): Promise<any> {
+  async getStaffPayments(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/staff/payments`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Staff-specific methods for authenticated staff portal
@@ -559,23 +563,23 @@ export const staffApi = {
   },
 
   // Get current staff's check-in/out records
-  async getStaffCheckInOuts(): Promise<any> {
+  async getStaffCheckInOuts(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/my-staff/my-checkincheckouts`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current staff's complaints
-  async getStaffComplains(): Promise<any> {
+  async getStaffComplains(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/my-staff/complaints-list`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Create a new staff complaint
@@ -583,7 +587,7 @@ export const staffApi = {
     title: string;
     description: string;
     complain_attachment?: File;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const formData = new FormData();
     
     formData.append('title', data.title);
@@ -598,46 +602,46 @@ export const staffApi = {
       body: formData,
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get a specific staff complaint
-  async getStaffComplaint(id: string): Promise<any> {
+  async getStaffComplaint(id: string): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/my-staff/complaints-view/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current staff's notices
-  async getStaffNotices(): Promise<any> {
+  async getStaffNotices(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/my-staff/notices`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get a specific staff notice by ID
-  async getStaffNotice(id: string): Promise<any> {
+  async getStaffNotice(id: string): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/my-staff/notices/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   },
 
   // Get current staff's salary history
-  async getStaffSalaryHistory(): Promise<any> {
+  async getStaffSalaryHistory(): Promise<unknown> {
     const response = await safeFetch(`${API_BASE_URL}/my-staff/salary-history`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   }
 };

@@ -168,6 +168,7 @@ export function SingleImageUploadEdit({
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Current</p>
                 <div className="relative inline-block group">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- existing image preview uses server URL and needs native <img> for straightforward preview and onClick */}
                   <img
                     src={existingImageUrl!}
                     alt="Current image"
@@ -186,6 +187,7 @@ export function SingleImageUploadEdit({
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">New</p>
                 <div className="relative inline-block group">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- new image preview (object URL) — next/image does not support blob/object URLs here */}
                   <img
                     src={imagePreview!}
                     alt="New image"
@@ -223,7 +225,8 @@ export function SingleImageUploadEdit({
           // Only new image
           <div className="space-y-3">
             <div className="relative inline-block group">
-              <img
+                    {/* eslint-disable-next-line @next/next/no-img-element -- using native <img> for previews (object URLs / remote previews) */}
+                    <img
                 src={imagePreview!}
                 alt="New image"
                 className="max-w-56 max-h-40 rounded-lg border border-green-200 cursor-pointer hover:opacity-90 transition-opacity duration-200"
@@ -248,7 +251,8 @@ export function SingleImageUploadEdit({
           // Only existing image
           <div className="space-y-3">
             <div className="relative inline-block group">
-              <img
+                    {/* eslint-disable-next-line @next/next/no-img-element -- using native <img> for previews (object URLs / remote previews) */}
+                    <img
                 src={existingImageUrl!}
                 alt="Current image"
                 className="max-w-56 max-h-40 rounded-lg border border-blue-200 cursor-pointer hover:opacity-90 transition-opacity duration-200"

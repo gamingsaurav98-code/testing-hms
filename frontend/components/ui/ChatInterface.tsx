@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { FormField } from '@/components/ui/form-field';
 import { Loader, Edit, ChevronRight, MoreVertical } from 'lucide-react';
 import { chatApi, ChatMessage, ChatResponse, SendMessageRequest } from '@/lib/api/chat.api';
 
@@ -62,7 +61,7 @@ export default function ChatInterface({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load chat messages
-  const loadChats = async () => {
+  const loadChats = useCallback(async () => {
     try {
       setLoading(true);
       const response = await chatApi.getComplaintChats(complainId);
@@ -72,10 +71,10 @@ export default function ChatInterface({
     } finally {
       setLoading(false);
     }
-  };
+  }, [complainId]);
 
   // Mark messages as read when component loads
-  const markAsRead = async () => {
+  const markAsRead = useCallback(async () => {
     try {
       await chatApi.markAsRead({
         complain_id: complainId,
@@ -83,12 +82,12 @@ export default function ChatInterface({
     } catch (error) {
       console.error('Error marking as read:', error);
     }
-  };
+  }, [complainId]);
 
   useEffect(() => {
     loadChats();
     markAsRead();
-  }, [complainId]);
+  }, [complainId, loadChats, markAsRead]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

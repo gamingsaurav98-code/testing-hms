@@ -10,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user_id: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -25,7 +25,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = !!user && !!tokenStorage.get();
 
-  const checkAuthStatus = async () => {
+  const verifyTokenInBackground = React.useCallback(async () => {
+    try {
+      const response = await authApi.me();
+      if (response.status === 'success') {
+        setUser(response.data.user);
+        localStorage.setItem('hms_user', JSON.stringify(response.data.user));
+      } else {
+        // Server explicitly returned a non-success payload
+        tokenStorage.remove();
+        localStorage.removeItem('hms_user');
+        setUser(null);
+      }
+    } catch (error: unknown) {
+      // Network / timeout errors are expected occasionally and shouldn't be noisy
+      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
+        console.debug('Background auth check failed (network/timeout):', (error as ApiError).message || error);
+      } else {
+        console.error('Background auth check failed:', error);
+      }
+      // Only remove token for known auth errors (401/403). For network or transient errors keep the token so
+      // in-flight requests won't be affected by premature deletion by this background check.
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        tokenStorage.remove();
+        localStorage.removeItem('hms_user');
+        setUser(null);
+      }
+      // Otherwise leave the token intact and allow other requests to proceed — we'll try again later
+    }
+  }, []);
+
+  const verifyTokenQuick = React.useCallback(async () => {
+    try {
+      const response = await authApi.me();
+      if (response.status === 'success') {
+        setUser(response.data.user);
+        localStorage.setItem('hms_user', JSON.stringify(response.data.user));
+      } else {
+        // Invalid token
+        tokenStorage.remove();
+        localStorage.removeItem('hms_user');
+      }
+    } catch (error: unknown) {
+      // Quietly handle network or timeout errors on quick auth check — only
+      // escalate actual authentication failures (401/403) which we handle below.
+      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
+        console.debug('Quick auth check failed (network/timeout):', (error as ApiError).message || error);
+      } else {
+        console.error('Quick auth check failed:', error);
+      }
+      // Only remove token for authentication errors; network errors shouldn't wipe the token
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        tokenStorage.remove();
+        localStorage.removeItem('hms_user');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const checkAuthStatus = React.useCallback(async () => {
     const token = tokenStorage.get();
     if (!token) {
       setIsLoading(false);
@@ -51,79 +110,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // If no cached data, do quick auth check
     await verifyTokenQuick();
-  };
-
-  const verifyTokenInBackground = async () => {
-    try {
-      const response = await authApi.me();
-      if (response.status === 'success') {
-        setUser(response.data.user);
-        localStorage.setItem('hms_user', JSON.stringify(response.data.user));
-      } else {
-        // Server explicitly returned a non-success payload
-        tokenStorage.remove();
-        localStorage.removeItem('hms_user');
-        setUser(null);
-      }
-    } catch (error: any) {
-      // Network / timeout errors are expected occasionally and shouldn't be noisy
-      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
-        console.debug('Background auth check failed (network/timeout):', error.message || error);
-      } else {
-        console.error('Background auth check failed:', error);
-      }
-      // Only remove token for known auth errors (401/403). For network or transient errors keep the token so
-      // in-flight requests won't be affected by premature deletion by this background check.
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        tokenStorage.remove();
-        localStorage.removeItem('hms_user');
-        setUser(null);
-      }
-      // Otherwise leave the token intact and allow other requests to proceed — we'll try again later
-    }
-  };
-
-  const verifyTokenQuick = async () => {
-    try {
-      const response = await authApi.me();
-      if (response.status === 'success') {
-        setUser(response.data.user);
-        localStorage.setItem('hms_user', JSON.stringify(response.data.user));
-      } else {
-        // Invalid token
-        tokenStorage.remove();
-        localStorage.removeItem('hms_user');
-      }
-    } catch (error: any) {
-      // Quietly handle network or timeout errors on quick auth check — only
-      // escalate actual authentication failures (401/403) which we handle below.
-      if (error instanceof ApiError && (error.status === 0 || error.status === 408)) {
-        console.debug('Quick auth check failed (network/timeout):', error.message || error);
-      } else {
-        console.error('Quick auth check failed:', error);
-      }
-      // Only remove token for authentication errors; network errors shouldn't wipe the token
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        tokenStorage.remove();
-        localStorage.removeItem('hms_user');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [verifyTokenInBackground, verifyTokenQuick]);
 
   useEffect(() => {
     setMounted(true);
     checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]);
 
   // Don't render children until mounted to prevent hydration issues
   if (!mounted) {
     return null;
   }
 
-  const login = async (user_id: string, password: string) => {
-    const response = await authApi.login({ user_id, password });
+  const login = async (email: string, password: string) => {
+    const response = await authApi.login({ email, password });
     if (response.status === 'success' && response.data) {
       setUser(response.data.user);
       localStorage.setItem('hms_user', JSON.stringify(response.data.user));

@@ -5,10 +5,7 @@
 
 import { API_BASE_URL, handleResponse, safeFetch } from './core';
 import { getAuthHeaders } from './auth.api';
-import { studentApi } from './student.api';
-import { staffApi } from './staff.api';
-import { complainApi } from './complain.api';
-import { SalaryApi } from './salary.api';
+// Note: explicit per-API imports removed where unused to avoid lint noise
 
 export type UserRole = 'admin' | 'staff' | 'student';
 
@@ -263,18 +260,9 @@ export class UnifiedApi {
           }
         };
       } else if (userRole === 'student') {
-        // Student gets limited personal data
-        const [profileRes, complaintsRes, paymentsRes] = await Promise.all([
-          safeFetch(`${API_BASE_URL}/student/profile`, { headers: getAuthHeaders() }),
-          safeFetch(`${API_BASE_URL}/student/complains`, { headers: getAuthHeaders() }),
-          safeFetch(`${API_BASE_URL}/student/payment-history`, { headers: getAuthHeaders() })
-        ]);
-
-        const [profile, complaints, payments] = await Promise.all([
-          handleResponse<unknown>(profileRes),
-          handleResponse<unknown>(complaintsRes),
-          handleResponse<unknown>(paymentsRes)
-        ]);
+        // Student gets limited personal data — only fetch what's used for the dashboard
+        const complaintsRes = await safeFetch(`${API_BASE_URL}/student/complains`, { headers: getAuthHeaders() });
+        const complaints = await handleResponse<unknown>(complaintsRes);
 
         return {
           lastUpdated: timestamp,
@@ -301,14 +289,13 @@ export class UnifiedApi {
         };
       } else if (userRole === 'staff') {
         // Staff gets limited operational data
-        const [profileRes, complaintsRes, salaryRes] = await Promise.all([
-          safeFetch(`${API_BASE_URL}/staff/profile`, { headers: getAuthHeaders() }),
+        // For dashboard we just need complaints and salary history; avoid fetching profile if unused
+        const [complaintsRes, salaryRes] = await Promise.all([
           safeFetch(`${API_BASE_URL}/staff/complains`, { headers: getAuthHeaders() }),
           safeFetch(`${API_BASE_URL}/staff/salary-history`, { headers: getAuthHeaders() })
         ]);
 
-        const [profile, complaints, salary] = await Promise.all([
-          handleResponse<unknown>(profileRes),
+        const [complaints, salary] = await Promise.all([
           handleResponse<unknown>(complaintsRes),
           handleResponse<unknown>(salaryRes)
         ]);
@@ -319,8 +306,8 @@ export class UnifiedApi {
           staff: {
             total: 1,
             present: 1, // Assume current user is present
-            salaryPending: Array.isArray(salary) 
-              ? salary.filter((s: any) => s.status === 'pending').length 
+            salaryPending: Array.isArray(salary)
+              ? salary.filter((s: unknown) => ((s as { status?: string }).status) === 'pending').length
               : 0
           },
           complaints: {
@@ -373,7 +360,7 @@ export class UnifiedApi {
   /**
    * Subscribe to real-time updates (placeholder for WebSocket implementation)
    */
-  static subscribeToUpdates(entityType: 'student' | 'staff' | 'complaint' | 'financial', callback: (data: any) => void): () => void {
+  static subscribeToUpdates(entityType: 'student' | 'staff' | 'complaint' | 'financial', callback: (data: unknown) => void): () => void {
     const handleUpdate = (event: CustomEvent) => {
       if (event.detail.entityType === entityType) {
         callback(event.detail);

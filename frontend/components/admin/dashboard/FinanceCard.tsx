@@ -1,57 +1,51 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { API_BASE_URL, handleResponse, fetchWithTimeout } from '@/lib/api/core';
-import { getAuthHeaders } from '@/lib/api/auth.api';
+import React, { useEffect, useState } from "react";
+import adminApi from "@/lib/api/admin.api";
 
 export default function FinanceCard({ timeoutMs }: { timeoutMs?: number }) {
   const [loading, setLoading] = useState(true);
-  const [income, setIncome] = useState<number>(0);
-  const [expense, setExpense] = useState<number>(0);
+  const [incomeThisMonth, setIncomeThisMonth] = useState<number | string>(0);
+  const [expenseThisMonth, setExpenseThisMonth] = useState<number | string>(0);
 
   useEffect(() => {
     let mounted = true;
-    const controller = new AbortController();
 
     const load = async () => {
       setLoading(true);
       try {
-        // This endpoint returns monthly aggregates on server — prefer stat endpoint
-        const incomeRes = await fetchWithTimeout(`${API_BASE_URL}/incomes/statistics`, { headers: getAuthHeaders(), signal: controller.signal }, timeoutMs);
-        const exRes = await fetchWithTimeout(`${API_BASE_URL}/expenses/statistics`, { headers: getAuthHeaders(), signal: controller.signal }, timeoutMs);
-
-        const incomeData = await handleResponse<unknown>(incomeRes);
-        const expenseData = await handleResponse<unknown>(exRes);
-
-        if (mounted) {
-          const inc = (incomeData && typeof incomeData === 'object') ? (Number(((incomeData as unknown) as Record<string, unknown>)['total_amount_this_month'] ?? 0)) : 0;
-          const exp = (expenseData && typeof expenseData === 'object') ? (Number(((expenseData as unknown) as Record<string, unknown>)['total_amount_this_month'] ?? 0)) : 0;
-          setIncome(inc);
-          setExpense(exp);
-        }
+        const resRaw: unknown = await adminApi.getDashboardStats({ timeoutMs }).catch(() => null);
+        if (!mounted) return;
+        const res = (resRaw && typeof resRaw === "object") ? (resRaw as { finance?: Record<string, unknown> }) : null;
+        const finance = (res?.finance ?? {}) as Record<string, unknown>;
+        setIncomeThisMonth(finance["income_this_month"] ?? 0);
+        setExpenseThisMonth(finance["expense_this_month"] ?? 0);
       } catch (err) {
-        console.debug('FinanceCard load failed', err);
+        console.debug("FinanceCard load failed", err);
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
     load();
-
-    return () => { mounted = false; try { controller.abort(); } catch { } };
+    return () => { mounted = false; };
   }, [timeoutMs]);
 
   return (
-    <div className="p-4 border rounded-md bg-white shadow-sm">
-      <h3 className="text-sm font-medium text-gray-700">Finance (This month)</h3>
-      <div className="mt-2 flex gap-4">
-        <div>
-          <div className="text-lg font-semibold text-green-600">{loading ? '—' : `Rs. ${income.toLocaleString()}`}</div>
-          <div className="text-xs text-gray-500">Income</div>
+    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold text-gray-900">Finance</h2>
+        <button onClick={() => window.location.href = '/admin/finance'} className="text-blue-600 bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium">View all</button>
+      </div>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg">
+          <div className="text-gray-700 font-medium">Income (This month)</div>
+          <div className="font-bold text-gray-900">{loading ? '—' : incomeThisMonth}</div>
         </div>
-        <div>
-          <div className="text-lg font-semibold text-red-600">{loading ? '—' : `Rs. ${expense.toLocaleString()}`}</div>
-          <div className="text-xs text-gray-500">Expense</div>
+
+        <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+          <div className="text-gray-700 font-medium">Expense (This month)</div>
+          <div className="font-bold text-gray-900">{loading ? '—' : expenseThisMonth}</div>
         </div>
       </div>
     </div>

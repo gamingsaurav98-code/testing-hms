@@ -6,6 +6,7 @@ use App\Models\StudentFinancial;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FinancialCalculationService;
 
 class StudentFinancialController extends Controller
 {
@@ -317,6 +318,23 @@ class StudentFinancialController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to calculate outstanding dues: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get financial summary for a student using FinancialCalculationService
+     */
+    public function studentSummary()
+    {
+        $id = request()->input('id');
+        if (!$id) {
+            return response()->json(['error' => 'id parameter is required'], 400);
+        }
+        try {
+            $summary = FinancialCalculationService::buildStudentSummary($id);
+            return response()->json($summary);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to calculate student financial summary: ' . $e->getMessage()], 500);
         }
     }
 }

@@ -135,7 +135,7 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-2 gap-8">
                 {/* FinanceCard now owns its own fetch / timeout logic and renders both income & expense summaries */}
                 <div className="col-span-2">
-                  <FinanceCard timeoutMs={10000} />
+                  <FinanceCard timeoutMs={15000} />
                 </div>
               </div>
             </div>
@@ -149,16 +149,16 @@ export default function AdminDashboardPage() {
                 <p className="text-gray-500 mt-1">Latest transactions and updates</p>
               </div>
             </div>
-            <RecentActivityCard timeoutMs={10000} />
+            <RecentActivityCard timeoutMs={15000} />
           </div>
         </div>
 
         {/* Right Column */}
         <div className="space-y-6">
           {/* Outstanding Dues */}
-          <OutstandingDuesCard timeoutMs={10000} />
+          <OutstandingDuesCard timeoutMs={20000} />
 
-          <BedsSummaryCard timeoutMs={10000} />
+          <BedsSummaryCard timeoutMs={20000} />
 
           {/* Students / Staff Overview */}
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">

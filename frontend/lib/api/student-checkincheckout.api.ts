@@ -164,6 +164,8 @@ export const studentCheckInCheckOutApi = {
     filters: CheckInCheckOutFilters = {}
   ): Promise<PaginatedResponse<StudentCheckInCheckOut>> {
     // Students use their own endpoint that returns only their records
+    // page and filters are accepted for API compatibility but ignored by this student-specific endpoint
+    void page; void filters;
     const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts`, {
       headers: getAuthHeaders(),
     });
@@ -394,7 +396,7 @@ export const studentCheckoutRuleApi = {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
       )
     });
 
@@ -461,9 +463,9 @@ export const studentCheckoutRuleApi = {
   },
 
   // Get rule preview
-  async getRulePreview(studentId: string): Promise<{ data: any }> {
+  async getRulePreview(studentId: string): Promise<{ data: unknown }> {
     const response = await safeFetch(`${API_BASE_URL}/student-checkout-rules/preview/${studentId}`);
-    return handleResponse<{ data: any }>(response);
+    return handleResponse<{ data: unknown }>(response);
   },
 };
 
@@ -477,7 +479,7 @@ export const studentCheckoutFinancialApi = {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
       )
     });
 
@@ -496,13 +498,13 @@ export const studentCheckoutFinancialApi = {
     studentId: string, 
     startDate?: string, 
     endDate?: string
-  ): Promise<{ data: { financials: StudentCheckoutFinancial[]; summary: any } }> {
+  ): Promise<{ data: { financials: StudentCheckoutFinancial[]; summary: unknown } }> {
     const queryParams = new URLSearchParams();
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     
     const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/student/${studentId}?${queryParams}`);
-    return handleResponse<{ data: { financials: StudentCheckoutFinancial[]; summary: any } }>(response);
+    return handleResponse<{ data: { financials: StudentCheckoutFinancial[]; summary: unknown } }>(response);
   },
 
   // Get financial statistics
@@ -510,14 +512,14 @@ export const studentCheckoutFinancialApi = {
     startDate?: string, 
     endDate?: string, 
     blockId?: string
-  ): Promise<{ data: any }> {
+  ): Promise<{ data: unknown }> {
     const queryParams = new URLSearchParams();
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     if (blockId) queryParams.append('block_id', blockId);
     
     const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/statistics/overview?${queryParams}`);
-    return handleResponse<{ data: any }>(response);
+    return handleResponse<{ data: unknown }>(response);
   },
 
   // Export financials
@@ -525,13 +527,13 @@ export const studentCheckoutFinancialApi = {
     startDate?: string, 
     endDate?: string, 
     blockId?: string
-  ): Promise<{ data: any[]; summary: any }> {
+  ): Promise<{ data: unknown[]; summary: unknown }> {
     const queryParams = new URLSearchParams();
     if (startDate) queryParams.append('start_date', startDate);
     if (endDate) queryParams.append('end_date', endDate);
     if (blockId) queryParams.append('block_id', blockId);
     
     const response = await safeFetch(`${API_BASE_URL}/student-checkout-financials/export/data?${queryParams}`);
-    return handleResponse<{ data: any[]; summary: any }>(response);
+    return handleResponse<{ data: unknown[]; summary: unknown }>(response);
   },
 };

@@ -222,6 +222,7 @@ export default function RoomDetail() {
                 <h3 className="text-lg font-medium text-gray-900 mb-6">Room Image</h3>
                 <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
                   <div className="flex items-center justify-center p-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted room images; using native <img> keeps consistent on-page display and is safe here */}
                     <img
                       src={getImageUrl(room.room_attachment)}
                       alt={room.room_name}

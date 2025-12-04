@@ -1,6 +1,7 @@
 <?php
 
-use Illuminate\Http\Request;
+use Illuminate\Http\Request;        
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlockController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\StudentCheckInCheckOutController;
 use App\Http\Controllers\StudentCheckoutRuleController;
 use App\Http\Controllers\StaffCheckoutRuleController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\StudentFinancialController as FinancialController;
 
 // =============================================================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -123,9 +125,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('my-staff/inquiries', [InquiryController::class, 'store']);
         Route::get('my-staff/inquiries/{id}', [InquiryController::class, 'show']);
         Route::put('my-staff/inquiries/{id}', [InquiryController::class, 'update']);
-        
+
     });
-    
+
     // =============================================================================
     // ADMIN-ONLY ROUTES (Must come AFTER specific user routes)
     // =============================================================================
@@ -154,6 +156,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('student-financials', StudentFinancialController::class);
         Route::get('student-financials/fields/metadata', [StudentFinancialController::class, 'getFields']);
         Route::get('students/{id}/financials', [StudentFinancialController::class, 'getStudentFinancials']);
+
+        // Financial Calculation Service endpoints
+        Route::get('students/{id}/financial-summary', [FinancialController::class, 'studentSummary']);
+        Route::post('students/{id}/financials/apply-payment', [FinancialController::class, 'applyPayment']);
+
+        // Financial Calculation Routes
+        Route::get('admin/setting/checkincheckout/financialcalculation/student', [FinancialController::class, 'studentSummary']);
+        Route::get('admin/setting/checkincheckout/financialcalculation/staff', [StaffFinancialController::class, 'staffSummary']);
         Route::apiResource('staff-financials', StaffFinancialController::class);
         Route::get('staff-financials/fields/metadata', [StaffFinancialController::class, 'getFields']);
         Route::get('staff/{id}/financials', [StaffFinancialController::class, 'getStaffFinancials']);
@@ -237,14 +247,24 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // =============================================================================
     // SHARED AUTHENTICATED ROUTES (All authenticated users)
     // =============================================================================
-    
+
+    // Financial Calculation Routes
+    Route::get('admin/setting/checkincheckout/financialcalculation/student', [FinancialController::class, 'studentSummary']);
+    Route::get('admin/setting/checkincheckout/financialcalculation/staff', [StaffFinancialController::class, 'staffSummary']);
+
     // Dashboard statistics (accessible to all authenticated users)
     Route::get('dashboard/stats', [StaffController::class, 'getDashboardStats']);
+
     // Admin consolidated dashboard stats (accessible to all authenticated users)
-    Route::get('admin/dashboard/stats', [AdminDashboardController::class, 'stats'])->name('dashboard.admin.stats');
+    Route::get('admin/dashboard/stats', function () {
+        return Cache::remember('admin_dashboard_stats', 120, function () {
+            return App\Services\AdminDashboardService::buildDashboardSummary();
+        });
+    });
+
     // Attendance statistics available to any authenticated user (used by cards)
-    Route::get('student-checkincheckouts/attendance/statistics', [App\Http\Controllers\StudentCheckInCheckOutController::class, 'attendanceStatistics']);
-    
+    Route::get('student-checkincheckouts/attendance/statistics', [StudentCheckInCheckOutController::class, 'attendanceStatistics']);
+
     // Chat routes for complaint communication (accessible to all authenticated users)
     Route::prefix('chats')->group(function () {
         Route::get('/complaint/{complainId}', [ChatController::class, 'getComplaintChats']);
@@ -254,10 +274,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/mark-read', [ChatController::class, 'markAsRead']);
         Route::get('/unread-count', [ChatController::class, 'getUnreadCount']);
     });
-    
+
     // User notices (notices for authenticated user)
     Route::get('notices/user', [NoticeController::class, 'getNoticesForUser']);
-    
+
 });
 
-// API Routes organized and cleaned - All duplicates removed

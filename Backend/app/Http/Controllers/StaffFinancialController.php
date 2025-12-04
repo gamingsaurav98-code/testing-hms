@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use App\Services\FinancialCalculationService;
 
 class StaffFinancialController extends Controller
 {
@@ -56,7 +57,7 @@ class StaffFinancialController extends Controller
         
         $validated = $request->validate([
             'staff_id' => 'sometimes|required|exists:staff,id',
-            'amount' => 'sometimes|required|string',
+            'amount' => 'sometimes|required|numeric',
             'payment_date' => 'sometimes|required|date',
             'remark' => 'nullable|string',
             'payment_type_id' => 'nullable|exists:payment_types,id',
@@ -107,7 +108,7 @@ class StaffFinancialController extends Controller
         return response()->json([
             'fields' => [
                 'staff_id' => ['type' => 'foreign_id', 'required' => true, 'table' => 'staff'],
-                'amount' => ['type' => 'string', 'required' => true],
+                'amount' => ['type' => 'numeric', 'required' => true],
                 'payment_date' => ['type' => 'date', 'required' => true],
                 'remark' => ['type' => 'string', 'required' => false],
                 'payment_type_id' => ['type' => 'foreign_id', 'required' => false, 'table' => 'payment_types'],
@@ -181,6 +182,23 @@ class StaffFinancialController extends Controller
                 'error' => 'Failed to fetch your salary history',
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Get financial summary for a staff using FinancialCalculationService
+     */
+    public function staffSummary()
+    {
+        $id = request()->input('id');
+        if (!$id) {
+            return response()->json(['error' => 'id parameter is required'], 400);
+        }
+        try {
+            $summary = FinancialCalculationService::buildStaffSummary($id);
+            return response()->json($summary);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to calculate staff financial summary: ' . $e->getMessage()], 500);
         }
     }
 }

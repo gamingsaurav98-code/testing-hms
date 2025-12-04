@@ -191,7 +191,7 @@ export default function IncomeList() {
             <p className="text-sm text-gray-600 mt-1">Manage all income transactions</p>
           </div>
           <div className="mt-4 md:mt-0">
-            <Link href="/admin/income/create" className="bg-[#235999] hover:bg-[#1c4a82] text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-1 inline-flex">
+            <Link href="/admin/income/create" className="bg-[#235999] hover:bg-[#1c4a82] text-white px-4 py-2 rounded-md text-sm font-medium inline-flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -230,7 +230,7 @@ export default function IncomeList() {
                 onChange={(e) => setPaymentTypeFilter(e.target.value)}
               >
                 <option value="">All Payment Types</option>
-                {paymentTypes.map(type => (
+                {(Array.isArray(paymentTypes) ? paymentTypes : []).map(type => (
                   <option key={type.id} value={type.id}>{type.name}</option>
                 ))}
               </select>

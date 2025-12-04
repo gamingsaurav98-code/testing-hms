@@ -35,12 +35,17 @@ class StudentController extends Controller
             }
         }
 
-        // Attempt to obtain lock to avoid stampede
+        // Attempt to obtain lock to avoid stampede (only if cache supports locking)
         $lockKey = $cacheKey . ':lock';
         $lock = null;
         $lockAcquired = false;
         try {
-            try { $lock = Cache::lock($lockKey, 10); $lockAcquired = $lock->get(); } catch (\Throwable $_) { $lockAcquired = false; }
+            try {
+                $lock = Cache::lock($lockKey, 10);
+                $lockAcquired = $lock->get();
+            } catch (\Throwable $_) {
+                $lockAcquired = false;
+            }
             if (! $lockAcquired) {
                 $waited = 0;
                 while ($waited < 2000) {
@@ -51,7 +56,7 @@ class StudentController extends Controller
                 }
             }
         } catch (\Throwable $_) {
-            // ignore lock errors
+            // ignore lock errors - continue without locking
         }
         try {
             // Apply filters if provided

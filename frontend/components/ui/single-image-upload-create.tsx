@@ -116,6 +116,7 @@ export function SingleImageUploadCreate({
           // Image preview
           <div className="space-y-3">
             <div className="relative inline-block group">
+              {/* eslint-disable-next-line @next/next/no-img-element -- using <img> for local preview (object URL / blob). next/image isn't suitable for client-side object URLs */}
               <img
                 src={imagePreview}
                 alt="New image"

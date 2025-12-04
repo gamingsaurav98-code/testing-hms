@@ -3,24 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StudentCheckInCheckOut } from '@/lib/api/student-checkincheckout.api';
-import { PaginatedResponse, API_BASE_URL, handleResponse, safeFetch } from '@/lib/api/core';
+import { API_BASE_URL, handleResponse, safeFetch } from '@/lib/api/core';
 import { getAuthHeaders } from '@/lib/api/auth.api';
 import { Button, ConfirmModal, ActionButtons } from '@/components/ui';
-import { 
-  Plus, 
-  ArrowRight, 
-  ArrowLeft, 
+import {
+  Plus,
   Search,
   Check,
   Clock,
-  X,
-  Eye,
-  Edit,
-  Trash
+  X
 } from 'lucide-react';
 
 export default function StudentCheckinCheckoutList() {
-  const [records, setRecords] = useState<StudentCheckInCheckOut[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<StudentCheckInCheckOut[]>([]);
   const [allRecords, setAllRecords] = useState<StudentCheckInCheckOut[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +30,6 @@ export default function StudentCheckinCheckoutList() {
     recordId: null,
     studentName: ''
   });
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchRecords = async (page: number = 1) => {
     try {
@@ -45,22 +38,21 @@ export default function StudentCheckinCheckoutList() {
       const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts?page=${page}`, {
         headers: getAuthHeaders()
       });
-      const result: any = await handleResponse(response);
-      
+      const result = await handleResponse<{ data: StudentCheckInCheckOut[], pagination: { last_page: number } }>(response);
+
       const fetchedRecords = result.data || [];
       setAllRecords(fetchedRecords);
       setRecords(fetchedRecords);
       setFilteredRecords(fetchedRecords);
-      
-      // Set pagination info from PaginatedResponse structure
-      if (result.last_page) {
-        setTotalPages(result.last_page);
+
+      // Set pagination info from backend response structure
+      if (result.pagination && result.pagination.last_page) {
+        setTotalPages(result.pagination.last_page);
       } else {
         setTotalPages(1);
       }
     } catch (error) {
       console.error('Error fetching records:', error);
-      setRecords([]);
       setFilteredRecords([]);
       setAllRecords([]);
     } finally {

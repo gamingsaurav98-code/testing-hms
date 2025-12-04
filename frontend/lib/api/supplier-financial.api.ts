@@ -12,8 +12,8 @@ export interface SupplierFinancial {
   remark?: string;
   created_at: string;
   updated_at?: string;
-  supplier?: any;
-  paymentType?: any;
+  supplier?: unknown;
+  paymentType?: unknown;
 }
 
 export interface SupplierFinancialFormData {

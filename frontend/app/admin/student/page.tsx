@@ -424,11 +424,14 @@ export default function Page() {
                             title={student.student_image ? "Click to enlarge" : "No photo available"}
                           >
                             {student.student_image ? (
+                              <>
+                              {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted student thumbnails; native <img> is used for preview and modal open behavior */}
                               <img 
                                 src={getImageUrl(student.student_image)} 
                                 alt={student.student_name}
                                 className="h-full w-full object-cover" 
                               />
+                              </>
                             ) : (
                               student.student_name.charAt(0).toUpperCase()
                             )}
@@ -584,6 +587,7 @@ export default function Page() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            {/* eslint-disable-next-line @next/next/no-img-element -- photo modal uses native <img> for direct preview */}
             <img 
               src={selectedPhoto} 
               alt="Student Photo" 

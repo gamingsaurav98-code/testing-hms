@@ -94,7 +94,7 @@ export const supplierApi = {
   },
   
   // Upload attachment for a supplier
-  async uploadAttachment(id: string, file: File, name: string, type: string): Promise<any> {
+  async uploadAttachment(id: string, file: File, name: string, type: string): Promise<unknown> {
     const formData = new FormData();
     formData.append('attachment', file);
     formData.append('name', name);
@@ -108,12 +108,12 @@ export const supplierApi = {
       body: formData,
     });
     
-    const apiResponse = await handleResponse<{status: boolean, message: string, data: any}>(response);
+    const apiResponse = await handleResponse<{status: boolean, message: string, data: unknown}>(response);
     return apiResponse.data;
   },
   
   // Update an existing attachment
-  async updateAttachment(supplierId: string, attachmentId: string, data: {file?: File, name?: string, type?: string}): Promise<any> {
+  async updateAttachment(supplierId: string, attachmentId: string, data: {file?: File, name?: string, type?: string}): Promise<unknown> {
     const formData = new FormData();
     
     if (data.file) {
@@ -136,7 +136,7 @@ export const supplierApi = {
       body: formData,
     });
     
-    const apiResponse = await handleResponse<{status: boolean, message: string, data: any}>(response);
+    const apiResponse = await handleResponse<{status: boolean, message: string, data: unknown}>(response);
     return apiResponse.data;
   },
   

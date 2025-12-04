@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { profileApi, type UserProfile, type UpdateProfileData, type ChangePasswordData } from '@/lib/api';
+import { profileApi, type UserProfile } from '@/lib/api';
 import { Button, TableSkeleton } from '@/components/ui';
 import { PasswordInput } from '@/components/ui/password-input';
 import { User, AlertCircle } from 'lucide-react';
@@ -63,9 +63,9 @@ export default function AdminProfile() {
       setTimeout(() => {
         setEmailSuccess(false);
       }, 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating email:', err);
-      setEmailError(err.message || 'Failed to update email. Please try again.');
+      setEmailError(err instanceof Error ? err.message : 'Failed to update email. Please try again.');
     } finally {
       setIsUpdatingEmail(false);
     }
@@ -107,9 +107,9 @@ export default function AdminProfile() {
       setTimeout(() => {
         setPasswordSuccess(false);
       }, 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error changing password:', err);
-      setPasswordError(err.message || 'Failed to change password. Please check your current password.');
+      setPasswordError(err instanceof Error ? err.message : 'Failed to change password. Please check your current password.');
     } finally {
       setIsChangingPassword(false);
     }
@@ -153,6 +153,7 @@ export default function AdminProfile() {
         <h1 className="text-xl font-medium text-gray-900">Profile Settings</h1>
         <p className="text-sm text-gray-500 mt-1">Manage your account settings and preferences</p>
       </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Information Card */}

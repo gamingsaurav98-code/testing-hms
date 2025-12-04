@@ -20,13 +20,13 @@ class StudentCheckInCheckOutController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = StudentCheckInCheckOut::select(['id','student_id','block_id','date','checkin_time','checkout_time','status','created_at'])
+            $query = StudentCheckInCheckOut::select(['id','student_id','block_id','date','checkin_time','checkout_time','status','estimated_checkin_date','remarks','checkout_rule_id','created_at'])
                 ->with([
                     'student:id,student_name,room_id',
                     'student.room:id,room_name,block_id',
                     'student.room.block:id,block_name',
                     'block:id,block_name',
-                    'checkoutRule:id,name'
+                    'checkoutRule:id,student_id,is_active,active_after_days,percentage'
                 ]);
 
             // Filter by student

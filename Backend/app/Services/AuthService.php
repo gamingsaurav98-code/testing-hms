@@ -17,32 +17,41 @@ class AuthService
     public function authenticate(array $credentials): array
     {
         $user = null;
-        
-        // Find user by student_id or staff_id based on the provided user_id
-        $userId = $credentials['user_id'];
-        
-        // First try to find student with matching student_id
-        $student = Student::where('student_id', $userId)->first();
-        if ($student && $student->user_id) {
-            $user = User::find($student->user_id);
+
+        // Support both new email-based login and legacy user_id-based login
+        $identifier = $credentials['email'] ?? ($credentials['user_id'] ?? null);
+
+        if ($identifier === null) {
+            throw ValidationException::withMessages([
+                'email' => ['Email is required.'],
+            ]);
         }
-        
-        // If not found in students, try staff with matching staff_id
-        if (!$user) {
-            $staff = Staff::where('staff_id', $userId)->first();
-            if ($staff && $staff->user_id) {
-                $user = User::find($staff->user_id);
+
+        // If identifier looks like an email, try direct user email lookup first
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $user = User::where('email', $identifier)->first();
+        }
+
+        // If not an email (or not found by email), fall back to student/staff IDs
+        if (!$user && !filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            // First try to find student with matching student_id
+            $student = Student::where('student_id', $identifier)->first();
+            if ($student && $student->user_id) {
+                $user = User::find($student->user_id);
             }
-        }
-        
-        // If still not found, check if it's an email (for admin users)
-        if (!$user && filter_var($userId, FILTER_VALIDATE_EMAIL)) {
-            $user = User::where('email', $userId)->first();
+
+            // If not found in students, try staff with matching staff_id
+            if (!$user) {
+                $staff = Staff::where('staff_id', $identifier)->first();
+                if ($staff && $staff->user_id) {
+                    $user = User::find($staff->user_id);
+                }
+            }
         }
         
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'user_id' => ['User ID or password is incorrect.'],
+                'email' => ['Email or password is incorrect.'],
             ]);
         }
         

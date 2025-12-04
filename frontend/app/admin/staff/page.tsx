@@ -381,11 +381,14 @@ export default function StaffList() {
                             title={staffMember.staff_image ? "Click to enlarge" : "No photo available"}
                           >
                             {staffMember.staff_image ? (
+                              <>
+                              {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted staff thumbnails; native <img> used for quick previews and click-to-open modal */}
                               <img 
                                 src={getImageUrl(staffMember.staff_image)} 
                                 alt={staffMember.staff_name}
                                 className="h-full w-full object-cover" 
                               />
+                              </>
                             ) : (
                               staffMember.staff_name.charAt(0).toUpperCase()
                             )}
@@ -542,6 +545,7 @@ export default function StaffList() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            {/* eslint-disable-next-line @next/next/no-img-element -- lightbox/modal uses native <img> for direct display */}
             <img 
               src={selectedPhoto} 
               alt="Staff Photo" 

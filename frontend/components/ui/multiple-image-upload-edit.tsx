@@ -7,7 +7,7 @@ import { getImageUrl } from "@/lib/utils"
 interface MultipleImageUploadEditProps {
   images: File[]
   existingImages?: { id: number; image: string; is_primary: boolean }[]
-  removedImageIds?: number[]
+  // removedImageIds removed — not used in component; callers can track removals externally
   onAddImages: (files: File[]) => void
   onRemoveImage: (index: number) => void
   onRemoveExistingImage?: (id: number) => void
@@ -19,7 +19,7 @@ interface MultipleImageUploadEditProps {
 export function MultipleImageUploadEdit({ 
   images, 
   existingImages = [],
-  removedImageIds = [],
+  // removedImageIds intentionally omitted from props — callers track removals externally
   onAddImages, 
   onRemoveImage, 
   onRemoveExistingImage,
@@ -110,6 +110,7 @@ export function MultipleImageUploadEdit({
               {existingImages.map((img) => (
                 <div key={`existing-${img.id}`} className="image-preview relative group">
                   <div className="aspect-square w-full rounded-lg overflow-hidden border border-neutral-200/60 relative transition-all duration-200 hover:border-neutral-300">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- existing image URLs are server-hosted but used for product preview; keeping <img> avoids layout shifts and supports object URLs in some flows */}
                     <img 
                       src={getImageUrl(img.image)} 
                       alt={`Product image ${img.id}`}
@@ -153,6 +154,7 @@ export function MultipleImageUploadEdit({
               {images.map((file, index) => (
                 <div key={`new-${index}`} className="image-preview relative group">
                   <div className="aspect-square w-full rounded-lg overflow-hidden border border-amber-300 relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- new image previews use object URLs (URL.createObjectURL) which next/image doesn't support well */}
                     <img 
                       src={URL.createObjectURL(file)} 
                       alt={`New image ${index + 1}`}

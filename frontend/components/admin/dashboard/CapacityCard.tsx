@@ -5,7 +5,7 @@ import StatCard from './StatCard';
 import { API_BASE_URL, handleResponse, fetchWithTimeout } from '@/lib/api/core';
 import { getAuthHeaders } from '@/lib/api/auth.api';
 
-export default function CapacityCard({ timeoutMs }: { timeoutMs?: number }) {
+export default function CapacityCard({ timeoutMs = 30000 }: { timeoutMs?: number }) {
   const [loading, setLoading] = useState(true);
   const [capacity, setCapacity] = useState<number | string>('—');
 
@@ -16,12 +16,11 @@ export default function CapacityCard({ timeoutMs }: { timeoutMs?: number }) {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetchWithTimeout(`${API_BASE_URL}/rooms?per_page=1000`, { headers: getAuthHeaders(), signal: controller.signal }, timeoutMs);
-        const payload = await handleResponse<{ data?: Array<{ capacity?: number }> }>(res);
+        const res = await fetchWithTimeout(`${API_BASE_URL}/admin/dashboard/stats`, { headers: getAuthHeaders(), signal: controller.signal }, timeoutMs);
+        const payload = await handleResponse<{ rooms?: { total_capacity?: number } }>(res);
         if (!mounted) return;
-        const rooms = Array.isArray(payload?.data) ? payload.data : [];
-        const total = rooms.reduce((s, r) => s + (Number(r.capacity || 0) || 0), 0);
-        setCapacity(total);
+        const totalCapacity = payload?.rooms?.total_capacity || 0;
+        setCapacity(totalCapacity);
       } catch (err) {
         console.debug('CapacityCard load failed', err);
         setCapacity('—');

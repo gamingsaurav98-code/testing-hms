@@ -10,7 +10,7 @@ interface FormFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
   error?: string
   placeholder?: string
-  type?: 'text' | 'textarea' | 'email' | 'date' | 'select'
+  type?: 'text' | 'textarea' | 'email' | 'date' | 'select' | 'number'
   rows?: number
   required?: boolean
   options?: { value: string, label: string }[]

@@ -155,6 +155,7 @@ export default function StudentDetail() {
             <div className="flex flex-col md:flex-row items-center md:items-start mb-6 pb-6 border-b border-gray-200">
               <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-4xl font-medium overflow-hidden mb-4 md:mb-0 md:mr-6">
                 {student.student_image ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- server-hosted profile image; native <img> is acceptable for this preview
                   <img 
                     src={getImageUrl(student.student_image)} 
                     alt={student.student_name}
@@ -682,6 +683,7 @@ export default function StudentDetail() {
                 {student.student_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted student photo preview; keep native <img> for click-to-open behavior */}
                       <img 
                         src={getImageUrl(student.student_image)} 
                         alt="Student Photo" 
@@ -699,6 +701,7 @@ export default function StudentDetail() {
                 {student.student_citizenship_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted citizenship document preview; native <img> keeps click-preview and layout predictable */}
                       <img 
                         src={getImageUrl(student.student_citizenship_image)} 
                         alt="Citizenship Document" 
@@ -716,6 +719,7 @@ export default function StudentDetail() {
                 {student.registration_form_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted registration form preview; native <img> keeps simple click preview behavior */}
                       <img 
                         src={getImageUrl(student.registration_form_image)} 
                         alt="Registration Form" 
@@ -733,6 +737,7 @@ export default function StudentDetail() {
                 {student.physical_copy_image && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-w-4 aspect-h-3 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted financial document preview; native <img> keeps simple click preview behavior */}
                       <img 
                         src={getImageUrl(student.physical_copy_image)} 
                         alt="Financial Document" 

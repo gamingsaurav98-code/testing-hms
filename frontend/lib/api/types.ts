@@ -280,8 +280,8 @@ export interface AuditLog extends BaseEntity {
   action: string;
   entity_type: string;
   entity_id: string;
-  old_values?: any;
-  new_values?: any;
+  old_values?: unknown;
+  new_values?: unknown;
   ip_address?: string;
   user_agent?: string;
   user?: Staff | Student;

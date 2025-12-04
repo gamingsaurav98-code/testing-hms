@@ -17,7 +17,7 @@ export default function RoomsCard({ timeoutMs }: { timeoutMs?: number }) {
       setLoading(true);
       try {
         // Use fetchWithTimeout so this component cancels cleanly on unmount
-        const res = await fetchWithTimeout(`${API_BASE_URL}/rooms?per_page=1000`, { headers: getAuthHeaders(), signal: controller.signal }, timeoutMs);
+        const res = await fetchWithTimeout(`${API_BASE_URL}/rooms?per_page=5&page=1`, { headers: getAuthHeaders(), signal: controller.signal }, timeoutMs);
         const payload = await handleResponse<{ data: Array<{ capacity?: number }> }>(res);
         if (!mounted) return;
         const rooms = Array.isArray(payload?.data) ? payload.data : [];
