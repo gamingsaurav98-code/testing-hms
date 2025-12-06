@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { blockApi, Block, ApiError } from '@/lib/api/index';
-import { Button, ConfirmModal, TableSkeleton, ImageModal } from '@/components/ui';
+import { Button, ConfirmModal, TableSkeleton } from '@/components/ui';
 import { getImageUrl } from '@/lib/utils';
 
 export default function BlockDetail() {
@@ -223,7 +223,7 @@ export default function BlockDetail() {
                 <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
                   <div className="flex items-center justify-center p-4 min-h-[300px]">
                     {block.block_attachment ? (
-                      {/* eslint-disable-next-line @next/next/no-img-element -- server-hosted block images use onError and object fallback; native <img> is intentional here */}
+                      // eslint-disable-next-line @next/next/no-img-element -- server-hosted block images use onError and object fallback; native <img> is intentional here
                       <img
                         src={getImageUrl(block.block_attachment) || getPlaceholderImageUrl()}
                         alt={block.block_name}
@@ -231,14 +231,13 @@ export default function BlockDetail() {
                         onError={(e) => {
                           console.error('Image failed to load for path:', block.block_attachment);
                           if (block.block_attachment) {
-                            const fullUrl = getImageUrl(bvislock.block_attachment);
+                            const fullUrl = getImageUrl(block.block_attachment);
                             console.error('Full image URL:', fullUrl);
                           }
                           const target = e.target as HTMLImageElement;
                           target.src = getPlaceholderImageUrl();
                         }}
                       />
-                     
                     ) : (
                       <div className="text-center text- gray-500">
                         <svg className="w-20 h-20 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

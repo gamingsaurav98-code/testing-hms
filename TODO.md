@@ -1,9 +1,11 @@
-## Pending Tasks
-- [x] Create student-financial.api.ts for field metadata
-- [x] Create staff-financial.api.ts for field metadata
-- [ ] Add TypeScript interfaces for financial metadata in types.ts
-- [ ] Modify settings page to add Financial Settings tab
-- [ ] Implement dynamic form for deduction percentage settings
-- [ ] Add save/load functionality for deduction rules
-- [ ] Test integration with FinancialCalculationService
-- [ ] Verify proper validation and error handling
+# Fix Admin Student-Checkin-Checkout Page
+
+## Tasks
+- [ ] Fix "setRecords is not defined" error by removing undefined call
+- [ ] Create unified CheckInCheckOut type for both students and staff
+- [ ] Modify fetchRecords to call both student and staff APIs
+- [ ] Update table to show "Type" column (Student/Staff)
+- [ ] Update search/filtering logic for combined data
+- [ ] Update action URLs and handlers for both types
+- [ ] Test combined data fetching and pagination
+- [ ] Verify approve/decline actions work for both types

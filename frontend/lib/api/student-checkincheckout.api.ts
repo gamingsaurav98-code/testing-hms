@@ -158,28 +158,23 @@ export interface StudentStatistics {
 
 // API functions for Student Check-in/Check-out
 export const studentCheckInCheckOutApi = {
-  // Get all check-in/check-out records (student-specific)
+  // Get all check-in/check-out records (admin function - can access all records)
   async getCheckInCheckOuts(
-    page: number = 1, 
+    page: number = 1,
     filters: CheckInCheckOutFilters = {}
   ): Promise<PaginatedResponse<StudentCheckInCheckOut>> {
-    // Students use their own endpoint that returns only their records
-    // page and filters are accepted for API compatibility but ignored by this student-specific endpoint
-    void page; void filters;
-    const response = await safeFetch(`${API_BASE_URL}/student/checkincheckouts`, {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
+      )
+    });
+
+    const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts?${queryParams}`, {
       headers: getAuthHeaders(),
     });
-    
-    const result = await handleResponse<{ data: StudentCheckInCheckOut[]; total: number }>(response);
-    
-    // Transform to match pagination format expected by UI
-    return {
-      data: result.data,
-      current_page: 1,
-      per_page: result.data.length,
-      total: result.total || result.data.length,
-      last_page: 1
-    };
+
+    return handleResponse<PaginatedResponse<StudentCheckInCheckOut>>(response);
   },
 
   // Get specific check-in/check-out record (student-specific)

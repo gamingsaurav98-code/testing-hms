@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FinancialSettingsForm } from '@/components/financial/FinancialSettingsForm';
+import { StudentDeductionProcessor } from '@/components/admin/StudentDeductionProcessor';
+import { StaffDeductionProcessor } from '@/components/admin/StaffDeductionProcessor';
 import { useAuth } from '@/lib/auth';
 
 // User role types
@@ -26,50 +28,59 @@ export default function FinancialSettingsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Financial Settings</h1>
         <p className="text-muted-foreground">
-          {isAdmin 
+          {isAdmin
             ? 'Manage financial settings and deduction rules'
             : 'View your financial information and deduction rules'}
         </p>
       </div>
 
-      <Tabs 
-        value={activeTab} 
+      <Tabs
+        value={activeTab}
         onValueChange={setActiveTab}
         className="w-full"
       >
         <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
           <TabsTrigger value="settings">Deduction Rules</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="staff">Staff</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Deduction Rules</CardTitle>
-              <CardDescription>
-                {isAdmin 
-                  ? 'Configure checkout duration and deduction percentages.'
-                  : 'View the current deduction rules applied to your account.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FinancialSettingsForm isAdmin={isAdmin} />
-            </CardContent>
-          </Card>
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Deduction Rules</CardTitle>
+                <CardDescription>
+                  {isAdmin
+                    ? 'Configure checkout duration and deduction percentages.'
+                    : 'View the current deduction rules applied to your account.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FinancialSettingsForm isAdmin={isAdmin} />
+              </CardContent>
+            </Card>
+
+            {isAdmin && (
+              <>
+                <StudentDeductionProcessor />
+                <StaffDeductionProcessor />
+              </>
+            )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="transactions">
+        <TabsContent value="staff">
           <Card>
             <CardHeader>
-              <CardTitle>Transaction History</CardTitle>
+              <CardTitle>Staff Management</CardTitle>
               <CardDescription>
-                View your financial transactions and deductions.
+                Manage staff-related financial operations and transactions.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  Transaction history will be displayed here.
+                  Staff management tools will be displayed here.
                 </p>
               </div>
             </CardContent>

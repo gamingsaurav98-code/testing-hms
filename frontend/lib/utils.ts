@@ -1,12 +1,9 @@
 // frontend/lib/utils.ts  ← paste this entire file
-import { type ClassValue } from "react";
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return inputs
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return twMerge(clsx(inputs));
 }
 
 // Keep all your existing helpers
@@ -25,4 +22,3 @@ export const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-// Add more of your old helpers here if you want... this is the format to keep all existing helpers

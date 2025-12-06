@@ -29,7 +29,7 @@ export async function handleResponse<T>(response: Response): Promise<T> {
     throw new ApiError(response.status, errorMessage);
   }
 
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
+  if (response.status === 401 || response.headers.get("content-length") === "0") {
     return null as T;
   }
 

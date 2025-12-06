@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { StudentCheckInCheckOut } from '@/lib/api/student-checkincheckout.api';
+import { StudentCheckInCheckOut, studentCheckInCheckOutApi } from '@/lib/api/student-checkincheckout.api';
+import { StaffCheckInCheckOut, staffCheckInCheckOutApi } from '@/lib/api/staff-checkincheckout.api';
 import { API_BASE_URL, handleResponse, safeFetch } from '@/lib/api/core';
 import { getAuthHeaders } from '@/lib/api/auth.api';
 import { Button, ConfirmModal, ActionButtons } from '@/components/ui';
@@ -14,9 +15,12 @@ import {
   X
 } from 'lucide-react';
 
+// Unified type for both student and staff records
+export type CheckInCheckOutRecord = (StudentCheckInCheckOut & { type: 'student' }) | (StaffCheckInCheckOut & { type: 'staff' });
+
 export default function StudentCheckinCheckoutList() {
-  const [filteredRecords, setFilteredRecords] = useState<StudentCheckInCheckOut[]>([]);
-  const [allRecords, setAllRecords] = useState<StudentCheckInCheckOut[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<CheckInCheckOutRecord[]>([]);
+  const [allRecords, setAllRecords] = useState<CheckInCheckOutRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,23 +38,41 @@ export default function StudentCheckinCheckoutList() {
   const fetchRecords = async (page: number = 1) => {
     try {
       setLoading(true);
-      // Use admin endpoint to fetch student checkin-checkout records
-      const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts?page=${page}`, {
-        headers: getAuthHeaders()
+
+      // Fetch both student and staff records in parallel
+      const [studentResponse, staffResponse] = await Promise.all([
+        studentCheckInCheckOutApi.getCheckInCheckOuts(page),
+        staffCheckInCheckOutApi.getCheckInCheckOuts(page)
+      ]);
+
+      // Combine records with type indicators
+      const studentRecords: CheckInCheckOutRecord[] = studentResponse.data.map(record => ({
+        ...record,
+        type: 'student' as const
+      }));
+
+      const staffRecords: CheckInCheckOutRecord[] = staffResponse.data.map(record => ({
+        ...record,
+        type: 'staff' as const
+      }));
+
+      // Combine and sort by most recent checkout first
+      const combinedRecords = [...studentRecords, ...staffRecords].sort((a, b) => {
+        const aTime = a.checkout_time || a.checkin_time || a.created_at;
+        const bTime = b.checkout_time || b.checkin_time || b.created_at;
+        return new Date(bTime || '').getTime() - new Date(aTime || '').getTime();
       });
-      const result = await handleResponse<{ data: StudentCheckInCheckOut[], pagination: { last_page: number } }>(response);
 
-      const fetchedRecords = result.data || [];
-      setAllRecords(fetchedRecords);
-      setRecords(fetchedRecords);
-      setFilteredRecords(fetchedRecords);
+      setAllRecords(combinedRecords);
+      setFilteredRecords(combinedRecords);
 
-      // Set pagination info from backend response structure
-      if (result.pagination && result.pagination.last_page) {
-        setTotalPages(result.pagination.last_page);
-      } else {
-        setTotalPages(1);
-      }
+      // For now, use the larger pagination count (simplified approach)
+      const maxPages = Math.max(
+        studentResponse.last_page || 1,
+        staffResponse.last_page || 1
+      );
+      setTotalPages(maxPages);
+
     } catch (error) {
       console.error('Error fetching records:', error);
       setFilteredRecords([]);
@@ -66,8 +88,9 @@ export default function StudentCheckinCheckoutList() {
       setFilteredRecords(allRecords);
     } else {
       const searchLower = searchTerm.toLowerCase();
-      const filtered = allRecords.filter(record => 
-        record.student?.student_name?.toLowerCase().includes(searchLower)
+      const filtered = allRecords.filter(record =>
+        (record.type === 'student' && record.student?.student_name?.toLowerCase().includes(searchLower)) ||
+        (record.type === 'staff' && record.staff?.staff_name?.toLowerCase().includes(searchLower))
       );
       setFilteredRecords(filtered);
     }
@@ -86,8 +109,16 @@ export default function StudentCheckinCheckoutList() {
     if (!deleteModal.recordId) return;
 
     try {
-      // Use admin endpoint to delete student checkin-checkout record
-      const response = await safeFetch(`${API_BASE_URL}/student-checkincheckouts/${deleteModal.recordId}`, {
+      // Determine the record type from the current records
+      const recordToDelete = allRecords.find(record => record.id === deleteModal.recordId);
+      if (!recordToDelete) return;
+
+      // Use appropriate endpoint based on record type
+      const endpoint = recordToDelete.type === 'student'
+        ? `${API_BASE_URL}/student-checkincheckouts/${deleteModal.recordId}`
+        : `${API_BASE_URL}/staff-checkincheckouts/${deleteModal.recordId}`;
+
+      const response = await safeFetch(endpoint, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -232,9 +263,9 @@ export default function StudentCheckinCheckoutList() {
   return (
     <div className="p-4 max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Student Check-in/Check-out</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Check-in/Check-out Management</h1>
           <Link href="/admin/student-checkin-checkout/create">
-            <Button 
+            <Button
               className="bg-[#235999] hover:bg-[#1e4d87] text-white"
               icon={<Plus className="w-4 h-4" />}
             >
@@ -249,7 +280,7 @@ export default function StudentCheckinCheckoutList() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by student name..."
+              placeholder="Search by name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-600 placeholder:text-gray-400 focus:border-gray-400 focus:ring-0 outline-none transition-all duration-200 bg-white"
@@ -264,7 +295,10 @@ export default function StudentCheckinCheckoutList() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Student Name
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Block
@@ -292,16 +326,28 @@ export default function StudentCheckinCheckoutList() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                    {searchTerm ? `No students found matching "${searchTerm}"` : 'No check-in/check-out records found.'}
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                    {searchTerm ? `No records found matching "${searchTerm}"` : 'No check-in/check-out records found.'}
                   </td>
                 </tr>
               ) : (
                 filteredRecords.map((record) => (
                   <tr key={record.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        record.type === 'student'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {record.type === 'student' ? 'Student' : 'Staff'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {record.student?.student_name || 'N/A'}
+                        {record.type === 'student'
+                          ? (record.student?.student_name || 'N/A')
+                          : (record.staff?.staff_name || 'N/A')
+                        }
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -344,12 +390,14 @@ export default function StudentCheckinCheckoutList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <ActionButtons
-                        viewUrl={`/admin/student-checkin-checkout/${record.id}`}
-                        editUrl={`/admin/student-checkin-checkout/${record.id}/edit`}
+                        viewUrl={`/admin/${record.type}-checkin-checkout/${record.id}`}
+                        editUrl={`/admin/${record.type}-checkin-checkout/${record.id}/edit`}
                         onDelete={() => setDeleteModal({
                           show: true,
                           recordId: record.id,
-                          studentName: record.student?.student_name || 'Unknown'
+                          studentName: record.type === 'student'
+                            ? (record.student?.student_name || 'Unknown')
+                            : (record.staff?.staff_name || 'Unknown')
                         })}
                         style="compact"
                       />

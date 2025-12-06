@@ -28,7 +28,7 @@ class StaffFinancialController extends Controller
     {
         $validated = $request->validate([
             'staff_id' => 'required|exists:staff,id',
-            'amount' => 'required|string',
+            'amount' => 'required|numeric|min:0',
             'payment_date' => 'required|date',
             'remark' => 'nullable|string',
             'payment_type_id' => 'nullable|exists:payment_types,id',
