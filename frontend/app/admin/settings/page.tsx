@@ -1,16 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
 import { FinancialSettingsForm } from '@/components/financial/FinancialSettingsForm';
 import { StudentDeductionProcessor } from '@/components/admin/StudentDeductionProcessor';
 import { StaffDeductionProcessor } from '@/components/admin/StaffDeductionProcessor';
 import { useAuth } from '@/lib/auth';
+import { safeFetch, handleResponse } from '@/lib/api/core';
+import { getAuthHeaders } from '@/lib/api/auth.api';
 
 // User role types
 type UserRole = 'admin' | 'staff' | 'student';
+
+// Student type
+interface Student {
+  id: number;
+  student_name: string;
+  email: string;
+  contact_number: string;
+  student_id?: string;
+  is_active: boolean;
+  label?: string; // Add this line
+}
+type StudentOption = Student & {
+  label: string;
+};
 
 const useUserRole = (): UserRole => {
   const { user } = useAuth();
@@ -20,8 +36,59 @@ const useUserRole = (): UserRole => {
 
 export default function FinancialSettingsPage() {
   const [activeTab, setActiveTab] = useState('settings');
+  const [students, setStudents] = useState<Student[]>([]);
+const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [monthlyFee, setMonthlyFee] = useState('0');
+
+  const [searchQuery, setSearchQuery] = useState('');
   const userRole = useUserRole();
   const isAdmin = userRole === 'admin';
+
+  // Fetch active students with optional search
+ const fetchStudents = async (searchTerm = '') => {
+  try {
+    const url = searchTerm
+      ? `/api/students?active=true&all=true&search=${encodeURIComponent(searchTerm)}`
+      : '/api/students?active=true&all=true';
+    
+    const response = await safeFetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    const data = await handleResponse<Student[]>(response);
+    setStudents(data);
+  } catch (error) {
+    console.error('Error fetching students:', error);
+  }
+};
+  // Fetch monthly fee for selected student
+  const fetchMonthlyFee = async (studentId: number) => {
+    try {
+      const response = await safeFetch(`/api/admin/setting/checkincheckout/financialcalculation/student?id=${studentId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const data = await handleResponse<{monthly_fee: string}>(response);
+      setMonthlyFee(data.monthly_fee || '0');
+    } catch (error) {
+      console.error('Failed to fetch monthly fee:', error);
+      setMonthlyFee('0');
+    }
+  };
+
+  // Handle student selection
+  const handleStudentSelect = (student: StudentOption) => {
+    setSelectedStudent(student);
+    fetchMonthlyFee(student.id);
+  };
+
+  // Load students on component mount and when search query changes
+  useEffect(() => {
+    if (isAdmin) {
+      fetchStudents(searchQuery);
+    }
+  }, [isAdmin, searchQuery]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -40,7 +107,7 @@ export default function FinancialSettingsPage() {
         className="w-full"
       >
         <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
-          <TabsTrigger value="settings">Deduction Rules</TabsTrigger>
+          <TabsTrigger value="settings">Student</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
         </TabsList>
 
@@ -48,75 +115,92 @@ export default function FinancialSettingsPage() {
           <div className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>Deduction Rules</CardTitle>
+                <CardTitle>Student deduction form</CardTitle>
                 <CardDescription>
                   {isAdmin
-                    ? 'Configure checkout duration and deduction percentages.'
+                    ? 'Manage student-related financial operations and transactions.'
                     : 'View the current deduction rules applied to your account.'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {isAdmin && (
+                  <div className="space-y-6 mb-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-900 mb-2">
+                        Search and Select Student
+                      </label>
+                <Combobox<Student>
+  options={students.map(student => ({
+    ...student,
+    label: `${student.student_name} - ${student.email}${student.student_id ? ` (${student.student_id})` : ''}`
+  }))}
+  value={selectedStudent}
+  onChange={(student) => {
+    if (student) {
+      handleStudentSelect(student);
+    } else {
+      setSelectedStudent(null);
+      setMonthlyFee('0');
+    }
+  }}
+  onSearch={setSearchQuery}
+  placeholder="Search by name, email, or student ID..."
+  displayValue={(student) => 
+    student ? 
+    `${student.student_name} - ${student.email}${student.student_id ? ` (${student.student_id})` : ''}` : 
+    ''
+  }
+/>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-semibold text-neutral-900">
+                        Monthly Fee
+                      </label>
+                      <input
+                        type="text"
+                        value={monthlyFee}
+                        readOnly
+                        disabled
+                        className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 bg-gray-100 cursor-not-allowed"
+                        placeholder="Monthly fee will be displayed here"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <FinancialSettingsForm isAdmin={isAdmin} />
+
+                {isAdmin && (
+                  <StudentDeductionProcessor />
+                )}
               </CardContent>
             </Card>
 
-            {isAdmin && (
-              <>
-                <StudentDeductionProcessor />
-                <StaffDeductionProcessor />
-              </>
-            )}
+        
           </div>
         </TabsContent>
 
         <TabsContent value="staff">
           <Card>
             <CardHeader>
-              <CardTitle>Staff Management</CardTitle>
+              <CardTitle>Staff deduction form</CardTitle>
               <CardDescription>
                 Manage staff-related financial operations and transactions.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  Staff management tools will be displayed here.
-                </p>
-              </div>
+             <FinancialSettingsForm isAdmin={isAdmin} />
+
+             {isAdmin && (
+               <StaffDeductionProcessor />
+             )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Only show admin tools to admins */}
-      {isAdmin && (
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Tools</CardTitle>
-              <CardDescription>
-                Additional financial management tools for administrators.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-4">
-                <Button variant="outline">
-                  <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Export Financial Data
-                </Button>
-                <Button variant="outline">
-                  <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Generate Financial Report
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+    
     </div>
   );
 }

@@ -14,19 +14,21 @@ interface FormFieldProps {
   rows?: number
   required?: boolean
   options?: { value: string, label: string }[]
+  disabled?: boolean
 }
 
-export function FormField({ 
-  label, 
-  name, 
-  value, 
-  onChange, 
-  error, 
-  placeholder, 
-  type = 'text', 
+export function FormField({
+  label,
+  name,
+  value,
+  onChange,
+  error,
+  placeholder,
+  type = 'text',
   rows = 4,
   required = false,
-  options = []
+  options = [],
+  disabled = false
 }: FormFieldProps) {
   return (
     <div className="space-y-1.5">
@@ -42,7 +44,8 @@ export function FormField({
           onChange={onChange}
           rows={rows}
           placeholder={placeholder}
-          className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 placeholder:text-sm placeholder:text-neutral-400 placeholder:font-normal placeholder:leading-normal focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200 resize-none min-h-[120px]"
+          disabled={disabled}
+          className={`w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 placeholder:text-sm placeholder:text-neutral-400 placeholder:font-normal placeholder:leading-normal focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200 resize-none min-h-[120px] ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
         />
       ) : type === 'select' ? (
         <select
@@ -50,7 +53,8 @@ export function FormField({
           name={name}
           value={value}
           onChange={onChange}
-          className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+          disabled={disabled}
+          className={`w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200 ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
         >
           <option value="">Select {label}</option>
           {options.map((option) => (
@@ -67,7 +71,8 @@ export function FormField({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 placeholder:text-sm placeholder:text-neutral-400 placeholder:font-normal placeholder:leading-normal focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+          disabled={disabled}
+          className={`w-full px-4 py-4 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 placeholder:text-sm placeholder:text-neutral-400 placeholder:font-normal placeholder:leading-normal focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200 ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
         />
       )}
       {error && (

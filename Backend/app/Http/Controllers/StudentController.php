@@ -22,7 +22,7 @@ class StudentController extends Controller
         $force = $request->query('force_refresh') ? true : false;
         // Construct a normalized cache key from query params that affect results
         $keyParts = [$cacheKeyBase];
-        foreach (['all','paginate','per_page','page','active','room_id','block_id'] as $p) {
+        foreach (['all','paginate','per_page','page','active','room_id','block_id','search'] as $p) {
             if ($request->has($p)) $keyParts[] = "$p=" . (string)$request->input($p);
         }
         $cacheKey = implode(':', $keyParts);
@@ -90,6 +90,17 @@ class StudentController extends Controller
             if ($request->has('block_id')) {
                 $query->whereHas('room', function($q) use ($request) {
                     $q->where('block_id', $request->block_id);
+                });
+            }
+
+            // Search functionality
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = $request->search;
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('student_name', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('email', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('student_id', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('contact_number', 'LIKE', '%' . $searchTerm . '%');
                 });
             }
             

@@ -1,7 +1,63 @@
 import { API_BASE_URL, handleResponse, safeFetch, fetchWithTimeout, DEFAULT_API_TIMEOUT } from './core';
 import { getAuthHeaders, getAuthHeadersForFormData } from './auth.api';
-import { Student } from './types';
 import { PaginatedResponse } from './core';
+
+// Base Student interface
+export interface Student {
+  id: string;
+  student_name: string;
+  date_of_birth?: string;
+  contact_number: string;
+  email: string;
+  district?: string;
+  city_name?: string;
+  ward_no?: string;
+  street_name?: string;
+  citizenship_no?: string;
+  date_of_issue?: string;
+  citizenship_issued_district?: string;
+  educational_institution?: string;
+  class_time?: string;
+  level_of_study?: string;
+  expected_stay_duration?: string;
+  blood_group?: string;
+  food?: string;
+  disease?: string;
+  father_name?: string;
+  father_contact?: string;
+  father_occupation?: string;
+  mother_name?: string;
+  mother_contact?: string;
+  mother_occupation?: string;
+  spouse_name?: string;
+  spouse_contact?: string;
+  spouse_occupation?: string;
+  local_guardian_name?: string;
+  local_guardian_address?: string;
+  local_guardian_contact?: string;
+  local_guardian_occupation?: string;
+  local_guardian_relation?: string;
+  room_id?: string;
+  is_active: boolean;
+  student_id?: string;
+  is_existing_student?: boolean;
+  declaration_agreed?: boolean;
+  rules_agreed?: boolean;
+  verified_on?: string;
+  student_image?: string;
+  student_citizenship_image?: string;
+  registration_form_image?: string;
+  created_at: string;
+  updated_at?: string;
+  room?: {
+    id: string;
+    room_name: string;
+    block?: {
+      id: string;
+      block_name: string;
+    };
+  };
+}
 
 // StudentAmenity interface
 export interface StudentAmenity {
@@ -104,8 +160,58 @@ export interface StudentFinancialFormData {
   is_existing_student?: boolean;
 }
 
+// Initialize runtime caches on the exported object so callers can safely use
+// studentApi._studentsCache and studentApi._studentsPromises without null checks.
+// These are populated lazily but must exist to avoid runtime TypeErrors like
+// "Cannot read properties of undefined (reading 'has')" when code calls .has/.get.
+type _StudentCacheEntry = { data: unknown; fetchedAt: number };
+
+// Concrete runtime shape for the small pieces of state we attach to studentApi
+type StudentApiRuntime = {
+  _studentsCache: Map<string, _StudentCacheEntry>;
+  _studentsPromises: Map<string, Promise<unknown>>;
+  // API methods
+  getAvailableAmenities(): Promise<StudentAmenity[]>;
+  getStudentsByRoom(roomId: string, signal?: AbortSignal, options?: { timeoutMs?: number, retries?: number, forceRefresh?: boolean }): Promise<StudentWithAmenities[]>;
+  getAllActiveStudents(signal?: AbortSignal, options?: { timeoutMs?: number, retries?: number, forceRefresh?: boolean }): Promise<StudentWithAmenities[]>;
+  getStudents(page?: number, signal?: AbortSignal, options?: { timeoutMs?: number, retries?: number, forceRefresh?: boolean }): Promise<PaginatedResponse<StudentWithAmenities>>;
+  getStudent(id: string, signal?: AbortSignal): Promise<StudentWithAmenities>;
+  createStudent(data: StudentFormData): Promise<StudentWithAmenities>;
+  updateStudent(id: string, data: StudentFormData): Promise<StudentWithAmenities>;
+  deleteStudent(id: string): Promise<void>;
+  toggleStudentStatus(id: string): Promise<{message: string, student: StudentWithAmenities, is_active: boolean, room_removed?: boolean}>;
+  getStudentProfile(): Promise<StudentWithAmenities>;
+  getStudentComplains(): Promise<unknown>;
+  getStudentPayments(): Promise<unknown>;
+  getStudentCheckInOuts(): Promise<unknown>;
+  getStudentNotices(): Promise<unknown>;
+  getStudentNotice(id: string): Promise<unknown>;
+  getStudentOutstandingDues(): Promise<{
+    outstanding_dues: number;
+    generated_fees: number;
+    total_payments: number;
+    balance_due: number;
+    calculation_date: string;
+  }>;
+  uploadStudentImage(id: string, file: File): Promise<{ student_image: string }>;
+  createStudentComplaint(data: {
+    title: string;
+    description: string;
+    complain_attachment?: File;
+  }): Promise<unknown>;
+  getStudentComplaint(id: string): Promise<unknown>;
+  updateStudentComplaint(id: string, data: {
+    title: string;
+    description: string;
+    complain_attachment?: File;
+  }): Promise<unknown>;
+  deleteStudentComplaint(id: string): Promise<void>;
+};
+
 // Student API functions
-export const studentApi = {
+export const studentApi: StudentApiRuntime = {
+  _studentsCache: new Map<string, _StudentCacheEntry>(),
+  _studentsPromises: new Map<string, Promise<unknown>>(),
   // Get available amenities for student creation/edit
   async getAvailableAmenities(): Promise<StudentAmenity[]> {
     const response = await safeFetch(`${API_BASE_URL}/student-amenities`, {
@@ -127,11 +233,8 @@ export const studentApi = {
     const TTL = 3000; // 3s
     const now = Date.now();
 
-    // In-memory cache stored on module-level studentApi (we'll add it later if absent)
     // Attempt to read cached value
-    // @ts-expect-error -- module-level cache is attached dynamically at runtime; TS doesn't know about it
-    if (!forceRefresh && studentApi._studentsCache && studentApi._studentsCache.has(cacheKey)) {
-      // @ts-expect-error -- cached type is dynamic and initialized lazily, assert presence for runtime
+    if (!forceRefresh && studentApi._studentsCache.has(cacheKey)) {
       const cached = studentApi._studentsCache.get(cacheKey)!;
       if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as StudentWithAmenities[]);
     }
@@ -142,8 +245,7 @@ export const studentApi = {
       try {
         const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json', 'Content-Type': 'application/json' }, signal }, timeoutMs);
         const data = await handleResponse<StudentWithAmenities[]>(resp);
-        // @ts-expect-error -- writing into a runtime-initialized cache map; TS type not declared
-        if (studentApi._studentsCache) studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
+        studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
         return data;
       } catch (err) {
         if (attempt > retries) throw err;
@@ -161,9 +263,7 @@ export const studentApi = {
     const TTL = 3000;
     const now = Date.now();
 
-    // @ts-expect-error -- module-level cache map is attached dynamically, not typed in this file
-    if (!forceRefresh && studentApi._studentsCache && studentApi._studentsCache.has(cacheKey)) {
-      // @ts-expect-error -- referencing runtime-initialized _studentsCache map, suppress static error
+    if (!forceRefresh && studentApi._studentsCache.has(cacheKey)) {
       const cached = studentApi._studentsCache.get(cacheKey)!;
       if ((now - cached.fetchedAt) < TTL) return Promise.resolve(cached.data as StudentWithAmenities[]);
     }
@@ -174,8 +274,7 @@ export const studentApi = {
       try {
         const resp = await fetchWithTimeout(url, { method: 'GET', headers: { ...getAuthHeaders(), 'Accept': 'application/json', 'Content-Type': 'application/json' }, signal }, timeoutMs);
         const data = await handleResponse<StudentWithAmenities[]>(resp);
-        // @ts-expect-error -- _studentsCache may be undefined to TS but is lazily created at runtime
-        if (studentApi._studentsCache) studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
+        studentApi._studentsCache.set(cacheKey, { data, fetchedAt: Date.now() });
         return data;
       } catch (err) {
         if (attempt > retries) throw err;
@@ -231,7 +330,7 @@ export const studentApi = {
     } catch (error) {
       // Convert raw failures into ApiError (safeFetch already does this),
       // but keep a friendly console message for debugging.
-      console.debug('Student API network failure or aborted:', error?.message ?? error);
+      console.debug('Student API network failure or aborted:', error instanceof Error ? error.message : error);
       throw error;
     }
   },
@@ -244,10 +343,10 @@ export const studentApi = {
         ...getAuthHeaders(),
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        signal,
       },
+      signal,
     });
-    
+
     return handleResponse<StudentWithAmenities>(response);
   },
 
@@ -570,21 +669,7 @@ export const studentApi = {
   }
 };
 
-// Initialize runtime caches on the exported object so callers can safely use
-// studentApi._studentsCache and studentApi._studentsPromises without null checks.
-// These are populated lazily but must exist to avoid runtime TypeErrors like
-// "Cannot read properties of undefined (reading 'has')" when code calls .has/.get.
-type _StudentCacheEntry = { data: unknown; fetchedAt: number };
 
-// Concrete runtime shape for the small pieces of state we attach to studentApi
-type StudentApiRuntime = {
-  _studentsCache?: Map<string, _StudentCacheEntry>;
-  _studentsPromises?: Map<string, Promise<unknown>>;
-};
-
-const runtime = studentApi as unknown as StudentApiRuntime;
-runtime._studentsCache = runtime._studentsCache ?? new Map<string, _StudentCacheEntry>();
-runtime._studentsPromises = runtime._studentsPromises ?? new Map<string, Promise<unknown>>();
 
 // Student Financial API functions
 export const studentFinancialApi = {

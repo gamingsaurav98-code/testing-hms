@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 
 interface FinancialSettingsFormProps {
@@ -15,10 +14,7 @@ export function FinancialSettingsForm({ isAdmin }: FinancialSettingsFormProps) {
     lateFeePerDay: 5,
   });
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log('Saving settings:', settings);
-  };
+
 
   if (!isAdmin) {
     return (
@@ -77,10 +73,6 @@ export function FinancialSettingsForm({ isAdmin }: FinancialSettingsFormProps) {
             setSettings({ ...settings, lateFeePerDay: parseFloat(e.target.value) || 0 })
           }
         />
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={handleSave}>Save Settings</Button>
       </div>
     </div>
   );
