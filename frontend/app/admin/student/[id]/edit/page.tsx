@@ -2,19 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { AlertCircle } from 'lucide-react';
-import { studentApi, studentFinancialApi, roomApi, type Room, type StudentWithAmenities, type StudentFormData, type StudentFinancialFormData, type StudentAmenity } from '@/lib/api';
+import { studentApi, studentFinancialApi, roomApi, type Room, type StudentFormData, type StudentAmenity } from '@/lib/api';
 import { ApiError } from '@/lib/api/core';
-import { 
-  Button, 
-  FormField, 
-  SubmitButton, 
-  CancelButton, 
+import {
+  Button,
+  FormField,
+  SubmitButton,
+  CancelButton,
   SingleImageUploadEdit,
   MultipleImageUploadEdit,
   ImageModal
 } from '@/components/ui';
-import { getImageUrl } from '@/lib/utils';
 
 export default function EditStudent() {
   const router = useRouter();
@@ -110,7 +108,7 @@ export default function EditStudent() {
         // Get the latest financial record if available
         let latestFinancial = null;
         if (studentData.financials && studentData.financials.length > 0) {
-          latestFinancial = studentData.financials.sort((a: any, b: any) => 
+          latestFinancial = studentData.financials.sort((a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           )[0];
         }
@@ -380,37 +378,7 @@ export default function EditStudent() {
     setRegistrationFormDocuments(prev => prev.filter((_, i) => i !== index));
   };
   
-  // Validate physical copy file
-  const validatePhysicalCopyFile = (file: File): boolean => {
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
-      setErrors(prev => ({
-        ...prev,
-        physical_copy_images: 'Please select a valid file (JPG, JPEG, PNG, PDF)'
-      }));
-      return false;
-    }
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors(prev => ({
-        ...prev,
-        physical_copy_images: 'File size must be less than 5MB'
-      }));
-      return false;
-    }
-
-    // Clear file error
-    if (errors.physical_copy_images) {
-      setErrors(prev => ({
-        ...prev,
-        physical_copy_images: ''
-      }));
-    }
-    
-    return true;
-  };
 
   // Handle amenity changes
   const handleAmenityChange = (index: number, field: keyof StudentAmenity, value: string) => {
@@ -472,7 +440,7 @@ export default function EditStudent() {
   // Form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!validateForm()) {
       return;
@@ -480,59 +448,75 @@ export default function EditStudent() {
 
     setIsSubmitting(true);
 
-    // Filter out empty amenities
-    const filteredAmenities = amenities.filter(item => item.name.trim() !== '');
-
     try {
-      // Prepare the form data with all files (excluding monthly_fee)
-      const studentFormData = {
+      // Filter out empty amenities
+      const filteredAmenities = amenities.filter(item => item.name.trim() !== '');
+
+      // Prepare the form data with all files
+      const studentFormData: StudentFormData = {
         ...formData,
         amenities: filteredAmenities,
         removedAmenityIds: removedAmenityIds,
         removedCitizenshipDocIds: removedCitizenshipDocIds,
         removedRegistrationDocIds: removedRegistrationDocIds,
         student_image: studentImage,
-        // For now, we use the first file of multiple uploads as the API only accepts one file
-        // In the future, the API could be updated to handle multiple files
+        // Use the first file from multiple uploads (API currently only supports one file per field)
         student_citizenship_image: citizenshipDocuments.length > 0 ? citizenshipDocuments[0] : null,
         registration_form_image: registrationFormDocuments.length > 0 ? registrationFormDocuments[0] : null,
       };
-      
+
       // Debug logging
-      console.log('Registration form documents count:', registrationFormDocuments.length);
-      console.log('Registration form document:', registrationFormDocuments.length > 0 ? registrationFormDocuments[0] : 'None');
-      console.log('Removed registration doc IDs:', removedRegistrationDocIds);
-      
-      // Submit student form data (without financial fields)
+      console.log('Updating student with data:', {
+        id,
+        hasStudentImage: !!studentImage,
+        citizenshipDocsCount: citizenshipDocuments.length,
+        registrationDocsCount: registrationFormDocuments.length,
+        amenitiesCount: filteredAmenities.length,
+        removedAmenityIds,
+        removedCitizenshipDocIds,
+        removedRegistrationDocIds
+      });
+
+      // Submit student form data
       await studentApi.updateStudent(id, studentFormData);
 
       // Handle financial data separately if monthly_fee was changed
-      if (financialData.monthly_fee) {
-        // Get the student's latest financial record to update
-        const studentData = await studentApi.getStudent(id);
-        if (studentData.financials && studentData.financials.length > 0) {
-          // Update the latest financial record
-          const latestFinancial = studentData.financials.sort((a: any, b: any) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          )[0];
-          
-          if (latestFinancial.id) {
-            await studentFinancialApi.updateStudentFinancial(latestFinancial.id, {
+      if (financialData.monthly_fee && financialData.monthly_fee.trim() !== '') {
+        try {
+          // Get the student's latest financial record to update
+          const studentData = await studentApi.getStudent(id);
+          if (studentData.financials && studentData.financials.length > 0) {
+            // Update the latest financial record
+            const latestFinancial = studentData.financials.sort((a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )[0];
+
+            if (latestFinancial.id) {
+              await studentFinancialApi.updateStudentFinancial(latestFinancial.id, {
+                monthly_fee: financialData.monthly_fee,
+                admission_fee: latestFinancial.admission_fee || '',
+                form_fee: latestFinancial.form_fee || '',
+                security_deposit: latestFinancial.security_deposit || '',
+                payment_date: new Date().toISOString().split('T')[0],
+                amount: financialData.monthly_fee
+              });
+            }
+          } else {
+            // Create new financial record if none exists
+            await studentFinancialApi.createStudentFinancial({
+              student_id: id,
               monthly_fee: financialData.monthly_fee,
-              // Keep existing values for required fields
-              admission_fee: latestFinancial.admission_fee,
-              form_fee: latestFinancial.form_fee,
-              security_deposit: latestFinancial.security_deposit,
+              admission_fee: financialData.admission_fee || '0',
+              form_fee: financialData.form_fee || '0',
+              security_deposit: financialData.security_deposit || '0',
+              payment_date: new Date().toISOString().split('T')[0],
+              amount: financialData.monthly_fee
             });
           }
-        } else {
-          // Create new financial record if none exists
-          await studentFinancialApi.createStudentFinancial({
-            student_id: id,
-            monthly_fee: financialData.monthly_fee,
-            payment_date: new Date().toISOString().split('T')[0],
-            amount: financialData.monthly_fee || '0'
-          });
+        } catch (financialError) {
+          console.error('Error updating financial data:', financialError);
+          // Don't fail the entire update if financial update fails
+          // Just log the error and continue
         }
       }
 
@@ -540,7 +524,7 @@ export default function EditStudent() {
       router.push(`/admin/student/${id}`);
     } catch (error) {
       console.error('Error updating student:', error);
-      
+
       if (error instanceof ApiError && error.validation) {
         // Handle validation errors
         const validationErrors: Record<string, string> = {};
@@ -550,8 +534,8 @@ export default function EditStudent() {
         setErrors(validationErrors);
       } else {
         setErrors({
-          submit: error instanceof ApiError 
-            ? `Failed to update student: ${error.message}` 
+          submit: error instanceof ApiError
+            ? `Failed to update student: ${error.message}`
             : 'Failed to update student. Please try again.'
         });
       }

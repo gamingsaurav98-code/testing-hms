@@ -1,126 +1,242 @@
-"use client";
+'use client';
 
-import { useState, Fragment, ChangeEvent } from "react";
-import { Combobox as HeadlessCombobox, Transition } from "@headlessui/react";
-import { Check, ChevronDown } from "lucide-react";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Combobox } from './combobox-component';
+import { FinancialSettingsForm } from '@/components/financial/FinancialSettingsForm';
+import { StudentDeductionProcessor } from '@/components/admin/StudentDeductionProcessor';
+import { StaffDeductionProcessor } from '@/components/admin/StaffDeductionProcessor';
+import { useAuth } from '@/lib/auth';
+import { safeFetch, handleResponse } from '@/lib/api/core';
+import { getAuthHeaders } from '@/lib/api/auth.api';
 
-type Option = {
-  id: number | string;
-  label: string;
-  [key: string]: unknown;
-};
+// User role types
+type UserRole = 'admin' | 'staff' | 'student';
 
-interface ComboboxProps<T extends Option> {
-  options: T[];
-  value: T | null;
-  onChange: (value: T | null) => void;
-  placeholder?: string;
-  loading?: boolean;
-  onSearch?: (query: string) => void;
-  displayValue?: (option: T | null) => string;
-  className?: string;
+// Student type
+interface Student {
+  id: number;
+  student_name: string;
+  email: string;
+  contact_number: string;
+  student_id?: string;
+  is_active: boolean;
+  label?: string;
 }
 
-export function Combobox<T extends Option>({
-  options,
-  value,
-  onChange,
-  placeholder = "Select an option...",
-  loading = false,
-  onSearch,
-  displayValue = (option) => option?.label || "",
-  className = "",
-}: ComboboxProps<T>) {
-  const [query, setQuery] = useState("");
+type StudentOption = Student & {
+  label: string;
+  value: string;
+};
 
-  const filteredOptions =
-    query === ""
-      ? options
-      : options.filter((option) =>
-          option.label.toLowerCase().includes(query.toLowerCase())
-        );
+const useUserRole = (): UserRole => {
+  const { user } = useAuth();
+  const role = user?.role;
+  return role === 'admin' || role === 'staff' || role === 'student' ? role : 'admin';
+};
 
-  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setQuery(value);
-    if (onSearch) {
-      onSearch(value);
+export default function FinancialSettingsPage() {
+  const [activeTab, setActiveTab] = useState('settings');
+  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<StudentOption | null>(null);
+  const [monthlyFee, setMonthlyFee] = useState<string>('0');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const userRole = useUserRole();
+  const isAdmin = userRole === 'admin';
+
+  // Memoize the fetchStudents function to prevent unnecessary re-renders
+  const fetchStudents = useCallback(async (searchTerm: string = '') => {
+    if (!isAdmin) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const url = searchTerm
+        ? `/api/students?active=true&search=${encodeURIComponent(searchTerm)}`
+        : '/api/students?active=true';
+
+      const response = await safeFetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      const data = await handleResponse<Student[]>(response);
+      
+      // Transform students to the format expected by Combobox
+      const formattedStudents = data.map(student => ({
+        ...student,
+        label: `${student.student_name} - ${student.email}${student.student_id ? ` (${student.student_id})` : ''}`,
+        value: student.id.toString()
+      }));
+
+      setStudents(formattedStudents);
+    } catch (err) {
+      console.error('Error fetching students:', err);
+      setError('Failed to fetch students. Please try again.');
+      setStudents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAdmin]);
+
+  // Fetch monthly fee for selected student
+  const fetchMonthlyFee = useCallback(async (studentId: number) => {
+    if (!studentId) {
+      setMonthlyFee('0');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await safeFetch(
+        `/api/students/${studentId}/financials/latest`,
+        {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        }
+      );
+      
+      const data = await handleResponse<{ monthly_fee: string }>(response);
+      setMonthlyFee(data.monthly_fee || '0');
+    } catch (err) {
+      console.error('Failed to fetch monthly fee:', err);
+      setError('Failed to fetch monthly fee. Please try again.');
+      setMonthlyFee('0');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Handle student selection
+  const handleStudentSelect = (student: StudentOption | null) => {
+    setSelectedStudent(student);
+    if (student) {
+      fetchMonthlyFee(student.id);
+    } else {
+      setMonthlyFee('0');
     }
   };
 
+  // Debounce search to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim() === '' || searchQuery.length >= 2) {
+        fetchStudents(searchQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchStudents]);
+
+  // Load initial students on component mount
+  useEffect(() => {
+    if (isAdmin) {
+      fetchStudents();
+    }
+  }, [isAdmin, fetchStudents]);
+
   return (
-    <div className={className}>
-      <HeadlessCombobox value={value} onChange={(value) => onChange(value)}>
-        <div className="relative">
-          <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left shadow-sm border border-neutral-200/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-300 sm:text-sm">
-            <HeadlessCombobox.Input
-              className="w-full border-none py-4 pl-3 pr-10 text-sm leading-5 text-neutral-900 focus:ring-0 outline-none"
-              displayValue={displayValue}
-              onChange={handleInputChange}
-              placeholder={placeholder}
-              autoComplete="off"
-            />
-            <HeadlessCombobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-              <ChevronDown
-                className="h-5 w-5 text-neutral-400"
-                aria-hidden="true"
-              />
-            </HeadlessCombobox.Button>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">Financial Settings</h1>
+        <p className="text-muted-foreground">
+          {isAdmin
+            ? 'Manage financial settings and deduction rules'
+            : 'View your financial information and deduction rules'}
+        </p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
+          <TabsTrigger value="settings">Student</TabsTrigger>
+          <TabsTrigger value="staff">Staff</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="settings">
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Student Deduction Form</CardTitle>
+                <CardDescription>
+                  {isAdmin
+                    ? 'Manage student-related financial operations and transactions.'
+                    : 'View the current deduction rules applied to your account.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isAdmin && (
+                  <div className="space-y-6 mb-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-900 mb-2">
+                        Search and Select Student
+                      </label>
+                      <Combobox
+                        options={students}
+                        value={selectedStudent}
+                        onChange={handleStudentSelect}
+                        onSearch={setSearchQuery}
+                        placeholder="Search by name, email, or student ID..."
+                        isLoading={isLoading}
+                        emptyMessage="No students found"
+                      />
+                      {error && (
+                        <p className="mt-1 text-sm text-red-600">{error}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-semibold text-neutral-900">
+                        Monthly Fee
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={monthlyFee}
+                          readOnly
+                          disabled
+                          className="w-full px-4 py-2 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 bg-gray-100 cursor-not-allowed"
+                          placeholder={isLoading ? 'Loading...' : 'Monthly fee will be displayed here'}
+                        />
+                        {isLoading && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <FinancialSettingsForm isAdmin={isAdmin} />
+
+                {isAdmin && <StudentDeductionProcessor />}
+              </CardContent>
+            </Card>
           </div>
-          <Transition
-            as={Fragment}
-            leave="transition ease-in duration-100"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-            afterLeave={() => setQuery("")}
-          >
-            <HeadlessCombobox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm z-50">
-              {loading ? (
-                <div className="relative cursor-default select-none px-4 py-2 text-neutral-700">
-                  Loading...
-                </div>
-              ) : filteredOptions.length === 0 && query !== "" ? (
-                <div className="relative cursor-default select-none px-4 py-2 text-neutral-700">
-                  Nothing found.
-                </div>
-              ) : (
-                filteredOptions.map((option) => (
-                  <HeadlessCombobox.Option
-                    key={option.id}
-                    className={({ active }: { active: boolean }) =>
-                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                        active ? "bg-teal-600 text-white" : "text-neutral-900"
-                      }`
-                    }
-                    value={option}
-                  >
-                    {({ selected, active }: { selected: boolean; active: boolean }) => (
-                      <>
-                        <span
-                          className={`block truncate ${
-                            selected ? "font-medium" : "font-normal"
-                          }`}
-                        >
-                          {option.label}
-                        </span>
-                        {selected ? (
-                          <span
-                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                              active ? "text-white" : "text-teal-600"
-                            }`}
-                          >
-                            <Check className="h-5 w-5" aria-hidden="true" />
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </HeadlessCombobox.Option>
-                ))
-              )}
-            </HeadlessCombobox.Options>
-          </Transition>
-        </div>
-      </HeadlessCombobox>
+        </TabsContent>
+
+        <TabsContent value="staff">
+          <Card>
+            <CardHeader>
+              <CardTitle>Staff Deduction Form</CardTitle>
+              <CardDescription>
+                Manage staff-related financial operations and transactions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FinancialSettingsForm isAdmin={isAdmin} />
+              {isAdmin && <StaffDeductionProcessor />}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

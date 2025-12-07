@@ -156,6 +156,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('student-financials', StudentFinancialController::class);
         Route::get('student-financials/fields/metadata', [StudentFinancialController::class, 'getFields']);
         Route::get('students/{id}/financials', [StudentFinancialController::class, 'getStudentFinancials']);
+        Route::get('students/{id}/financials/latest', [StudentFinancialController::class, 'getLatestFinancial']);
 
         // Financial Calculation Service endpoints
         Route::get('students/{id}/financial-summary', [FinancialController::class, 'studentSummary']);

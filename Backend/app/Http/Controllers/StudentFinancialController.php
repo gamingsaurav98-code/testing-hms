@@ -132,6 +132,27 @@ class StudentFinancialController extends Controller
     }
     
     /**
+     * Get the latest financial record for a specific student
+     */
+    public function getLatestFinancial(string $studentId)
+    {
+        $student = Student::findOrFail($studentId);
+        $latestFinancial = StudentFinancial::where('student_id', $studentId)
+            ->with('paymentType')
+            ->orderBy('payment_date', 'desc')
+            ->first();
+            
+        if (!$latestFinancial) {
+            return response()->json([
+                'message' => 'No financial records found for this student',
+                'student_id' => $studentId
+            ], 404);
+        }
+            
+        return response()->json($latestFinancial);
+    }
+    
+    /**
      * Helper method to parse boolean values from various input formats
      * Handles strings like "true", "false", "1", "0", and actual boolean values
      * 
