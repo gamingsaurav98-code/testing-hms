@@ -157,6 +157,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('student-financials/fields/metadata', [StudentFinancialController::class, 'getFields']);
         Route::get('students/{id}/financials', [StudentFinancialController::class, 'getStudentFinancials']);
         Route::get('students/{id}/financials/latest', [StudentFinancialController::class, 'getLatestFinancial']);
+        Route::post('students/{id}/financials/set-monthly-fee', [StudentFinancialController::class, 'setMonthlyFee']);
 
         // Financial Calculation Service endpoints
         Route::get('students/{id}/financial-summary', [FinancialController::class, 'studentSummary']);

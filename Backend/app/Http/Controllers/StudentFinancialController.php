@@ -153,6 +153,65 @@ class StudentFinancialController extends Controller
     }
     
     /**
+     * Set or update a student's monthly fee
+     * This method allows admins to easily update the monthly fee for a student
+     * If no financial record exists, it creates one
+     */
+    public function setMonthlyFee(Request $request, string $studentId)
+    {
+        $student = Student::findOrFail($studentId);
+        
+        $validated = $request->validate([
+            'monthly_fee' => 'required|string',
+            'admission_fee' => 'nullable|string',
+            'form_fee' => 'nullable|string',
+            'security_deposit' => 'nullable|string',
+            'balance_type' => 'nullable|string|in:due,advance',
+        ]);
+        
+        // Try to get the latest financial record
+        $latestFinancial = StudentFinancial::where('student_id', $studentId)
+            ->orderBy('payment_date', 'desc')
+            ->first();
+        
+        if ($latestFinancial) {
+            // Update existing record
+            $latestFinancial->update([
+                'monthly_fee' => $validated['monthly_fee'],
+                'admission_fee' => $validated['admission_fee'] ?? $latestFinancial->admission_fee,
+                'form_fee' => $validated['form_fee'] ?? $latestFinancial->form_fee,
+                'security_deposit' => $validated['security_deposit'] ?? $latestFinancial->security_deposit,
+                'balance_type' => $validated['balance_type'] ?? $latestFinancial->balance_type,
+            ]);
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Monthly fee updated successfully',
+                'data' => $latestFinancial->fresh()
+            ]);
+        } else {
+            // Create a new financial record if none exists
+            $financial = StudentFinancial::create([
+                'student_id' => $studentId,
+                'monthly_fee' => $validated['monthly_fee'],
+                'admission_fee' => $validated['admission_fee'] ?? '0',
+                'form_fee' => $validated['form_fee'] ?? '0',
+                'security_deposit' => $validated['security_deposit'] ?? '0',
+                'amount' => $validated['monthly_fee'],
+                'balance_type' => $validated['balance_type'] ?? 'due',
+                'payment_date' => now()->format('Y-m-d'),
+                'joining_date' => now()->format('Y-m-d'),
+            ]);
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Monthly fee created successfully',
+                'data' => $financial
+            ], 201);
+        }
+    }
+    
+    /**
      * Helper method to parse boolean values from various input formats
      * Handles strings like "true", "false", "1", "0", and actual boolean values
      * 

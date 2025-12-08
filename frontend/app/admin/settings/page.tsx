@@ -113,6 +113,12 @@ function FinancialSettingsPage() {
 
       const data = await handleResponse<Student[]>(response);
 
+      // Handle null response or empty data
+      if (!data || !Array.isArray(data)) {
+        setStudents([]);
+        return;
+      }
+
       // Transform students to the format expected by Combobox
       const formattedStudents = data.map(student => ({
         ...student,
@@ -149,10 +155,14 @@ function FinancialSettingsPage() {
       );
 
       const data = await handleResponse<{ monthly_fee: string }>(response);
-      setMonthlyFee(data.monthly_fee || '0');
+      // Handle null response (no financial records found)
+      setMonthlyFee(data?.monthly_fee || '0');
     } catch (err) {
       console.error('Failed to fetch monthly fee:', err);
-      setError('Failed to fetch monthly fee. Please try again.');
+      // Don't show error for 404 (no records found) - this is expected behavior
+      if (err instanceof Error && !err.message.includes('404')) {
+        setError('Failed to fetch monthly fee. Please try again.');
+      }
       setMonthlyFee('0');
     } finally {
       setIsLoading(false);
@@ -166,6 +176,47 @@ function FinancialSettingsPage() {
       fetchMonthlyFee(student.id);
     } else {
       setMonthlyFee('0');
+    }
+  };
+
+  // Update monthly fee for selected student
+  const handleUpdateMonthlyFee = async () => {
+    if (!selectedStudent || !monthlyFee || monthlyFee === '0') {
+      setError('Please select a student and enter a valid monthly fee');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await safeFetch(
+        `/api/students/${selectedStudent.id}/financials/set-monthly-fee`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            monthly_fee: monthlyFee,
+          }),
+        }
+      );
+
+      const data = await handleResponse(response);
+      
+      if (data?.status) {
+        setError(null);
+        // Refresh the monthly fee display
+        await fetchMonthlyFee(selectedStudent.id);
+        alert('Monthly fee updated successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to update monthly fee:', err);
+      setError('Failed to update monthly fee. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -233,20 +284,28 @@ function FinancialSettingsPage() {
                       <label className="block text-sm font-semibold text-neutral-900">
                         Monthly Fee
                       </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={monthlyFee}
-                          readOnly
-                          disabled
-                          className="w-full px-4 py-2 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 bg-gray-100 cursor-not-allowed"
-                          placeholder={isLoading ? 'Loading...' : 'Monthly fee will be displayed here'}
-                        />
-                        {isLoading && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-                          </div>
-                        )}
+                      <div className="flex gap-2">
+                        <div className="flex-1 relative">
+                          <input
+                            type="number"
+                            value={monthlyFee}
+                            onChange={(e) => setMonthlyFee(e.target.value)}
+                            className="w-full px-4 py-2 border border-neutral-200/60 rounded-lg text-sm text-neutral-600 focus:border-neutral-400 focus:ring-0 outline-none transition-all duration-200"
+                            placeholder={isLoading ? 'Loading...' : 'Enter monthly fee amount'}
+                          />
+                          {isLoading && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={handleUpdateMonthlyFee}
+                          disabled={isLoading || !selectedStudent}
+                          className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isLoading ? 'Updating...' : 'Update'}
+                        </button>
                       </div>
                     </div>
                   </div>

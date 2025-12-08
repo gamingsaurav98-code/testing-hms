@@ -26,6 +26,12 @@ export async function handleResponse<T>(response: Response): Promise<T> {
       const errorBody = await response.text();
       errorMessage = errorBody || response.statusText;
     } catch {}
+    
+    // Handle 404 as a valid response (no data found)
+    if (response.status === 404) {
+      return null as T;
+    }
+    
     throw new ApiError(response.status, errorMessage);
   }
 
